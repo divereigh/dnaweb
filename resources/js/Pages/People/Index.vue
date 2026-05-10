@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
@@ -20,8 +20,7 @@ const ONLY = ['people', 'page', 'pages', 'total', 'sort', 'filters'];
 const q = ref(props.filters.q || '');
 const linked = ref(!!props.filters.linked);
 const hasMatches = ref(!!props.filters.has_matches);
-
-let qTimer = null;
+const loading = ref(false);
 
 function reload(extra = {}) {
     router.reload({
@@ -30,20 +29,20 @@ function reload(extra = {}) {
         preserveScroll: true,
         replace: true,
         data: {
-            q: q.value || undefined,
+            q: q.value.trim() || undefined,
             linked: linked.value ? 1 : undefined,
             has_matches: hasMatches.value ? 1 : undefined,
             sort: extra.sort ?? props.sort,
             page: extra.page ?? 1,
         },
+        onStart: () => { loading.value = true; },
+        onFinish: () => { loading.value = false; },
     });
 }
 
-watch(q, () => {
-    if (qTimer) clearTimeout(qTimer);
-    qTimer = setTimeout(() => reload(), 280);
-});
-watch([linked, hasMatches], () => reload());
+function search() {
+    reload({ page: 1 });
+}
 
 function setSort(col) {
     reload({ sort: col, page: 1 });
@@ -65,15 +64,20 @@ function sortMark(col) {
         <template #header>
             <PageHeader
                 title="People"
-                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'person' : 'people'}`"
+                :subtitle="
+                    filters.q
+                        ? `${total.toLocaleString()} ${total === 1 ? 'person' : 'people'}`
+                        : 'Search 57k+ records by name'
+                "
             />
         </template>
 
-        <div class="filter-bar mb-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <form @submit.prevent="search" class="filter-bar mb-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
             <input
                 v-model="q"
                 type="search"
                 placeholder="Search by name or kit name…"
+                autofocus
                 class="text-sm"
             />
             <label>
@@ -84,8 +88,30 @@ function sortMark(col) {
                 <input v-model="hasMatches" type="checkbox" />
                 Has matches
             </label>
+            <button type="submit" class="btn-primary" :disabled="loading">
+                {{ loading ? 'Searching…' : 'Search' }}
+            </button>
+        </form>
+
+        <div
+            v-if="loading"
+            class="card flex items-center justify-center gap-2 py-12 text-sm text-sepia-500"
+        >
+            <svg class="h-4 w-4 animate-spin text-sepia-400" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
+                <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            Searching…
         </div>
 
+        <div
+            v-else-if="!filters.q"
+            class="card flex items-center justify-center px-5 py-12 text-sm text-sepia-500"
+        >
+            Type a name and click Search.
+        </div>
+
+        <template v-else>
         <div class="mb-4">
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
         </div>
@@ -149,5 +175,6 @@ function sortMark(col) {
         <div class="mt-4">
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
         </div>
+        </template>
     </AuthenticatedLayout>
 </template>

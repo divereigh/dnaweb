@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
@@ -13,20 +13,19 @@ const props = defineProps({
 
 const ONLY = ['samples', 'q', 'page', 'has_next'];
 const term = ref(props.q || '');
-let timer = null;
+const loading = ref(false);
 
-watch(term, (val) => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => {
-        router.reload({
-            only: ONLY,
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-            data: { q: val || undefined, page: 1 },
-        });
-    }, 280);
-});
+function search() {
+    router.reload({
+        only: ONLY,
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        data: { q: term.value.trim() || undefined, page: 1 },
+        onStart: () => { loading.value = true; },
+        onFinish: () => { loading.value = false; },
+    });
+}
 
 function go(page) {
     router.reload({
@@ -34,7 +33,9 @@ function go(page) {
         preserveState: true,
         preserveScroll: true,
         replace: true,
-        data: { q: term.value || undefined, page },
+        data: { q: term.value.trim() || undefined, page },
+        onStart: () => { loading.value = true; },
+        onFinish: () => { loading.value = false; },
     });
 }
 </script>
@@ -49,21 +50,35 @@ function go(page) {
             />
         </template>
 
-        <div class="card mb-4 p-3">
+        <form @submit.prevent="search" class="filter-bar mb-4 sm:grid-cols-[minmax(0,1fr)_auto]">
             <input
                 v-model="term"
                 type="search"
                 placeholder="Type a name…"
                 autofocus
-                class="w-full text-sm"
+                class="text-sm"
             />
+            <button type="submit" class="btn-primary" :disabled="loading">
+                {{ loading ? 'Searching…' : 'Search' }}
+            </button>
+        </form>
+
+        <div
+            v-if="loading"
+            class="card flex items-center justify-center gap-2 py-12 text-sm text-sepia-500"
+        >
+            <svg class="h-4 w-4 animate-spin text-sepia-400" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
+                <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            Searching…
         </div>
 
         <div
-            v-if="!q"
+            v-else-if="!q"
             class="card flex items-center justify-center px-5 py-12 text-sm text-sepia-500"
         >
-            Type a name to search.
+            Type a name and click Search.
         </div>
 
         <div v-else class="card overflow-hidden">
@@ -116,7 +131,7 @@ function go(page) {
         </div>
 
         <div
-            v-if="q"
+            v-if="q && !loading"
             class="mt-4 flex items-center justify-between text-sm text-sepia-500"
         >
             <span>Page {{ page }}</span>

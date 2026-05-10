@@ -273,6 +273,28 @@
         color: theme('colors.ink.500');
     }
 
+    .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: theme('colors.paper.50');
+        background-color: theme('colors.wine.500');
+        border: 1px solid theme('colors.wine.500');
+        border-radius: 6px;
+        padding: 0.4rem 0.85rem;
+        transition: background-color 0.12s ease, border-color 0.12s ease;
+    }
+    .btn-primary:hover {
+        background-color: theme('colors.wine.600');
+        border-color: theme('colors.wine.600');
+    }
+    .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
     .empty-cell {
         text-align: center;
         padding: 2rem 1rem;
