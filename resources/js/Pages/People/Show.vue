@@ -19,6 +19,7 @@ defineProps({
     <AuthenticatedLayout>
         <template #header>
             <PageHeader
+                compact
                 :title="person.display_label"
                 :eyebrow="`Person №${person.id} · biographical entry`"
                 :subtitle="
