@@ -75,7 +75,11 @@ class EyeMatchService
               s.gender,
               s.createdDate,
               p.id AS person_id,
-              p.fullName AS person_name
+              p.fullName AS person_name,
+              p.minBirth AS person_minBirth,
+              p.maxBirth AS person_maxBirth,
+              p.death AS person_death,
+              p.gender AS person_gender
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
             WHERE s.id = ?

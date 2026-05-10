@@ -42,6 +42,28 @@ function openEdit(m) {
     };
 }
 
+function openSampleEdit(s) {
+    editing.value = {
+        sampleId: s.id,
+        personId: s.person_id || null,
+        prefill: s.person_id
+            ? {
+                  fullName: s.person_name || '',
+                  minBirth: s.person_minBirth,
+                  maxBirth: s.person_maxBirth,
+                  death: s.person_death,
+                  gender: s.person_gender,
+              }
+            : {
+                  fullName: s.displayName || '',
+                  minBirth: null,
+                  maxBirth: null,
+                  death: null,
+                  gender: s.gender || null,
+              },
+    };
+}
+
 function closeEdit() {
     editing.value = null;
 }
@@ -57,6 +79,25 @@ function closeEdit() {
                 :eyebrow="`Sample #${sample.id}`"
                 :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
+                <template #titleAfter>
+                    <button
+                        type="button"
+                        class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                        :title="sample.person_id ? 'Edit person' : 'Create person'"
+                        @click="openSampleEdit(sample)"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                        >
+                            <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793zM12.379 4.793 3 14.172V17h2.828l9.379-9.379-2.828-2.828z" />
+                        </svg>
+                        <span class="sr-only">{{ sample.person_id ? 'Edit person' : 'Create person' }}</span>
+                    </button>
+                </template>
                 <template #actions>
                     <Link :href="route('dna.index')" class="btn-ghost">← DNA search</Link>
                 </template>

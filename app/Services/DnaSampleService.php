@@ -68,7 +68,12 @@ class DnaSampleService
         $row = DB::selectOne('
             SELECT
               s.id, s.dnaUUID, s.displayName, s.gender, s.createdDate, s.managed, s.disabled,
-              p.id AS person_id, p.fullName AS person_name
+              p.id AS person_id,
+              p.fullName AS person_name,
+              p.minBirth AS person_minBirth,
+              p.maxBirth AS person_maxBirth,
+              p.death AS person_death,
+              p.gender AS person_gender
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
             WHERE s.id = ? AND s.disabled = 0
