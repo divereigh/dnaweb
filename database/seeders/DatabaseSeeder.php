@@ -10,12 +10,14 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $email = env('ADMIN_EMAIL');
-        $name = env('ADMIN_NAME', 'Admin');
-        $password = env('ADMIN_PASSWORD');
+        // Read via config() not env() — env() returns null in cached production builds.
+        $email = config('admin.email');
+        $name = config('admin.name') ?: 'Admin';
+        $password = config('admin.password');
 
         if (! $email || ! $password) {
             $this->command->warn('ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env to seed the admin user.');
+            $this->command->warn('If you just edited .env, run `php artisan config:clear` first.');
             return;
         }
 

@@ -19,7 +19,8 @@ npm run build
 echo "▸ migrations"
 php artisan migrate --force
 
-echo "▸ caches"
+echo "▸ caches (clear first so any .env edits take effect)"
+php artisan config:clear
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
