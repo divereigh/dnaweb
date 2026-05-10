@@ -104,17 +104,19 @@ function closeEdit() {
             </PageHeader>
         </template>
 
+        <div class="mb-4">
+            <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
+        </div>
+
         <div class="card overflow-hidden">
             <table class="ref-table">
                 <thead>
                     <tr>
                         <th>Name</th>
                         <th data-numeric>cM</th>
-                        <th data-numeric>Segs</th>
-                        <th data-numeric>Meiosis</th>
                         <th>Cluster</th>
-                        <th>DNA path</th>
                         <th>Tested</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -150,24 +152,22 @@ function closeEdit() {
                             </button>
                             <span
                                 v-if="m.other_managed"
-                                class="ms-2 inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
-                                >Managed</span
+                                class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
+                                >eye</span
                             >
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
-                        <td class="num">{{ m.numSharedSegments }}</td>
-                        <td class="num">{{ m.meiosis }}</td>
                         <td>
                             <ClusterPill
                                 :code="m.matchClusterCode || ''"
                                 :cls="m.cluster_class || ''"
                             />
                         </td>
-                        <td class="ident">{{ m.dnapath || '' }}</td>
                         <td class="ident">{{ m.created_fmt }}</td>
+                        <td class="!text-right"></td>
                     </tr>
                     <tr v-if="!matches.length">
-                        <td colspan="7" class="empty-cell">No matches.</td>
+                        <td colspan="5" class="empty-cell">No matches.</td>
                     </tr>
                 </tbody>
             </table>

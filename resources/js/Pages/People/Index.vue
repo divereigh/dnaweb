@@ -86,6 +86,10 @@ function sortMark(col) {
             </label>
         </div>
 
+        <div class="mb-4">
+            <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
+        </div>
+
         <div class="card overflow-hidden">
             <table class="ref-table">
                 <thead>

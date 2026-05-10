@@ -207,9 +207,9 @@ defineProps({
                         </p>
                         <p
                             v-if="person.is_managed_sample"
-                            class="mt-2 inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
+                            class="mt-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
                         >
-                            Managed eye
+                            eye
                         </p>
                     </div>
                     <p v-else class="text-sm text-sepia-400">No sample linked.</p>

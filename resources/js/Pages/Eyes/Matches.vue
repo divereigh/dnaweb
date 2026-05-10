@@ -188,6 +188,17 @@ function closeEdit() {
             </label>
         </div>
 
+        <div class="mb-4">
+            <Pagination
+                :page="page"
+                :pages="pages"
+                :total="total"
+                :per-page="per_page"
+                :per-page-options="allowed_per_page"
+                :only="ONLY"
+            />
+        </div>
+
         <div class="card overflow-hidden">
             <table class="ref-table">
                 <thead>
@@ -276,9 +287,9 @@ function closeEdit() {
                             </button>
                             <span
                                 v-if="m.other_managed"
-                                class="ms-2 inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
+                                class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
                             >
-                                Managed
+                                eye
                             </span>
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>

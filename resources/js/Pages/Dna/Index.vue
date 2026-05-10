@@ -101,8 +101,8 @@ function go(page) {
                         <td>
                             <span
                                 v-if="s.managed"
-                                class="inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
-                                >Managed</span
+                                class="inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
+                                >eye</span
                             >
                             <span v-else class="text-xs text-sepia-400">—</span>
                         </td>
