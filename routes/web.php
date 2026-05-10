@@ -23,6 +23,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dna', [DnaController::class, 'index'])->name('dna.index');
     Route::get('/dna/{id}/matches', [DnaMatchesController::class, 'index'])->name('dna.matches');
+    Route::put('/dna/{sampleId}/person', [PersonController::class, 'upsertForSample'])->name('dna.person.upsert');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
