@@ -29,12 +29,15 @@ const titleClasses = computed(() => [
                 </h1>
                 <slot name="titleAfter" />
             </div>
-            <p
-                v-if="subtitle"
-                :class="['text-sepia-500', compact ? 'mt-0.5 text-sm' : 'mt-1 text-sm']"
+            <div
+                v-if="subtitle || $slots.subtitle"
+                :class="[
+                    'flex flex-wrap items-center gap-2 text-sepia-500',
+                    compact ? 'mt-0.5 text-sm' : 'mt-1 text-sm',
+                ]"
             >
-                {{ subtitle }}
-            </p>
+                <slot name="subtitle">{{ subtitle }}</slot>
+            </div>
         </div>
         <div v-if="$slots.actions" class="flex flex-wrap items-center gap-2 sm:justify-end">
             <slot name="actions" />

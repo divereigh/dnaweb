@@ -111,19 +111,18 @@ function closeEdit() {
                 :eyebrow="`Sample #${sample.id}`"
                 :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
-                <template v-if="selected_eye" #title>
-                    <span class="text-ink-300">{{ selected_eye.display_label }}</span>
+                <template v-if="selected_eye" #subtitle>
                     <a
                         :href="ancestryHeaderUrl()"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-2 py-1 text-xs font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                        class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
                         :title="`Compare on Ancestry: ${selected_eye.display_label} ↔ ${sample.display_label}`"
                     >
                         <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
                         DNA
                     </a>
-                    <span>{{ sample.display_label }}</span>
+                    <span>{{ total.toLocaleString() }} {{ total === 1 ? 'match' : 'matches' }}</span>
                 </template>
                 <template #titleAfter>
                     <button
@@ -155,7 +154,7 @@ function closeEdit() {
                 Show only matches in common with:
             </label>
             <select id="eye-filter" v-model="selectedEye" class="text-sm">
-                <option value="">All ({{ total.toLocaleString() }} matches)</option>
+                <option value="">All</option>
                 <option v-for="e in eyes" :key="e.id" :value="e.id">
                     {{ e.display_label }}
                 </option>
