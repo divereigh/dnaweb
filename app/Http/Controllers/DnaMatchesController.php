@@ -22,8 +22,15 @@ class DnaMatchesController extends Controller
         // Optional "common with this eye" filter. Validate the eye is a
         // real managed kit and isn't the page's own sample.
         $eyeId = (int) $request->input('eye') ?: null;
-        if ($eyeId && ($eyeId === $id || ! $this->eyes->getEye($eyeId))) {
+        $selectedEye = null;
+        if ($eyeId === $id) {
             $eyeId = null;
+        }
+        if ($eyeId) {
+            $selectedEye = $this->eyes->getEye($eyeId);
+            if (! $selectedEye) {
+                $eyeId = null;
+            }
         }
 
         $page = max((int) ($request->input('page') ?: 1), 1);
@@ -44,6 +51,7 @@ class DnaMatchesController extends Controller
             'per_page' => $pageSize,
             'eyes' => $this->eyes->listOptions(excludeId: $id, matchesSampleId: $id),
             'eye_id' => $eyeId,
+            'selected_eye' => $selectedEye,
         ]);
     }
 }

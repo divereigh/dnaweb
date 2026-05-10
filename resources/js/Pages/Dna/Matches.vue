@@ -16,9 +16,17 @@ const props = defineProps({
     per_page: { type: Number, required: true },
     eyes: { type: Array, required: true },
     eye_id: { type: Number, default: null },
+    selected_eye: { type: Object, default: null },
 });
 
-const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id'];
+const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye'];
+
+function ancestryCompareUrl(otherUuid) {
+    if (!props.selected_eye?.dnaUUID || !otherUuid) return null;
+    const eye = String(props.selected_eye.dnaUUID).toUpperCase();
+    const other = String(otherUuid).toUpperCase();
+    return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${other}/matchesofmatches`;
+}
 
 const selectedEye = ref(props.eye_id ?? '');
 
@@ -190,7 +198,23 @@ function closeEdit() {
                             />
                         </td>
                         <td class="ident">{{ m.created_fmt }}</td>
-                        <td class="!text-right"></td>
+                        <td class="!text-right">
+                            <a
+                                v-if="selected_eye && m.other_uuid"
+                                :href="ancestryCompareUrl(m.other_uuid)"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                :title="`Compare on Ancestry: ${selected_eye.display_label} ↔ ${m.display_label}`"
+                            >
+                                <img
+                                    src="/ancestry-icon.svg"
+                                    alt=""
+                                    class="h-3.5 w-3.5"
+                                />
+                                DNA
+                            </a>
+                        </td>
                     </tr>
                     <tr v-if="!matches.length">
                         <td colspan="5" class="empty-cell">No matches.</td>
