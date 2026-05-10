@@ -1,0 +1,226 @@
+<?php
+
+namespace App\Services;
+
+use App\Support\Format;
+use Illuminate\Support\Facades\DB;
+
+class PersonDetailService
+{
+    public function get(int $personId): ?array
+    {
+        $rows = DB::select('
+            SELECT
+              p.id,
+              p.fullName,
+              p.dnaSampleId,
+              p.gender,
+              ds.displayName AS dnaName,
+              ds.userUUID,
+              ds.managed AS is_managed_sample,
+              p.minBirth,
+              p.maxBirth,
+              p.death,
+              p.father AS father_id,
+              pf.fullName AS father_name,
+              dsf.displayName AS father_dnaName,
+              pf.minBirth AS father_minBirth,
+              pf.maxBirth AS father_maxBirth,
+              pf.death AS father_death,
+              pf.gender AS father_gender,
+              p.mother AS mother_id,
+              pm.fullName AS mother_name,
+              dsm.displayName AS mother_dnaName,
+              pm.minBirth AS mother_minBirth,
+              pm.maxBirth AS mother_maxBirth,
+              pm.death AS mother_death,
+              pm.gender AS mother_gender
+            FROM people p
+            LEFT JOIN dna_samples ds ON ds.id = p.dnaSampleId
+            LEFT JOIN people pf ON pf.id = p.father
+            LEFT JOIN dna_samples dsf ON dsf.id = pf.dnaSampleId
+            LEFT JOIN people pm ON pm.id = p.mother
+            LEFT JOIN dna_samples dsm ON dsm.id = pm.dnaSampleId
+            WHERE p.id = ?
+        ', [$personId]);
+
+        if (!$rows) {
+            return null;
+        }
+        $row = (array) $rows[0];
+        $row['display_label'] = Format::displayLabel($row['fullName'] ?? null, $row['dnaName'] ?? null);
+        $row['years'] = Format::years($row['minBirth'] ?? null, $row['maxBirth'] ?? null, $row['death'] ?? null);
+        $row['father_display_label'] = $row['father_id']
+            ? Format::displayLabel($row['father_name'] ?? null, $row['father_dnaName'] ?? null)
+            : null;
+        $row['father_years'] = $row['father_id']
+            ? Format::years($row['father_minBirth'] ?? null, $row['father_maxBirth'] ?? null, $row['father_death'] ?? null)
+            : '';
+        $row['mother_display_label'] = $row['mother_id']
+            ? Format::displayLabel($row['mother_name'] ?? null, $row['mother_dnaName'] ?? null)
+            : null;
+        $row['mother_years'] = $row['mother_id']
+            ? Format::years($row['mother_minBirth'] ?? null, $row['mother_maxBirth'] ?? null, $row['mother_death'] ?? null)
+            : '';
+        return $row;
+    }
+
+    public function children(int $personId): array
+    {
+        $rows = DB::select('
+            SELECT
+              c.id AS child_id,
+              c.fullName AS child_name,
+              c.dnaSampleId AS child_dnaSampleId,
+              ds_c.displayName AS child_dnaName,
+              c.minBirth AS child_minBirth,
+              c.maxBirth AS child_maxBirth,
+              c.death AS child_death,
+              c.gender AS child_gender,
+              CASE WHEN c.father = ? THEN c.mother ELSE c.father END AS spouse_id,
+              CASE WHEN c.father = ? THEN pm.fullName ELSE pf.fullName END AS spouse_name,
+              CASE WHEN c.father = ? THEN dsm.displayName ELSE dsf.displayName END AS spouse_dnaName,
+              CASE WHEN c.father = ? THEN pm.minBirth ELSE pf.minBirth END AS spouse_minBirth,
+              CASE WHEN c.father = ? THEN pm.maxBirth ELSE pf.maxBirth END AS spouse_maxBirth,
+              CASE WHEN c.father = ? THEN pm.death ELSE pf.death END AS spouse_death,
+              CASE WHEN c.father = ? THEN pm.gender ELSE pf.gender END AS spouse_gender
+            FROM people c
+            LEFT JOIN dna_samples ds_c ON ds_c.id = c.dnaSampleId
+            LEFT JOIN people pf ON pf.id = c.father
+            LEFT JOIN dna_samples dsf ON dsf.id = pf.dnaSampleId
+            LEFT JOIN people pm ON pm.id = c.mother
+            LEFT JOIN dna_samples dsm ON dsm.id = pm.dnaSampleId
+            WHERE c.father = ? OR c.mother = ?
+            ORDER BY spouse_id, c.fullName
+        ', array_fill(0, 9, $personId));
+
+        $spouses = [];
+        foreach ($rows as $r) {
+            $sid = $r->spouse_id;
+            $key = $sid ?? 'unknown';
+            if (!isset($spouses[$key])) {
+                $spouses[$key] = [
+                    'spouse_id' => $sid,
+                    'spouse_display_label' => $sid
+                        ? Format::displayLabel($r->spouse_name ?? null, $r->spouse_dnaName ?? null)
+                        : null,
+                    'spouse_years' => $sid
+                        ? Format::years($r->spouse_minBirth ?? null, $r->spouse_maxBirth ?? null, $r->spouse_death ?? null)
+                        : '',
+                    'spouse_gender' => $sid ? $r->spouse_gender : null,
+                    'children' => [],
+                ];
+            }
+            $spouses[$key]['children'][] = [
+                'child_id' => $r->child_id,
+                'display_label' => Format::displayLabel($r->child_name ?? null, $r->child_dnaName ?? null),
+                'years' => Format::years($r->child_minBirth ?? null, $r->child_maxBirth ?? null, $r->child_death ?? null),
+                'gender' => $r->child_gender,
+            ];
+        }
+        return array_values($spouses);
+    }
+
+    public function siblings(int $personId, ?int $fatherId, ?int $motherId): array
+    {
+        $base = '
+            SELECT p.id, p.fullName, p.dnaSampleId, p.minBirth, p.maxBirth, p.death, p.gender, ds.displayName AS dnaName
+            FROM people p
+            LEFT JOIN dna_samples ds ON ds.id = p.dnaSampleId
+        ';
+
+        $decorate = function (array $rows): array {
+            return array_map(function ($r) {
+                $row = (array) $r;
+                $row['display_label'] = Format::displayLabel($row['fullName'] ?? null, $row['dnaName'] ?? null);
+                $row['years'] = Format::years($row['minBirth'] ?? null, $row['maxBirth'] ?? null, $row['death'] ?? null);
+                return $row;
+            }, $rows);
+        };
+
+        $full = [];
+        if ($fatherId && $motherId) {
+            $full = $decorate(DB::select(
+                $base . 'WHERE p.id != ? AND p.father = ? AND p.mother = ? ORDER BY p.fullName',
+                [$personId, $fatherId, $motherId]
+            ));
+        }
+
+        $halfFather = [];
+        if ($fatherId) {
+            $halfFather = $decorate(DB::select(
+                $base . 'WHERE p.id != ? AND p.father = ? AND (p.mother IS NULL OR p.mother != ?) ORDER BY p.fullName',
+                [$personId, $fatherId, $motherId ?? 0]
+            ));
+        }
+
+        $halfMother = [];
+        if ($motherId) {
+            $halfMother = $decorate(DB::select(
+                $base . 'WHERE p.id != ? AND p.mother = ? AND (p.father IS NULL OR p.father != ?) ORDER BY p.fullName',
+                [$personId, $motherId, $fatherId ?? 0]
+            ));
+        }
+
+        return ['full' => $full, 'half_father' => $halfFather, 'half_mother' => $halfMother];
+    }
+
+    public function ancestryTrees(int $personId): array
+    {
+        return array_map(fn ($r) => (array) $r, DB::select('
+            SELECT gt.atreeid, gt.name, gp.ancestryid
+            FROM gedcom_people gp
+            JOIN gedcom_tree gt ON gt.atreeid = gp.atreeid
+            WHERE gp.peopleid = ?
+            ORDER BY gt.name
+        ', [$personId]));
+    }
+
+    /**
+     * @return array|null  null when the dna_sample id is missing from the table
+     */
+    public function eyeMatches(?int $dnaSampleId): ?array
+    {
+        if (!$dnaSampleId) {
+            return [];
+        }
+        $exists = DB::selectOne('SELECT 1 AS x FROM dna_samples WHERE id = ?', [$dnaSampleId]);
+        if (!$exists) {
+            return null;
+        }
+        $rows = DB::select('
+            SELECT
+              m.other_id AS eye_id,
+              ds_eye.displayName AS eye_name,
+              p_eye.id AS person_id,
+              p_eye.fullName AS person_name,
+              m.sharedCentimorgans,
+              m.numSharedSegments,
+              m.matchClusterCode,
+              m.ignored,
+              dn.notes
+            FROM (
+              SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments, matchClusterCode, ignored
+              FROM dna_matches WHERE sample1 = ?
+              UNION ALL
+              SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments, matchClusterCode, ignored
+              FROM dna_matches WHERE sample2 = ?
+            ) m
+            JOIN dna_samples ds_eye
+              ON ds_eye.id = m.other_id
+             AND ds_eye.managed IS NOT NULL
+             AND ds_eye.managed > 0
+            LEFT JOIN people p_eye ON p_eye.dnaSampleId = ds_eye.id
+            LEFT JOIN dna_notes dn ON dn.sample = ? AND dn.mgmtsample = ds_eye.id
+            ORDER BY m.sharedCentimorgans DESC, ds_eye.displayName ASC
+        ', [$dnaSampleId, $dnaSampleId, $dnaSampleId]);
+
+        return array_map(function ($r) {
+            $row = (array) $r;
+            $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
+            $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['eye_name'] ?? null);
+            $row['ignored'] = (bool) ($row['ignored'] ?? false);
+            return $row;
+        }, $rows);
+    }
+}

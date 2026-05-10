@@ -1,0 +1,40 @@
+# DNAWeb nginx site
+# Save as /etc/nginx/sites-available/dnaweb, symlink to sites-enabled,
+# replace ${SERVER_NAME}, ${APP_ROOT}, and the php-fpm socket path,
+# then `nginx -t && systemctl reload nginx`.
+# Run `certbot --nginx -d ${SERVER_NAME}` afterwards for HTTPS.
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${SERVER_NAME};
+
+    root ${APP_ROOT}/public;
+    index index.php;
+
+    # Long-lived caching for Vite-built assets (filenames are content-hashed).
+    location /build/ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.4-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    # Hide hidden files (.env, .git, etc.) but allow well-known/.
+    location ~ /\.(?!well-known) {
+        deny all;
+    }
+
+    client_max_body_size 4M;
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+}
