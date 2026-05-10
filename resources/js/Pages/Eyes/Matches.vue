@@ -123,6 +123,13 @@ function openSampleEdit(s) {
 function closeEdit() {
     editing.value = null;
 }
+
+function ancestryCompareUrl(otherUuid) {
+    if (!props.eye?.dnaUUID || !otherUuid) return null;
+    const eyeUuid = String(props.eye.dnaUUID).toUpperCase();
+    const other = String(otherUuid).toUpperCase();
+    return `https://www.ancestry.com.au/discoveryui-matches/compare/${eyeUuid}/with/${other}/matchesofmatches`;
+}
 </script>
 
 <template>
@@ -306,12 +313,29 @@ function closeEdit() {
                             {{ m.notes || '' }}
                         </td>
                         <td class="!text-right">
-                            <Link
-                                :href="route('common.index', [eye.id, m.other_id])"
-                                class="text-xs text-sepia-500 hover:text-wine-500"
-                            >
-                                common ›
-                            </Link>
+                            <div class="inline-flex items-center gap-2">
+                                <a
+                                    v-if="m.other_uuid"
+                                    :href="ancestryCompareUrl(m.other_uuid)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                    :title="`Compare on Ancestry: ${eye.display_label} ↔ ${m.display_label}`"
+                                >
+                                    <img
+                                        src="/ancestry-icon.svg"
+                                        alt=""
+                                        class="h-3.5 w-3.5"
+                                    />
+                                    DNA
+                                </a>
+                                <Link
+                                    :href="route('common.index', [eye.id, m.other_id])"
+                                    class="text-xs text-sepia-500 hover:text-wine-500"
+                                >
+                                    common ›
+                                </Link>
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="!matches.length">

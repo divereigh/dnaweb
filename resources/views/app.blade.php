@@ -6,6 +6,10 @@
 
         <title inertia>{{ config('app.name', 'DNAWeb') }}</title>
 
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="icon" href="/favicon.png" type="image/png">
+        <link rel="apple-touch-icon" href="/favicon.png">
+
         <!-- Fonts: Inter (UI + body) + JetBrains Mono (numerals/identifiers) -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700|jetbrains-mono:400,500&display=swap" rel="stylesheet" />
