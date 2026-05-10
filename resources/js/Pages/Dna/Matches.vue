@@ -22,9 +22,10 @@ const ONLY = ['matches', 'page', 'pages', 'total'];
     <AuthenticatedLayout>
         <template #header>
             <PageHeader
+                compact
                 :title="sample.display_label"
-                :eyebrow="`Sample №${sample.id} · folio of matches`"
-                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'} · raw kit view`"
+                :eyebrow="`Sample #${sample.id}`"
+                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
                 <template #actions>
                     <Link :href="route('dna.index')" class="btn-ghost">← DNA search</Link>
@@ -61,7 +62,7 @@ const ONLY = ['matches', 'page', 'pages', 'total'];
                             </Link>
                             <span
                                 v-if="m.other_managed"
-                                class="ms-2 font-sans text-[10px] uppercase tracking-eyebrow text-marine-500"
+                                class="ms-2 inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
                                 >Managed</span
                             >
                         </td>
@@ -84,7 +85,7 @@ const ONLY = ['matches', 'page', 'pages', 'total'];
             </table>
         </div>
 
-        <div class="mt-5">
+        <div class="mt-4">
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
         </div>
     </AuthenticatedLayout>

@@ -79,21 +79,20 @@ function isActive(col) {
     <AuthenticatedLayout>
         <template #header>
             <PageHeader
+                compact
                 :title="eye.display_label"
-                :eyebrow="`Eye №${eye.id} · folio of matches`"
-                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'} on file`"
+                :eyebrow="`Eye #${eye.id}`"
+                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
                 <template #actions>
-                    <Link :href="route('eyes.index')" class="btn-ghost">
-                        ← All eyes
-                    </Link>
+                    <Link :href="route('eyes.index')" class="btn-ghost">← All eyes</Link>
                 </template>
             </PageHeader>
         </template>
 
         <!-- Filter bar -->
         <div
-            class="filter-bar mb-5 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
+            class="filter-bar mb-4 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
         >
             <input
                 v-model="q"
@@ -119,7 +118,6 @@ function isActive(col) {
             </label>
         </div>
 
-        <!-- Matches table -->
         <div class="card overflow-hidden">
             <table class="ref-table">
                 <thead>
@@ -191,7 +189,7 @@ function isActive(col) {
                             </span>
                             <span
                                 v-if="m.other_managed"
-                                class="ms-2 align-baseline font-sans text-[10px] uppercase tracking-eyebrow text-marine-500"
+                                class="ms-2 inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
                             >
                                 Managed
                             </span>
@@ -212,20 +210,20 @@ function isActive(col) {
                         <td class="!text-right">
                             <Link
                                 :href="route('common.index', [eye.id, m.other_id])"
-                                class="font-sans text-[10px] uppercase tracking-eyebrow text-sepia-500 hover:text-wine-500"
+                                class="text-xs text-sepia-500 hover:text-wine-500"
                             >
                                 common ›
                             </Link>
                         </td>
                     </tr>
                     <tr v-if="!matches.length">
-                        <td colspan="8" class="empty-cell">No matches under these conditions.</td>
+                        <td colspan="8" class="empty-cell">No matches.</td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <div class="mt-5">
+        <div class="mt-4">
             <Pagination
                 :page="page"
                 :pages="pages"

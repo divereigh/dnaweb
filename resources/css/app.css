@@ -3,38 +3,28 @@
 @tailwind utilities;
 
 /* ---------------------------------------------------------------------------
-   DNAWeb — archival reference design system
-   Parchment palette, characterful serif headings, tabular numerals on data.
+   DNAWeb — utility-modern design system.
+   Information-first. Pure neutral palette, single accent, Inter throughout.
    ------------------------------------------------------------------------ */
 
 @layer base {
-    :root {
-        --grain-svg: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4  0 0 0 0 0.32  0 0 0 0 0.18  0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-    }
-
     html {
-        font-feature-settings: 'kern', 'liga', 'calt';
+        font-feature-settings: 'kern', 'liga', 'calt', 'cv11', 'ss03';
     }
 
     body {
         background-color: theme('colors.paper.50');
-        background-image:
-            radial-gradient(1200px 600px at 80% -10%, rgba(216, 191, 130, 0.18), transparent 60%),
-            radial-gradient(900px 500px at -10% 110%, rgba(196, 132, 88, 0.12), transparent 65%),
-            var(--grain-svg);
-        background-attachment: fixed;
-        background-size: auto, auto, 160px 160px;
         color: theme('colors.ink.500');
-        font-family: theme('fontFamily.serif');
-        font-feature-settings: 'kern', 'liga', 'onum';
+        font-family: theme('fontFamily.sans');
         text-rendering: optimizeLegibility;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
     }
 
     h1, h2, h3, h4 {
-        font-family: theme('fontFamily.display');
-        font-feature-settings: 'kern', 'liga', 'dlig', 'onum';
+        font-family: theme('fontFamily.sans');
+        font-weight: 600;
+        letter-spacing: -0.015em;
         color: theme('colors.ink.600');
     }
 
@@ -47,8 +37,8 @@
     }
 
     ::selection {
-        background-color: theme('colors.wine.500');
-        color: theme('colors.paper.50');
+        background-color: #dbeafe; /* wine-100 equiv */
+        color: theme('colors.ink.600');
     }
 
     [type='text'],
@@ -62,8 +52,7 @@
         background-color: theme('colors.paper.50');
         border-color: theme('colors.paper.300');
         color: theme('colors.ink.500');
-        font-family: theme('fontFamily.serif');
-        border-radius: 2px;
+        border-radius: 6px;
     }
     [type='text']:focus,
     [type='email']:focus,
@@ -74,91 +63,79 @@
     select:focus,
     textarea:focus {
         --tw-ring-color: theme('colors.wine.500');
+        --tw-ring-offset-width: 0;
         border-color: theme('colors.wine.500');
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
     }
     [type='checkbox'],
     [type='radio'] {
-        border-color: theme('colors.sepia.400');
+        border-color: theme('colors.paper.400');
         color: theme('colors.wine.500');
         --tw-ring-color: theme('colors.wine.500');
+        border-radius: 4px;
     }
 }
 
 @layer components {
+    /* Eyebrow — small caps label above a heading. Used sparingly. */
     .eyebrow {
-        font-family: theme('fontFamily.sans');
         font-size: 0.6875rem;
-        font-weight: 600;
+        font-weight: 500;
         letter-spacing: theme('letterSpacing.eyebrow');
         text-transform: uppercase;
         color: theme('colors.sepia.500');
     }
 
-    .rule-double {
-        height: 4px;
-        background-image: linear-gradient(
-            to bottom,
-            theme('colors.sepia.300') 0,
-            theme('colors.sepia.300') 1px,
-            transparent 1px,
-            transparent 3px,
-            theme('colors.sepia.300') 3px,
-            theme('colors.sepia.300') 4px
-        );
-    }
-
+    /* Card — primary surface for grouped content. */
     .card {
         background-color: theme('colors.paper.50');
         border: 1px solid theme('colors.paper.300');
-        border-radius: 3px;
-        box-shadow: theme('boxShadow.paper');
+        border-radius: 10px;
     }
 
-    /* Reference table — used for all data tables */
+    /* Reference table — neutral data table. */
     .ref-table {
         width: 100%;
-        font-family: theme('fontFamily.serif');
-        font-size: 0.9375rem;
-        line-height: 1.45;
+        font-size: 0.875rem;
+        line-height: 1.4;
         color: theme('colors.ink.500');
         border-collapse: separate;
         border-spacing: 0;
     }
     .ref-table thead th {
-        font-family: theme('fontFamily.sans');
-        font-size: 0.6875rem;
-        font-weight: 600;
-        letter-spacing: theme('letterSpacing.eyebrow');
-        text-transform: uppercase;
+        font-size: 0.75rem;
+        font-weight: 500;
+        letter-spacing: 0;
+        text-transform: none;
         text-align: left;
         color: theme('colors.sepia.500');
-        padding: 0.625rem 0.875rem 0.5rem;
-        border-bottom: 1px solid theme('colors.sepia.400');
+        padding: 0.625rem 0.875rem;
+        border-bottom: 1px solid theme('colors.paper.300');
         background-color: theme('colors.paper.100');
         white-space: nowrap;
     }
     .ref-table tbody td {
-        padding: 0.55rem 0.875rem;
-        border-bottom: 1px solid theme('colors.paper.200');
-        vertical-align: top;
-    }
-    .ref-table tbody tr:nth-child(even) td {
-        background-color: rgba(245, 239, 223, 0.45);
-    }
-    .ref-table tbody tr:hover td {
-        background-color: theme('colors.paper.200');
+        padding: 0.6rem 0.875rem;
+        border-bottom: 1px solid theme('colors.paper.300');
+        vertical-align: middle;
     }
     .ref-table tbody tr:last-child td {
-        border-bottom: 1px solid theme('colors.sepia.400');
+        border-bottom: none;
+    }
+    .ref-table tbody tr:hover td {
+        background-color: theme('colors.paper.100');
     }
     .ref-table .num,
     .ref-table td[data-numeric],
     .ref-table th[data-numeric] {
         font-family: theme('fontFamily.mono');
         font-variant-numeric: tabular-nums lining-nums;
-        font-size: 0.875rem;
+        font-size: 0.8125rem;
         text-align: right;
-        color: theme('colors.ink.400');
+        color: theme('colors.ink.300');
+    }
+    .ref-table th[data-numeric] {
+        color: theme('colors.sepia.500');
     }
     .ref-table .ident {
         font-family: theme('fontFamily.mono');
@@ -169,15 +146,10 @@
     .ref-link {
         color: theme('colors.ink.600');
         font-weight: 500;
-        text-decoration-line: underline;
-        text-decoration-thickness: 1px;
-        text-decoration-color: theme('colors.paper.300');
-        text-underline-offset: 4px;
-        transition: text-decoration-color 0.12s ease, color 0.12s ease;
+        text-decoration: none;
     }
     .ref-link:hover {
         color: theme('colors.wine.500');
-        text-decoration-color: theme('colors.wine.500');
     }
 
     .sortable {
@@ -189,11 +161,13 @@
         color: theme('colors.ink.500');
     }
     .sortable .sort-mark {
-        margin-left: 0.35rem;
+        margin-left: 0.25rem;
         color: theme('colors.sepia.400');
+        font-family: theme('fontFamily.mono');
+        font-size: 0.75rem;
     }
     .sortable.is-active {
-        color: theme('colors.wine.500');
+        color: theme('colors.ink.500');
     }
     .sortable.is-active .sort-mark {
         color: theme('colors.wine.500');
@@ -202,54 +176,48 @@
     .filter-bar {
         background-color: theme('colors.paper.50');
         border: 1px solid theme('colors.paper.300');
-        border-radius: 3px;
-        padding: 0.85rem;
+        border-radius: 8px;
+        padding: 0.6rem;
         display: grid;
-        gap: 0.6rem;
+        gap: 0.5rem;
         align-items: center;
     }
     .filter-bar label {
         display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
-        font-family: theme('fontFamily.sans');
-        font-size: 0.78rem;
+        gap: 0.4rem;
+        font-size: 0.8125rem;
         color: theme('colors.ink.300');
         white-space: nowrap;
     }
 
+    /* Cluster pill — a clean rounded chip. */
     .stamp {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         font-family: theme('fontFamily.mono');
         font-size: 0.6875rem;
-        font-weight: 600;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        padding: 0.18rem 0.55rem;
-        border-radius: 2px;
-        border: 1px solid currentColor;
-        background-image:
-            linear-gradient(135deg, transparent 49%, rgba(255, 255, 255, 0.18) 50%, transparent 51%),
-            var(--grain-svg);
-        background-blend-mode: overlay, multiply;
-        background-size: auto, 60px 60px;
-        line-height: 1.1;
+        font-weight: 500;
+        letter-spacing: 0.02em;
+        padding: 0.1rem 0.45rem;
+        border-radius: 4px;
+        line-height: 1.3;
     }
 
+    /* Pagination tile */
     .pg-tile {
         font-family: theme('fontFamily.mono');
         font-size: 0.8125rem;
-        min-width: 2rem;
+        min-width: 1.85rem;
         padding: 0.25rem 0.55rem;
         text-align: center;
         color: theme('colors.ink.300');
-        border-radius: 2px;
+        border-radius: 6px;
         transition: background-color 0.12s ease, color 0.12s ease;
     }
     .pg-tile:hover {
-        background-color: theme('colors.paper.200');
+        background-color: theme('colors.paper.100');
         color: theme('colors.ink.500');
     }
     .pg-tile.is-current {
@@ -261,16 +229,14 @@
         pointer-events: none;
     }
 
+    /* Site nav link — clean horizontal nav with active border. */
     .nav-link {
-        font-family: theme('fontFamily.sans');
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: theme('letterSpacing.eyebrow');
-        text-transform: uppercase;
+        font-size: 0.875rem;
+        font-weight: 500;
         color: theme('colors.sepia.500');
         padding: 0.6rem 0;
         position: relative;
-        transition: color 0.15s ease;
+        transition: color 0.12s ease;
     }
     .nav-link:hover {
         color: theme('colors.ink.500');
@@ -285,50 +251,47 @@
         right: 0;
         bottom: -1px;
         height: 2px;
-        background-color: theme('colors.wine.500');
+        background-color: theme('colors.ink.600');
     }
 
     .btn-ghost {
         display: inline-flex;
         align-items: center;
         gap: 0.4rem;
-        font-family: theme('fontFamily.sans');
-        font-size: 0.78rem;
+        font-size: 0.8125rem;
         font-weight: 500;
-        letter-spacing: 0.04em;
         color: theme('colors.ink.300');
         background-color: theme('colors.paper.50');
         border: 1px solid theme('colors.paper.300');
-        border-radius: 2px;
-        padding: 0.45rem 0.75rem;
-        transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+        border-radius: 6px;
+        padding: 0.4rem 0.7rem;
+        transition: background-color 0.12s ease, border-color 0.12s ease;
     }
     .btn-ghost:hover {
         background-color: theme('colors.paper.100');
-        border-color: theme('colors.sepia.400');
+        border-color: theme('colors.paper.400');
         color: theme('colors.ink.500');
     }
 
     .empty-cell {
         text-align: center;
-        padding: 2.25rem 1rem;
+        padding: 2rem 1rem;
         color: theme('colors.sepia.500');
-        font-style: italic;
     }
 }
 
-/* Cluster palette — natural-history inks. Used by ClusterPill.vue. */
+/* Cluster palette — restrained, modern hues. Keys map to .cluster-N classes. */
 :root {
-    --cluster-1-fg: #7A1F0F;  --cluster-1-bg:  #F0DAC4;
-    --cluster-2-fg: #6B4914;  --cluster-2-bg:  #F1DBA9;
-    --cluster-3-fg: #3F4717;  --cluster-3-bg:  #E2E1B0;
-    --cluster-4-fg: #25462B;  --cluster-4-bg:  #CFDFC0;
-    --cluster-5-fg: #1F4946;  --cluster-5-bg:  #BFD7CF;
-    --cluster-6-fg: #1B2D52;  --cluster-6-bg:  #C2CDDB;
-    --cluster-7-fg: #3D2756;  --cluster-7-bg:  #D6CADD;
-    --cluster-8-fg: #57204A;  --cluster-8-bg:  #E2C7D2;
-    --cluster-9-fg: #69323A;  --cluster-9-bg:  #ECCDD0;
-    --cluster-10-fg: #631C0F; --cluster-10-bg: #E5C4B5;
-    --cluster-default-fg: #4F4636;
-    --cluster-default-bg: #E7DEC9;
+    --cluster-1-fg: #92400e;  --cluster-1-bg:  #fef3c7;
+    --cluster-2-fg: #854d0e;  --cluster-2-bg:  #fef9c3;
+    --cluster-3-fg: #3f6212;  --cluster-3-bg:  #ecfccb;
+    --cluster-4-fg: #14532d;  --cluster-4-bg:  #dcfce7;
+    --cluster-5-fg: #115e59;  --cluster-5-bg:  #ccfbf1;
+    --cluster-6-fg: #1e3a8a;  --cluster-6-bg:  #dbeafe;
+    --cluster-7-fg: #4c1d95;  --cluster-7-bg:  #ede9fe;
+    --cluster-8-fg: #6b21a8;  --cluster-8-bg:  #f3e8ff;
+    --cluster-9-fg: #9d174d;  --cluster-9-bg:  #fce7f3;
+    --cluster-10-fg: #991b1b; --cluster-10-bg: #fee2e2;
+    --cluster-default-fg: #404040;
+    --cluster-default-bg: #f5f5f5;
 }

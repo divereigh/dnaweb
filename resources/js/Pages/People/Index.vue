@@ -64,14 +64,12 @@ function sortMark(col) {
     <AuthenticatedLayout>
         <template #header>
             <PageHeader
-                title="The People Index"
-                eyebrow="Section II — biographical roll"
-                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'person' : 'persons'} catalogued`"
+                title="People"
+                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'person' : 'people'}`"
             />
         </template>
 
-        <!-- Filter bar -->
-        <div class="filter-bar mb-5 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <div class="filter-bar mb-4 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
             <input
                 v-model="q"
                 type="search"
@@ -127,19 +125,14 @@ function sortMark(col) {
                                 {{ p.display_label }}
                             </Link>
                         </td>
-                        <td>
-                            <span v-if="p.dnaName" class="font-serif text-sepia-600">{{
-                                p.dnaName
-                            }}</span>
+                        <td class="text-sepia-600">{{ p.dnaName || '—' }}</td>
+                        <td class="num">
+                            <span v-if="p.eye_count">{{ p.eye_count }}</span>
                             <span v-else class="text-sepia-400">—</span>
                         </td>
                         <td class="num">
-                            <span v-if="p.eye_count">{{ p.eye_count }}</span>
-                            <span v-else class="text-sepia-400">·</span>
-                        </td>
-                        <td class="num">
                             <span v-if="p.max_cm">{{ p.max_cm }}</span>
-                            <span v-else class="text-sepia-400">·</span>
+                            <span v-else class="text-sepia-400">—</span>
                         </td>
                     </tr>
                     <tr v-if="!people.length">
@@ -149,7 +142,7 @@ function sortMark(col) {
             </table>
         </div>
 
-        <div class="mt-5">
+        <div class="mt-4">
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
         </div>
     </AuthenticatedLayout>

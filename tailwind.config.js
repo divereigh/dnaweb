@@ -12,79 +12,58 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                // Display — characterful serif for headings, page titles, person names
-                display: [
-                    '"EB Garamond"',
-                    'Cardo',
-                    'Georgia',
-                    'serif',
-                ],
-                // Body — modern serif kept for prose, subtitles, labels
-                serif: [
-                    '"Source Serif 4"',
-                    '"Source Serif Pro"',
-                    'Georgia',
-                    'serif',
-                ],
-                // Sans for tight UI labels, eyebrow caps, small UI affordances
-                sans: [
-                    '"Inter Tight"',
-                    'system-ui',
-                    'sans-serif',
-                ],
-                // Mono for centimorgan numbers, identifiers, dates — strict tabular feel
-                mono: [
-                    '"JetBrains Mono"',
-                    'ui-monospace',
-                    'monospace',
-                ],
+                // Single typeface family for clarity. JetBrains Mono for tabular data.
+                display: ['Inter', 'system-ui', 'sans-serif'],
+                serif: ['Inter', 'system-ui', 'sans-serif'],
+                sans: ['Inter', 'system-ui', 'sans-serif'],
+                mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
             },
             colors: {
-                // Parchment / paper base — warm, faintly aged
+                // Surface scale (whites and warm grays). Names retained from earlier
+                // palette so existing class usage keeps working.
                 paper: {
-                    50:  '#FBF7EC',
-                    100: '#F5EFDF',
-                    200: '#EDE3CC',
-                    300: '#DFD0AE',
-                    400: '#C7B58D',
-                    500: '#A89870',
+                    50:  '#ffffff', // primary surface
+                    100: '#fafafa', // hover surface
+                    200: '#f5f5f5',
+                    300: '#e5e5e5', // hairline border
+                    400: '#d4d4d4',
+                    500: '#a3a3a3',
                 },
-                // Ink — deep brown-black, warmer than gray-900
+                // Text scale — neutral grays from secondary up to pure black.
                 ink: {
-                    50:  '#7C7060',
-                    100: '#665A4A',
-                    200: '#4F4636',
-                    300: '#3B3325',
-                    400: '#2A2317',
-                    500: '#1A140B',
-                    600: '#100B05',
+                    50:  '#a3a3a3',
+                    100: '#737373',
+                    200: '#525252',
+                    300: '#404040',
+                    400: '#262626',
+                    500: '#171717', // primary text
+                    600: '#0a0a0a', // headlines
                 },
-                // Sepia muted text
                 sepia: {
-                    300: '#A48F6E',
-                    400: '#8C7A5C',
-                    500: '#73613F',
-                    600: '#5B4B2D',
+                    300: '#d4d4d4',
+                    400: '#a3a3a3',
+                    500: '#737373', // muted/secondary text
+                    600: '#525252',
                 },
-                // Wine — primary accent for hover/active/important
+                // Single interactive accent.
                 wine: {
-                    400: '#9A4242',
-                    500: '#7A2D2D',
-                    600: '#5F2222',
+                    400: '#3b82f6',
+                    500: '#2563eb', // links / hover
+                    600: '#1d4ed8',
                 },
-                // Indigo ink — link/secondary accent
+                // Secondary accent — used sparingly for status (e.g. "Managed").
                 marine: {
-                    500: '#2D3D7A',
-                    600: '#1F2C5A',
+                    500: '#0d9488',
+                    600: '#0f766e',
                 },
             },
             boxShadow: {
-                'paper': '0 1px 0 rgba(60, 47, 23, 0.04), 0 0 0 1px rgba(60, 47, 23, 0.06)',
-                'leaf':  '0 1px 2px rgba(60, 47, 23, 0.06), 0 0 0 1px rgba(60, 47, 23, 0.08)',
-                'card':  '0 1px 1px rgba(60, 47, 23, 0.04), 0 6px 20px -10px rgba(60, 47, 23, 0.18), 0 0 0 1px rgba(60, 47, 23, 0.08)',
+                'paper': '0 0 0 1px #e5e5e5',
+                'leaf':  '0 0 0 1px #e5e5e5',
+                'card':  '0 0 0 1px #e5e5e5',
             },
             letterSpacing: {
-                eyebrow: '0.18em',
+                eyebrow: '0.04em',
             },
         },
     },

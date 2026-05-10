@@ -13,12 +13,11 @@ defineProps({
     <AuthenticatedLayout>
         <template #header>
             <PageHeader
-                title="The Register of Eyes"
-                eyebrow="Section I — managed kits"
+                title="Eyes"
                 :subtitle="
                     eyes.length
-                        ? `Currently observing ${eyes.length} test ${eyes.length === 1 ? 'kit' : 'kits'}.`
-                        : 'No managed kits found in the register.'
+                        ? `${eyes.length} managed DNA test ${eyes.length === 1 ? 'kit' : 'kits'}`
+                        : 'No managed kits'
                 "
             />
         </template>
@@ -27,22 +26,20 @@ defineProps({
             <table class="ref-table">
                 <thead>
                     <tr>
-                        <th>Display name</th>
-                        <th>Linked person</th>
-                        <th class="!text-right" data-numeric>Matches</th>
+                        <th>Name</th>
+                        <th>Person</th>
+                        <th data-numeric>Matches</th>
                         <th>Sex</th>
-                        <th>DNA UUID</th>
+                        <th>UUID</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="e in eyes" :key="e.id">
                         <td>
                             <Link :href="route('eyes.matches', e.id)" class="ref-link">
-                                {{ e.displayName || `Eye №${e.id}` }}
+                                {{ e.displayName || `Eye #${e.id}` }}
                             </Link>
-                            <span class="ms-2 align-baseline font-mono text-[10px] text-sepia-400"
-                                >№{{ e.id }}</span
-                            >
+                            <span class="ms-2 font-mono text-[11px] text-sepia-400">#{{ e.id }}</span>
                         </td>
                         <td>
                             <Link
@@ -61,9 +58,7 @@ defineProps({
                         <td class="ident">{{ e.dnaUUID }}</td>
                     </tr>
                     <tr v-if="!eyes.length">
-                        <td colspan="5" class="empty-cell">
-                            The register is empty.
-                        </td>
+                        <td colspan="5" class="empty-cell">No eyes.</td>
                     </tr>
                 </tbody>
             </table>

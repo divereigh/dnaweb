@@ -44,61 +44,47 @@ function go(page) {
     <AuthenticatedLayout>
         <template #header>
             <PageHeader
-                title="DNA Search"
-                eyebrow="Section III — kit lookup"
-                subtitle="Find any kit by display name or by its linked person."
+                title="DNA search"
+                subtitle="Find any kit by display name or linked person."
             />
         </template>
 
-        <div class="card mb-5 p-4">
+        <div class="card mb-4 p-3">
             <input
                 v-model="term"
                 type="search"
                 placeholder="Type a name…"
                 autofocus
-                class="w-full text-base"
+                class="w-full text-sm"
             />
         </div>
 
         <div
             v-if="!q"
-            class="card flex items-center justify-center gap-3 px-5 py-12 text-center"
+            class="card flex items-center justify-center px-5 py-12 text-sm text-sepia-500"
         >
-            <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                class="h-6 w-6 text-sepia-400"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-            >
-                <circle cx="11" cy="11" r="6" />
-                <path stroke-linecap="round" d="m21 21-4.5-4.5" />
-            </svg>
-            <p class="font-display text-lg italic text-sepia-500">
-                Begin with a name to consult the register.
-            </p>
+            Type a name to search.
         </div>
 
         <div v-else class="card overflow-hidden">
             <table class="ref-table">
                 <thead>
                     <tr>
-                        <th>Display name</th>
-                        <th>Linked person</th>
+                        <th>Name</th>
+                        <th>Person</th>
                         <th>Tested</th>
                         <th>Status</th>
-                        <th>DNA UUID</th>
+                        <th>UUID</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-for="s in samples" :key="s.id">
                         <td>
                             <Link :href="route('dna.matches', s.id)" class="ref-link">
-                                {{ s.displayName || `Sample №${s.id}` }}
+                                {{ s.displayName || `Sample #${s.id}` }}
                             </Link>
-                            <span class="ms-2 font-mono text-[10px] text-sepia-400"
-                                >№{{ s.id }}</span
+                            <span class="ms-2 font-mono text-[11px] text-sepia-400"
+                                >#{{ s.id }}</span
                             >
                         </td>
                         <td>
@@ -115,19 +101,15 @@ function go(page) {
                         <td>
                             <span
                                 v-if="s.managed"
-                                class="font-sans text-[10px] uppercase tracking-eyebrow text-marine-500"
-                                >◆ Managed</span
+                                class="inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
+                                >Managed</span
                             >
-                            <span v-else class="font-sans text-[10px] uppercase tracking-eyebrow text-sepia-400"
-                                >· match</span
-                            >
+                            <span v-else class="text-xs text-sepia-400">—</span>
                         </td>
                         <td class="ident">{{ s.dnaUUID }}</td>
                     </tr>
                     <tr v-if="!samples.length">
-                        <td colspan="5" class="empty-cell">
-                            No kits answer to that name.
-                        </td>
+                        <td colspan="5" class="empty-cell">No matches.</td>
                     </tr>
                 </tbody>
             </table>
@@ -135,9 +117,9 @@ function go(page) {
 
         <div
             v-if="q"
-            class="mt-5 flex items-center justify-between font-sans text-xs uppercase tracking-eyebrow text-sepia-500"
+            class="mt-4 flex items-center justify-between text-sm text-sepia-500"
         >
-            <span>Folio {{ page }}</span>
+            <span>Page {{ page }}</span>
             <div class="flex items-center gap-2">
                 <button
                     @click="go(page - 1)"

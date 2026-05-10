@@ -45,30 +45,20 @@ const range = computed(() => {
 
 <template>
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <div
-            class="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-sans text-xs uppercase tracking-eyebrow text-sepia-500"
-        >
+        <div class="flex flex-wrap items-baseline gap-x-3 text-sm text-sepia-500">
             <template v-if="total !== null">
-                <span class="font-mono text-sm tracking-normal text-ink-400">
-                    {{ total.toLocaleString() }}
-                </span>
-                <span class="not-italic">{{ total === 1 ? 'entry' : 'entries' }}</span>
+                <span class="font-mono text-ink-400">{{ total.toLocaleString() }}</span>
+                <span>{{ total === 1 ? 'result' : 'results' }}</span>
             </template>
-            <span
-                v-if="total !== null && perPage !== null && perPageOptions.length"
-                aria-hidden="true"
-                class="text-sepia-400"
-                >·</span
-            >
             <label
                 v-if="perPage !== null && perPageOptions.length"
                 class="inline-flex items-center gap-2"
             >
-                <span class="not-italic text-sepia-500">per folio</span>
+                <span>per page</span>
                 <select
                     :value="perPage"
                     @change="setPerPage($event.target.value)"
-                    class="rounded-sm border border-paper-300 bg-paper-50 py-0.5 pl-2 pr-7 font-mono text-xs tracking-normal text-ink-500 focus:border-wine-500 focus:ring-wine-500"
+                    class="rounded-md border border-paper-300 bg-paper-50 py-0.5 pl-2 pr-7 font-mono text-xs text-ink-500 focus:border-wine-500 focus:ring-wine-500"
                 >
                     <option v-for="n in perPageOptions" :key="n" :value="n">
                         {{ n }}

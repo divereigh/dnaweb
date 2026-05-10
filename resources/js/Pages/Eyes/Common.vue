@@ -24,13 +24,14 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
     <AuthenticatedLayout>
         <template #header>
             <PageHeader
-                :title="`${eye.display_label} & ${match.other_display_label}`"
-                eyebrow="Common matches — pair register"
-                :subtitle="`${total.toLocaleString()} mutual ${total === 1 ? 'match' : 'matches'} · pair shares ${match.sharedCentimorgans} cM across ${match.numSharedSegments} segments`"
+                compact
+                :title="`${eye.display_label} ↔ ${match.other_display_label}`"
+                eyebrow="Common matches"
+                :subtitle="`${total.toLocaleString()} mutual ${total === 1 ? 'match' : 'matches'} · pair shares ${match.sharedCentimorgans} cM (${match.numSharedSegments} segments)`"
             >
                 <template #actions>
                     <Link :href="route('eyes.matches', eye.id)" class="btn-ghost">
-                        ← Back to {{ eye.display_label }}
+                        ← {{ eye.display_label }}
                     </Link>
                 </template>
             </PageHeader>
@@ -63,7 +64,7 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                             </span>
                             <span
                                 v-if="m.managed"
-                                class="ms-2 align-baseline font-sans text-[10px] uppercase tracking-eyebrow text-marine-500"
+                                class="ms-2 inline-flex items-center rounded bg-marine-500/10 px-1.5 py-0.5 text-[10px] font-medium text-marine-500"
                             >
                                 Managed
                             </span>
@@ -88,7 +89,7 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
             </table>
         </div>
 
-        <div class="mt-5">
+        <div class="mt-4">
             <Pagination
                 :page="page"
                 :pages="pages"
