@@ -9,6 +9,19 @@ class Person extends Model
     protected $table = 'people';
     public $timestamps = false;
 
+    // Columns the web app is allowed to write. Loader-managed columns
+    // (treetop, ddna, nogedcom, father, mother, alt) are deliberately
+    // excluded for now — Phase 5 will broaden this.
+    protected $fillable = [
+        'fullName',
+        'dnaSampleId',
+        'gender',
+        'minBirth',
+        'maxBirth',
+        'death',
+        'notes',
+    ];
+
     protected $casts = [
         'alt' => 'integer',
         'minBirth' => 'integer',
