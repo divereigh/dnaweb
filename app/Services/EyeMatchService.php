@@ -64,6 +64,51 @@ class EyeMatchService
         return $this->decorateEyeRows($eyes);
     }
 
+    /**
+     * Lightweight list of managed eyes for use in dropdowns/selects.
+     * Optionally exclude a specific id (e.g. the page's own sample), and
+     * optionally restrict to eyes that have a direct DNA match with the
+     * given sample id.
+     *
+     * @return array<int, array{id:int, display_label:string}>
+     */
+    public function listOptions(?int $excludeId = null, ?int $matchesSampleId = null): array
+    {
+        $sql = '
+            SELECT s.id, s.displayName, p.fullName AS person_name
+            FROM dna_samples s
+            LEFT JOIN people p ON p.dnaSampleId = s.id
+            WHERE s.managed IS NOT NULL AND s.disabled = 0
+        ';
+        $bind = [];
+
+        if ($matchesSampleId) {
+            $sql .= ' AND EXISTS (
+                SELECT 1 FROM dna_matches dm
+                WHERE (dm.sample1 = s.id AND dm.sample2 = ?)
+                   OR (dm.sample2 = s.id AND dm.sample1 = ?)
+            )';
+            $bind[] = $matchesSampleId;
+            $bind[] = $matchesSampleId;
+        }
+
+        $sql .= ' ORDER BY COALESCE(p.fullName, s.displayName), s.id';
+
+        $rows = DB::select($sql, $bind);
+
+        $out = [];
+        foreach ($rows as $r) {
+            if ($excludeId !== null && (int) $r->id === $excludeId) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int) $r->id,
+                'display_label' => Format::displayLabel($r->person_name ?? null, $r->displayName ?? null),
+            ];
+        }
+        return $out;
+    }
+
     public function getEye(int $eyeId): ?array
     {
         $rows = DB::select('

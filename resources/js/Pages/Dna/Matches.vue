@@ -1,22 +1,36 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import Pagination from '@/Components/App/Pagination.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
 import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 
-defineProps({
+const props = defineProps({
     sample: { type: Object, required: true },
     matches: { type: Array, required: true },
     page: { type: Number, required: true },
     pages: { type: Number, required: true },
     total: { type: Number, required: true },
     per_page: { type: Number, required: true },
+    eyes: { type: Array, required: true },
+    eye_id: { type: Number, default: null },
 });
 
-const ONLY = ['matches', 'page', 'pages', 'total'];
+const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id'];
+
+const selectedEye = ref(props.eye_id ?? '');
+
+watch(selectedEye, (val) => {
+    router.reload({
+        only: ONLY,
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        data: { eye: val || undefined, page: 1 },
+    });
+});
 
 const editing = ref(null);
 
@@ -103,6 +117,18 @@ function closeEdit() {
                 </template>
             </PageHeader>
         </template>
+
+        <div class="filter-bar mb-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+            <label for="eye-filter" class="!whitespace-normal">
+                Show only matches in common with:
+            </label>
+            <select id="eye-filter" v-model="selectedEye" class="text-sm">
+                <option value="">All ({{ total.toLocaleString() }} matches)</option>
+                <option v-for="e in eyes" :key="e.id" :value="e.id">
+                    {{ e.display_label }}
+                </option>
+            </select>
+        </div>
 
         <div class="mb-4">
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />

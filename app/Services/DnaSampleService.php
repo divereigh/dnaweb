@@ -88,18 +88,48 @@ class DnaSampleService
         return $r;
     }
 
-    public function countMatches(int $sampleId): int
+    public function countMatches(int $sampleId, ?int $commonWithEye = null): int
     {
-        $row = DB::selectOne(
-            'SELECT COUNT(*) AS c FROM dna_matches WHERE sample1 = ? OR sample2 = ?',
-            [$sampleId, $sampleId]
-        );
+        $sql = 'SELECT COUNT(*) AS c FROM dna_matches m WHERE (m.sample1 = ? OR m.sample2 = ?)';
+        $bind = [$sampleId, $sampleId];
+
+        if ($commonWithEye) {
+            $sql .= ' AND EXISTS (
+                SELECT 1 FROM dna_matches em
+                WHERE (em.sample1 = ? AND em.sample2 = CASE WHEN m.sample1 = ? THEN m.sample2 ELSE m.sample1 END)
+                   OR (em.sample2 = ? AND em.sample1 = CASE WHEN m.sample1 = ? THEN m.sample2 ELSE m.sample1 END)
+            )';
+            $bind[] = $commonWithEye; $bind[] = $sampleId;
+            $bind[] = $commonWithEye; $bind[] = $sampleId;
+        }
+
+        $row = DB::selectOne($sql, $bind);
         return (int) ($row?->c ?? 0);
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null): array
     {
         $offset = max($page - 1, 0) * $pageSize;
+
+        // Bind order matches the placeholder order in the SQL below.
+        $bind = array_fill(0, 7, $sampleId); // 6 SELECT CASE + 1 LEFT JOIN people CASE
+        $bind[] = $sampleId; // WHERE m.sample1
+        $bind[] = $sampleId; // WHERE m.sample2
+
+        $existsClause = '';
+        if ($commonWithEye) {
+            $existsClause = ' AND EXISTS (
+                SELECT 1 FROM dna_matches em
+                WHERE (em.sample1 = ? AND em.sample2 = CASE WHEN m.sample1 = ? THEN m.sample2 ELSE m.sample1 END)
+                   OR (em.sample2 = ? AND em.sample1 = CASE WHEN m.sample1 = ? THEN m.sample2 ELSE m.sample1 END)
+            )';
+            $bind[] = $commonWithEye; $bind[] = $sampleId;
+            $bind[] = $commonWithEye; $bind[] = $sampleId;
+        }
+
+        $bind[] = $pageSize;
+        $bind[] = $offset;
+
         $rows = DB::select('
             SELECT
               CASE WHEN m.sample1 = ? THEN s2.id ELSE s1.id END AS other_id,
@@ -125,14 +155,10 @@ class DnaSampleService
             JOIN dna_samples s2 ON s2.id = m.sample2
             LEFT JOIN people p
               ON p.dnaSampleId = CASE WHEN m.sample1 = ? THEN s2.id ELSE s1.id END
-            WHERE (m.sample1 = ? OR m.sample2 = ?)
+            WHERE (m.sample1 = ? OR m.sample2 = ?)' . $existsClause . '
             ORDER BY m.sharedCentimorgans DESC, other_id ASC
             LIMIT ? OFFSET ?
-        ', [
-            ...array_fill(0, 7, $sampleId),
-            $sampleId, $sampleId,
-            $pageSize, $offset,
-        ]);
+        ', $bind);
 
         return array_map(function ($r) {
             $row = (array) $r;
