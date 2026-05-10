@@ -1,10 +1,22 @@
 <script setup>
-defineProps({
-    title: { type: String, required: true },
+import { computed, useSlots } from 'vue';
+
+const props = defineProps({
+    title: { type: String, default: '' },
     subtitle: { type: String, default: '' },
     eyebrow: { type: String, default: '' },
     compact: { type: Boolean, default: false },
 });
+
+const slots = useSlots();
+
+const titleClasses = computed(() => [
+    'font-semibold tracking-tight text-ink-600',
+    props.compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl',
+    // When a custom #title slot is used (multiple inline children),
+    // switch to flex-wrap so nothing gets ellipsis-clipped.
+    slots.title ? 'flex flex-wrap items-center gap-2' : 'truncate',
+]);
 </script>
 
 <template>
@@ -12,13 +24,8 @@ defineProps({
         <div class="min-w-0">
             <p v-if="eyebrow" class="eyebrow mb-1">{{ eyebrow }}</p>
             <div class="flex min-w-0 items-center gap-1.5">
-                <h1
-                    :class="[
-                        'truncate font-semibold tracking-tight text-ink-600',
-                        compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl',
-                    ]"
-                >
-                    {{ title }}
+                <h1 :class="titleClasses">
+                    <slot name="title">{{ title }}</slot>
                 </h1>
                 <slot name="titleAfter" />
             </div>

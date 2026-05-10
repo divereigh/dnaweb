@@ -28,7 +28,15 @@ function ancestryCompareUrl(otherUuid) {
     return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${other}/matchesofmatches`;
 }
 
+function ancestryHeaderUrl() {
+    if (!props.selected_eye?.dnaUUID || !props.sample?.dnaUUID) return null;
+    const eye = String(props.selected_eye.dnaUUID).toUpperCase();
+    const sample = String(props.sample.dnaUUID).toUpperCase();
+    return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${sample}/matchesofmatches`;
+}
+
 const selectedEye = ref(props.eye_id ?? '');
+const loading = ref(false);
 
 watch(selectedEye, (val) => {
     router.reload({
@@ -37,6 +45,8 @@ watch(selectedEye, (val) => {
         preserveScroll: true,
         replace: true,
         data: { eye: val || undefined, page: 1 },
+        onStart: () => { loading.value = true; },
+        onFinish: () => { loading.value = false; },
     });
 });
 
@@ -101,6 +111,20 @@ function closeEdit() {
                 :eyebrow="`Sample #${sample.id}`"
                 :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
+                <template v-if="selected_eye" #title>
+                    <span class="text-ink-300">{{ selected_eye.display_label }}</span>
+                    <a
+                        :href="ancestryHeaderUrl()"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-2 py-1 text-xs font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                        :title="`Compare on Ancestry: ${selected_eye.display_label} ↔ ${sample.display_label}`"
+                    >
+                        <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                        DNA
+                    </a>
+                    <span>{{ sample.display_label }}</span>
+                </template>
                 <template #titleAfter>
                     <button
                         type="button"
@@ -138,6 +162,18 @@ function closeEdit() {
             </select>
         </div>
 
+        <div
+            v-if="loading"
+            class="card flex items-center justify-center gap-2 py-16 text-sm text-sepia-500"
+        >
+            <svg class="h-4 w-4 animate-spin text-sepia-400" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
+                <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            Loading matches…
+        </div>
+
+        <template v-else>
         <div class="mb-4">
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
         </div>
@@ -226,6 +262,7 @@ function closeEdit() {
         <div class="mt-4">
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
         </div>
+        </template>
 
         <PersonEditDialog
             :show="!!editing"
