@@ -90,29 +90,30 @@ class DnaSampleService
 
     public function countMatches(int $sampleId, ?int $commonWithEye = null): int
     {
-        // Inner UNION ALL normalises orientation so the optional EXISTS
-        // can reference m.other_id directly (no CASE-WHEN), and so the
-        // optimiser can use indexes on dna_matches.sample1 / .sample2.
-        $sql = '
+        // Inner UNION ALL normalises orientation so the optional eye filter
+        // becomes a JOIN against the eye's own UNION ALL (indexes used on
+        // both sides) — much faster than an OR-based correlated EXISTS.
+        $bind = [$sampleId, $sampleId];
+        $eyeJoin = '';
+        if ($commonWithEye) {
+            $eyeJoin = '
+                JOIN (
+                  SELECT sample2 AS sid FROM dna_matches WHERE sample1 = ?
+                  UNION ALL
+                  SELECT sample1 AS sid FROM dna_matches WHERE sample2 = ?
+                ) eyem ON eyem.sid = m.other_id
+            ';
+            $bind[] = $commonWithEye;
+            $bind[] = $commonWithEye;
+        }
+
+        $row = DB::selectOne('
             SELECT COUNT(*) AS c FROM (
               SELECT sample2 AS other_id FROM dna_matches WHERE sample1 = ?
               UNION ALL
               SELECT sample1 AS other_id FROM dna_matches WHERE sample2 = ?
             ) m
-        ';
-        $bind = [$sampleId, $sampleId];
-
-        if ($commonWithEye) {
-            $sql .= ' WHERE EXISTS (
-                SELECT 1 FROM dna_matches em
-                WHERE (em.sample1 = ? AND em.sample2 = m.other_id)
-                   OR (em.sample2 = ? AND em.sample1 = m.other_id)
-            )';
-            $bind[] = $commonWithEye;
-            $bind[] = $commonWithEye;
-        }
-
-        $row = DB::selectOne($sql, $bind);
+            ' . $eyeJoin, $bind);
         return (int) ($row?->c ?? 0);
     }
 
@@ -121,13 +122,15 @@ class DnaSampleService
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [$sampleId, $sampleId]; // inner sample1, inner sample2
 
-        $existsClause = '';
+        $eyeJoin = '';
         if ($commonWithEye) {
-            $existsClause = ' WHERE EXISTS (
-                SELECT 1 FROM dna_matches em
-                WHERE (em.sample1 = ? AND em.sample2 = q.other_id)
-                   OR (em.sample2 = ? AND em.sample1 = q.other_id)
-            )';
+            $eyeJoin = '
+                JOIN (
+                  SELECT sample2 AS sid FROM dna_matches WHERE sample1 = ?
+                  UNION ALL
+                  SELECT sample1 AS sid FROM dna_matches WHERE sample2 = ?
+                ) eyem ON eyem.sid = m.other_id
+            ';
             $bind[] = $commonWithEye;
             $bind[] = $commonWithEye;
         }
@@ -135,42 +138,39 @@ class DnaSampleService
         $bind[] = $pageSize;
         $bind[] = $offset;
 
-        // Inner UNION ALL → column-to-column joins to dna_samples / people.
-        // Avoids the CASE-WHEN expression-join that prevented index use.
         $rows = DB::select('
-            SELECT * FROM (
-              SELECT
-                m.other_id,
-                s.dnaUUID AS other_uuid,
-                s.displayName AS other_name,
-                s.managed AS other_managed,
-                s.gender AS other_gender,
-                s.createdDate AS other_createdDate,
-                p.id AS person_id,
-                p.fullName AS person_name,
-                p.minBirth AS person_minBirth,
-                p.maxBirth AS person_maxBirth,
-                p.death AS person_death,
-                p.gender AS person_gender,
-                m.sharedCentimorgans,
-                m.numSharedSegments,
-                m.meiosis,
-                m.matchClusterCode,
-                m.ignored,
-                m.dnapath
-              FROM (
-                SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments,
-                       meiosis, matchClusterCode, ignored, dnapath
-                FROM dna_matches WHERE sample1 = ?
-                UNION ALL
-                SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments,
-                       meiosis, matchClusterCode, ignored, dnapath
-                FROM dna_matches WHERE sample2 = ?
-              ) m
-              JOIN dna_samples s ON s.id = m.other_id
-              LEFT JOIN people p ON p.dnaSampleId = m.other_id
-            ) q' . $existsClause . '
-            ORDER BY q.sharedCentimorgans DESC, q.other_id ASC
+            SELECT
+              m.other_id,
+              s.dnaUUID AS other_uuid,
+              s.displayName AS other_name,
+              s.managed AS other_managed,
+              s.gender AS other_gender,
+              s.createdDate AS other_createdDate,
+              p.id AS person_id,
+              p.fullName AS person_name,
+              p.minBirth AS person_minBirth,
+              p.maxBirth AS person_maxBirth,
+              p.death AS person_death,
+              p.gender AS person_gender,
+              m.sharedCentimorgans,
+              m.numSharedSegments,
+              m.meiosis,
+              m.matchClusterCode,
+              m.ignored,
+              m.dnapath
+            FROM (
+              SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments,
+                     meiosis, matchClusterCode, ignored, dnapath
+              FROM dna_matches WHERE sample1 = ?
+              UNION ALL
+              SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments,
+                     meiosis, matchClusterCode, ignored, dnapath
+              FROM dna_matches WHERE sample2 = ?
+            ) m
+            ' . $eyeJoin . '
+            JOIN dna_samples s ON s.id = m.other_id
+            LEFT JOIN people p ON p.dnaSampleId = m.other_id
+            ORDER BY m.sharedCentimorgans DESC, m.other_id ASC
             LIMIT ? OFFSET ?
         ', $bind);
 
