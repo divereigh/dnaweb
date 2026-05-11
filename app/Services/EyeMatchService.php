@@ -74,25 +74,36 @@ class EyeMatchService
      */
     public function listOptions(?int $excludeId = null, ?int $matchesSampleId = null): array
     {
-        $sql = '
-            SELECT s.id, s.displayName, p.fullName AS person_name
-            FROM dna_samples s
-            LEFT JOIN people p ON p.dnaSampleId = s.id
-            WHERE s.managed IS NOT NULL AND s.disabled = 0
-        ';
-        $bind = [];
-
         if ($matchesSampleId) {
-            $sql .= ' AND EXISTS (
-                SELECT 1 FROM dna_matches dm
-                WHERE (dm.sample1 = s.id AND dm.sample2 = ?)
-                   OR (dm.sample2 = s.id AND dm.sample1 = ?)
-            )';
-            $bind[] = $matchesSampleId;
-            $bind[] = $matchesSampleId;
+            // JOIN against an inner UNION ALL of the sample's match
+            // counterparties — uses indexes on dna_matches.sample1 and
+            // dna_matches.sample2 directly, much faster than the prior
+            // OR-based EXISTS.
+            $sql = '
+                SELECT s.id, s.displayName, p.fullName AS person_name
+                FROM (
+                  SELECT sample2 AS sid FROM dna_matches WHERE sample1 = ?
+                  UNION ALL
+                  SELECT sample1 AS sid FROM dna_matches WHERE sample2 = ?
+                ) m
+                JOIN dna_samples s
+                  ON s.id = m.sid
+                 AND s.managed IS NOT NULL
+                 AND s.disabled = 0
+                LEFT JOIN people p ON p.dnaSampleId = s.id
+                ORDER BY COALESCE(p.fullName, s.displayName), s.id
+            ';
+            $bind = [$matchesSampleId, $matchesSampleId];
+        } else {
+            $sql = '
+                SELECT s.id, s.displayName, p.fullName AS person_name
+                FROM dna_samples s
+                LEFT JOIN people p ON p.dnaSampleId = s.id
+                WHERE s.managed IS NOT NULL AND s.disabled = 0
+                ORDER BY COALESCE(p.fullName, s.displayName), s.id
+            ';
+            $bind = [];
         }
-
-        $sql .= ' ORDER BY COALESCE(p.fullName, s.displayName), s.id';
 
         $rows = DB::select($sql, $bind);
 
@@ -228,15 +239,18 @@ class EyeMatchService
      */
     private function matchesBaseQuery(int $eyeId, string $search, int $hasNotes, int $hideIgnored, int $onlyEyes, string $cluster, bool $withCols): array
     {
-        // Inner subquery normalises the bidirectional CASE pattern.
+        // Inner UNION ALL normalises orientation (one row per other_id) so
+        // joins to dna_samples / people / dna_notes are simple column-to-column
+        // and use the existing indexes — avoids the per-row full-scan that
+        // the previous CASE-WHEN expression-join triggered.
         $cols = $withCols
             ? '
-              CASE WHEN m.sample1 = ? THEN s2.id ELSE s1.id END AS other_id,
-              CASE WHEN m.sample1 = ? THEN s2.dnaUUID ELSE s1.dnaUUID END AS other_uuid,
-              CASE WHEN m.sample1 = ? THEN s2.displayName ELSE s1.displayName END AS other_name,
-              CASE WHEN m.sample1 = ? THEN s2.managed ELSE s1.managed END AS other_managed,
-              CASE WHEN m.sample1 = ? THEN s2.gender ELSE s1.gender END AS other_gender,
-              CASE WHEN m.sample1 = ? THEN s2.createdDate ELSE s1.createdDate END AS other_createdDate,
+              m.other_id,
+              s.dnaUUID AS other_uuid,
+              s.displayName AS other_name,
+              s.managed AS other_managed,
+              s.gender AS other_gender,
+              s.createdDate AS other_createdDate,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
@@ -252,44 +266,37 @@ class EyeMatchService
               n.loaded AS note_loaded
             '
             : '
-              CASE WHEN m.sample1 = ? THEN s2.displayName ELSE s1.displayName END AS other_name,
-              CASE WHEN m.sample1 = ? THEN s2.managed ELSE s1.managed END AS other_managed,
+              s.displayName AS other_name,
+              s.managed AS other_managed,
               m.matchClusterCode,
               m.ignored,
               n.notes
             ';
 
-        // Number of `?` placeholders in $cols
-        $colsParams = $withCols ? 6 : 2;
+        $peopleJoin = $withCols
+            ? 'LEFT JOIN people p ON p.dnaSampleId = m.other_id'
+            : '';
 
         $sql = "
             SELECT * FROM (
               SELECT $cols
-              FROM dna_matches m
-              JOIN dna_samples s1 ON s1.id = m.sample1
-              JOIN dna_samples s2 ON s2.id = m.sample2
-              " . ($withCols
-                ? '
-              LEFT JOIN people p
-                ON p.dnaSampleId = CASE WHEN m.sample1 = ? THEN s2.id ELSE s1.id END
-              '
-                : '') . "
-              LEFT JOIN dna_notes n
-                ON n.sample = CASE WHEN m.sample1 = ? THEN s2.id ELSE s1.id END
-               AND n.mgmtsample = ?
-              WHERE (m.sample1 = ? OR m.sample2 = ?)
+              FROM (
+                SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments,
+                       meiosis, matchClusterCode, ignored
+                FROM dna_matches WHERE sample1 = ?
+                UNION ALL
+                SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments,
+                       meiosis, matchClusterCode, ignored
+                FROM dna_matches WHERE sample2 = ?
+              ) m
+              JOIN dna_samples s ON s.id = m.other_id
+              $peopleJoin
+              LEFT JOIN dna_notes n ON n.sample = m.other_id AND n.mgmtsample = ?
             ) q
             WHERE 1=1
         ";
 
-        $bind = array_fill(0, $colsParams, $eyeId);
-        if ($withCols) {
-            $bind[] = $eyeId; // for the people CASE
-        }
-        $bind[] = $eyeId; // dna_notes CASE
-        $bind[] = $eyeId; // dna_notes mgmtsample
-        $bind[] = $eyeId; // WHERE sample1
-        $bind[] = $eyeId; // WHERE sample2
+        $bind = [$eyeId, $eyeId, $eyeId]; // inner sample1, inner sample2, dna_notes mgmtsample
 
         if ($search !== '') {
             $sql .= ' AND q.other_name LIKE ?';
