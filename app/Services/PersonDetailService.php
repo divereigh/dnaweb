@@ -188,32 +188,33 @@ class PersonDetailService
         if (!$exists) {
             return null;
         }
+        // dna_matches2 is directional. "Managed eyes that match this sample"
+        // = rows where sample1 is a managed eye and sample2 = this sample.
+        // The cM / cluster / kinship are from the eye's perspective, which
+        // is the authoritative side (the one whose Ancestry session loaded
+        // the match).
         $rows = DB::select('
             SELECT
-              m.other_id AS eye_id,
+              m.sample1 AS eye_id,
               ds_eye.displayName AS eye_name,
               p_eye.id AS person_id,
               p_eye.fullName AS person_name,
               m.sharedCentimorgans,
               m.numSharedSegments,
               m.matchClusterCode,
+              m.predictedKinships,
               m.ignored,
               dn.notes
-            FROM (
-              SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments, matchClusterCode, ignored
-              FROM dna_matches WHERE sample1 = ?
-              UNION ALL
-              SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments, matchClusterCode, ignored
-              FROM dna_matches WHERE sample2 = ?
-            ) m
+            FROM dna_matches2 m
             JOIN dna_samples ds_eye
-              ON ds_eye.id = m.other_id
+              ON ds_eye.id = m.sample1
              AND ds_eye.managed IS NOT NULL
              AND ds_eye.managed > 0
             LEFT JOIN people p_eye ON p_eye.dnaSampleId = ds_eye.id
             LEFT JOIN dna_notes dn ON dn.sample = ? AND dn.mgmtsample = ds_eye.id
+            WHERE m.sample2 = ?
             ORDER BY m.sharedCentimorgans DESC, ds_eye.displayName ASC
-        ', [$dnaSampleId, $dnaSampleId, $dnaSampleId]);
+        ', [$dnaSampleId, $dnaSampleId]);
 
         return array_map(function ($r) {
             $row = (array) $r;

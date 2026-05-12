@@ -11,20 +11,17 @@ class CommonMatchService
 
     public function count(int $eyeId, int $otherId): int
     {
+        // dna_matches2 is directional. People in common with both eye and
+        // other are exactly the intersection of {eye's sample2's} and
+        // {other's sample2's}. Self-join on sample2.
         $row = DB::selectOne('
             SELECT COUNT(*) AS c
-            FROM (
-              SELECT sample2 AS other_id FROM dna_matches WHERE sample1 = ?
-              UNION ALL
-              SELECT sample1 AS other_id FROM dna_matches WHERE sample2 = ?
-            ) ex
-            JOIN (
-              SELECT sample2 AS other_id FROM dna_matches WHERE sample1 = ?
-              UNION ALL
-              SELECT sample1 AS other_id FROM dna_matches WHERE sample2 = ?
-            ) mx ON ex.other_id = mx.other_id
-            WHERE ex.other_id <> ? AND ex.other_id <> ?
-        ', [$eyeId, $eyeId, $otherId, $otherId, $eyeId, $otherId]);
+            FROM dna_matches2 ex
+            JOIN dna_matches2 mx ON mx.sample1 = ? AND mx.sample2 = ex.sample2
+            WHERE ex.sample1 = ?
+              AND ex.sample2 <> ?
+              AND ex.sample2 <> ?
+        ', [$otherId, $eyeId, $eyeId, $otherId]);
 
         return (int) ($row?->c ?? 0);
     }
@@ -33,7 +30,7 @@ class CommonMatchService
     {
         $rows = DB::select('
             SELECT
-              ex.other_id,
+              ex.sample2 AS other_id,
               sx.displayName,
               sx.dnaUUID,
               sx.gender,
@@ -42,34 +39,25 @@ class CommonMatchService
               p.id AS person_id,
               p.fullName AS person_name,
               ex.sharedCentimorgans AS cm_to_eye,
-              ex.numSharedSegments AS segs_to_eye,
-              ex.matchClusterCode AS matchClusterCode,
+              ex.numSharedSegments  AS segs_to_eye,
+              ex.matchClusterCode   AS matchClusterCode,
               mx.sharedCentimorgans AS cm_to_match,
-              mx.numSharedSegments AS segs_to_match,
+              mx.numSharedSegments  AS segs_to_match,
               n.notes
-            FROM (
-              SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments, matchClusterCode
-              FROM dna_matches WHERE sample1 = ?
-              UNION ALL
-              SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments, matchClusterCode
-              FROM dna_matches WHERE sample2 = ?
-            ) ex
-            JOIN (
-              SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments
-              FROM dna_matches WHERE sample1 = ?
-              UNION ALL
-              SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments
-              FROM dna_matches WHERE sample2 = ?
-            ) mx ON ex.other_id = mx.other_id
-            JOIN dna_samples sx ON sx.id = ex.other_id
+            FROM dna_matches2 ex
+            JOIN dna_matches2 mx
+              ON mx.sample1 = ? AND mx.sample2 = ex.sample2
+            JOIN dna_samples sx ON sx.id = ex.sample2
             LEFT JOIN people p ON p.dnaSampleId = sx.id
             LEFT JOIN dna_notes n ON n.sample = sx.id AND n.mgmtsample = ?
-            WHERE ex.other_id <> ? AND ex.other_id <> ?
+            WHERE ex.sample1 = ?
+              AND ex.sample2 <> ?
+              AND ex.sample2 <> ?
             ORDER BY mx.sharedCentimorgans DESC,
                      ex.sharedCentimorgans DESC,
                      sx.displayName
             LIMIT ? OFFSET ?
-        ', [$eyeId, $eyeId, $otherId, $otherId, $eyeId, $eyeId, $otherId, $limit, $offset]);
+        ', [$otherId, $eyeId, $eyeId, $eyeId, $otherId, $limit, $offset]);
 
         return array_map(function ($r) {
             $row = (array) $r;

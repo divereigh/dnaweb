@@ -90,57 +90,48 @@ class DnaSampleService
 
     public function countMatches(int $sampleId, ?int $commonWithEye = null): int
     {
-        // Inner UNION ALL normalises orientation so the optional eye filter
-        // becomes a JOIN against the eye's own UNION ALL (indexes used on
-        // both sides) — much faster than an OR-based correlated EXISTS.
-        $bind = [$sampleId, $sampleId];
+        // dna_matches2 is directional: rows where sample1 = X are exactly
+        // X's view of its matches. Eye-filter becomes a JOIN to the eye's
+        // own rows by sample2 (the other party they share).
+        $bind = [];
         $eyeJoin = '';
         if ($commonWithEye) {
             $eyeJoin = '
-                JOIN (
-                  SELECT sample2 AS sid FROM dna_matches WHERE sample1 = ?
-                  UNION ALL
-                  SELECT sample1 AS sid FROM dna_matches WHERE sample2 = ?
-                ) eyem ON eyem.sid = m.other_id
+                JOIN dna_matches2 eyem ON eyem.sample1 = ? AND eyem.sample2 = m.sample2
             ';
             $bind[] = $commonWithEye;
-            $bind[] = $commonWithEye;
         }
+        $bind[] = $sampleId;
 
         $row = DB::selectOne('
-            SELECT COUNT(*) AS c FROM (
-              SELECT sample2 AS other_id FROM dna_matches WHERE sample1 = ?
-              UNION ALL
-              SELECT sample1 AS other_id FROM dna_matches WHERE sample2 = ?
-            ) m
-            ' . $eyeJoin, $bind);
+            SELECT COUNT(*) AS c
+            FROM dna_matches2 m
+            ' . $eyeJoin . '
+            WHERE m.sample1 = ?
+        ', $bind);
         return (int) ($row?->c ?? 0);
     }
 
     public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null): array
     {
         $offset = max($page - 1, 0) * $pageSize;
-        $bind = [$sampleId, $sampleId]; // inner sample1, inner sample2
+        $bind = [];
 
         $eyeJoin = '';
         if ($commonWithEye) {
             $eyeJoin = '
-                JOIN (
-                  SELECT sample2 AS sid FROM dna_matches WHERE sample1 = ?
-                  UNION ALL
-                  SELECT sample1 AS sid FROM dna_matches WHERE sample2 = ?
-                ) eyem ON eyem.sid = m.other_id
+                JOIN dna_matches2 eyem ON eyem.sample1 = ? AND eyem.sample2 = m.sample2
             ';
-            $bind[] = $commonWithEye;
             $bind[] = $commonWithEye;
         }
 
+        $bind[] = $sampleId;        // m.sample1 = ?
         $bind[] = $pageSize;
         $bind[] = $offset;
 
         $rows = DB::select('
             SELECT
-              m.other_id,
+              m.sample2 AS other_id,
               s.dnaUUID AS other_uuid,
               s.displayName AS other_name,
               s.managed AS other_managed,
@@ -156,21 +147,15 @@ class DnaSampleService
               m.numSharedSegments,
               m.meiosis,
               m.matchClusterCode,
+              m.predictedKinships,
               m.ignored,
               m.dnapath
-            FROM (
-              SELECT sample2 AS other_id, sharedCentimorgans, numSharedSegments,
-                     meiosis, matchClusterCode, ignored, dnapath
-              FROM dna_matches WHERE sample1 = ?
-              UNION ALL
-              SELECT sample1 AS other_id, sharedCentimorgans, numSharedSegments,
-                     meiosis, matchClusterCode, ignored, dnapath
-              FROM dna_matches WHERE sample2 = ?
-            ) m
+            FROM dna_matches2 m
             ' . $eyeJoin . '
-            JOIN dna_samples s ON s.id = m.other_id
-            LEFT JOIN people p ON p.dnaSampleId = m.other_id
-            ORDER BY m.sharedCentimorgans DESC, m.other_id ASC
+            JOIN dna_samples s ON s.id = m.sample2
+            LEFT JOIN people p ON p.dnaSampleId = m.sample2
+            WHERE m.sample1 = ?
+            ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
             LIMIT ? OFFSET ?
         ', $bind);
 
