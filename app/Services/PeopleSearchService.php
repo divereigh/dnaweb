@@ -7,6 +7,21 @@ use Illuminate\Support\Facades\DB;
 
 class PeopleSearchService
 {
+    /** @var array<int>|null cached for the lifetime of the request */
+    private ?array $eyeIds = null;
+
+    /** @return array<int> ids of all currently-managed eyes */
+    private function managedEyeIds(): array
+    {
+        if ($this->eyeIds === null) {
+            $this->eyeIds = array_map(
+                fn ($r) => (int) $r->id,
+                DB::select('SELECT id FROM dna_samples WHERE managed IS NOT NULL AND managed > 0 AND disabled = 0')
+            );
+        }
+        return $this->eyeIds;
+    }
+
     public function count(string $q, int $linked, int $hasMatches): int
     {
         [$sql, $bind] = $this->baseQuery($q, $linked, $hasMatches, count: true);
@@ -45,30 +60,22 @@ class PeopleSearchService
         $sampleIds = array_values(array_filter(array_map(fn ($r) => $r['dnaSampleId'] ?? null, $rows)));
         if ($sampleIds) {
             $placeholders = implode(',', array_fill(0, count($sampleIds), '?'));
+            // dna_matches2 is directional. Managed-eye matches are stored
+            // as rows where sample1 = the eye and sample2 = the matched
+            // sample, so this collapses to a single SELECT.
             $stats = DB::select("
                 SELECT
-                  pm.sample_id,
-                  COUNT(DISTINCT pm.eye_id) AS eye_count,
-                  MAX(pm.sharedCentimorgans) AS max_cm
-                FROM (
-                  SELECT dm.sample2 AS sample_id, dm.sample1 AS eye_id, dm.sharedCentimorgans
-                  FROM dna_matches dm
-                  JOIN dna_samples eye
-                    ON eye.id = dm.sample1
-                   AND eye.managed IS NOT NULL
-                   AND eye.managed > 0
-                  WHERE dm.sample2 IN ({$placeholders})
-                  UNION ALL
-                  SELECT dm.sample1 AS sample_id, dm.sample2 AS eye_id, dm.sharedCentimorgans
-                  FROM dna_matches dm
-                  JOIN dna_samples eye
-                    ON eye.id = dm.sample2
-                   AND eye.managed IS NOT NULL
-                   AND eye.managed > 0
-                  WHERE dm.sample1 IN ({$placeholders})
-                ) pm
-                GROUP BY pm.sample_id
-            ", [...$sampleIds, ...$sampleIds]);
+                  dm.sample2 AS sample_id,
+                  COUNT(DISTINCT dm.sample1) AS eye_count,
+                  MAX(dm.sharedCentimorgans) AS max_cm
+                FROM dna_matches2 dm
+                JOIN dna_samples eye
+                  ON eye.id = dm.sample1
+                 AND eye.managed IS NOT NULL
+                 AND eye.managed > 0
+                WHERE dm.sample2 IN ({$placeholders})
+                GROUP BY dm.sample2
+            ", $sampleIds);
 
             $by = [];
             foreach ($stats as $s) {
@@ -129,26 +136,24 @@ class PeopleSearchService
         ";
 
         if ($hasMatches) {
-            $sql .= '
-                INNER JOIN (
-                  SELECT DISTINCT sample_id
-                  FROM (
-                    SELECT dm.sample2 AS sample_id
-                    FROM dna_matches dm
-                    JOIN dna_samples eye
-                      ON eye.id = dm.sample1
-                     AND eye.managed IS NOT NULL
-                     AND eye.managed > 0
-                    UNION
-                    SELECT dm.sample1 AS sample_id
-                    FROM dna_matches dm
-                    JOIN dna_samples eye
-                      ON eye.id = dm.sample2
-                     AND eye.managed IS NOT NULL
-                     AND eye.managed > 0
-                  ) matched_samples
-                ) hm ON hm.sample_id = p.dnaSampleId
-            ';
+            // EXISTS against dna_matches2 with an inline IN-list of
+            // managed-eye ids. We pre-fetch the eye ids in PHP because
+            // putting them as a subquery triggers semi-join materialisation
+            // (the optimiser scans 3M rows before the LIKE can narrow the
+            // people set).
+            $eyeIds = $this->managedEyeIds();
+            $where[] = 'p.dnaSampleId IS NOT NULL';
+            if (! $eyeIds) {
+                $where[] = '1=0'; // no managed eyes → no matches
+            } else {
+                $eyePlaceholders = implode(',', array_fill(0, count($eyeIds), '?'));
+                $where[] = "EXISTS (
+                    SELECT 1 FROM dna_matches2 dm
+                    WHERE dm.sample2 = p.dnaSampleId
+                      AND dm.sample1 IN ($eyePlaceholders)
+                )";
+                array_push($bind, ...$eyeIds);
+            }
         }
 
         $sql .= ' WHERE ' . implode(' AND ', $where);

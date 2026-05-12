@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class DnaMatch extends Model
 {
-    protected $table = 'dna_matches';
+    protected $table = 'dna_matches2';
     public $timestamps = false;
     protected $primaryKey = null;
     public $incrementing = false;
