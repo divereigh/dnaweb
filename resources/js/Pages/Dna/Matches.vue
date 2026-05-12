@@ -5,6 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import Pagination from '@/Components/App/Pagination.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
+import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 
 const props = defineProps({
@@ -124,6 +125,13 @@ function closeEdit() {
                     </a>
                     <span>{{ total.toLocaleString() }} {{ total === 1 ? 'match' : 'matches' }}</span>
                 </template>
+                <template #titleBefore>
+                    <SampleAvatar
+                        :photo-url="sample.photoUrl || ''"
+                        :alt="sample.display_label"
+                        size="md"
+                    />
+                </template>
                 <template #titleAfter>
                     <button
                         type="button"
@@ -195,13 +203,18 @@ function closeEdit() {
                         :class="m.ignored ? 'opacity-50' : ''"
                     >
                         <td>
-                            <Link
-                                :href="route('dna.matches', m.other_id)"
-                                class="ref-link"
-                                :class="m.ignored ? 'line-through decoration-sepia-400/60' : ''"
-                            >
-                                {{ m.display_label }}
-                            </Link>
+                            <div class="flex items-center gap-2">
+                                <SampleAvatar
+                                    :photo-url="m.other_photoUrl || ''"
+                                    :alt="m.display_label"
+                                />
+                                <Link
+                                    :href="route('dna.matches', m.other_id)"
+                                    class="ref-link"
+                                    :class="m.ignored ? 'line-through decoration-sepia-400/60' : ''"
+                                >
+                                    {{ m.display_label }}
+                                </Link>
                             <button
                                 type="button"
                                 class="ms-1 inline-flex items-center rounded p-0.5 align-middle text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
@@ -224,6 +237,7 @@ function closeEdit() {
                                 class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
                                 >eye</span
                             >
+                            </div>
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td>

@@ -68,6 +68,7 @@ class DnaSampleService
         $row = DB::selectOne('
             SELECT
               s.id, s.dnaUUID, s.displayName, s.gender, s.createdDate, s.managed, s.disabled,
+              s.photoUrl,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
@@ -137,6 +138,7 @@ class DnaSampleService
               s.managed AS other_managed,
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
+              s.photoUrl AS other_photoUrl,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
