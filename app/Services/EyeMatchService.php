@@ -26,11 +26,13 @@ class EyeMatchService
               s.id,
               s.dnaUUID,
               s.displayName,
+              s.photoUrl,
               s.gender,
               s.createdDate,
               s.managed,
               p.id AS person_id,
-              p.fullName AS person_name
+              p.fullName AS person_name,
+              p.gender AS person_gender
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
             WHERE s.managed IS NOT NULL
@@ -124,6 +126,7 @@ class EyeMatchService
               s.id,
               s.dnaUUID,
               s.displayName,
+              s.photoUrl,
               s.managed,
               s.gender,
               s.createdDate,
@@ -146,6 +149,7 @@ class EyeMatchService
         $row = (array) $rows[0];
         $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
         $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
+        $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
         return $row;
     }
 
@@ -195,12 +199,18 @@ class EyeMatchService
             SELECT
               eye.id AS eye_id,
               eye.displayName AS eye_name,
+              eye.photoUrl AS eye_photoUrl,
+              eye.gender AS eye_gender,
               peye.fullName AS eye_person_name,
+              peye.gender AS eye_person_gender,
               other.id AS other_id,
               other.displayName AS other_name,
               other.dnaUUID AS other_uuid,
+              other.photoUrl AS other_photoUrl,
+              other.gender AS other_gender,
               pother.id AS other_person_id,
               pother.fullName AS other_person_name,
+              pother.gender AS other_person_gender,
               m.sharedCentimorgans,
               m.numSharedSegments,
               m.meiosis,
@@ -226,6 +236,8 @@ class EyeMatchService
         $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
         $row['eye_display_label'] = Format::displayLabel($row['eye_person_name'] ?? null, $row['eye_name'] ?? null);
         $row['other_display_label'] = Format::displayLabel($row['other_person_name'] ?? null, $row['other_name'] ?? null);
+        $row['eye_effective_gender'] = Format::effectiveGender($row['eye_person_gender'] ?? null, $row['eye_gender'] ?? null);
+        $row['other_effective_gender'] = Format::effectiveGender($row['other_person_gender'] ?? null, $row['other_gender'] ?? null);
         return $row;
     }
 
@@ -247,6 +259,7 @@ class EyeMatchService
               s.managed AS other_managed,
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
+              s.photoUrl AS other_photoUrl,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
@@ -316,6 +329,7 @@ class EyeMatchService
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
             $row['match_count'] = (int) ($row['match_count'] ?? 0);
+            $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
             return $row;
         }, $rows);
     }
@@ -327,6 +341,7 @@ class EyeMatchService
             $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
+            $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
         }
         return $rows;
     }

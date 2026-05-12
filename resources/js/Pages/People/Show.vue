@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
+import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 
 defineProps({
     person: { type: Object, required: true },
@@ -263,13 +264,20 @@ defineProps({
                         :class="m.ignored ? 'opacity-50' : ''"
                     >
                         <td>
-                            <Link
-                                :href="route('eyes.matches', m.eye_id)"
-                                class="ref-link"
-                                :class="m.ignored ? 'line-through decoration-sepia-400/60' : ''"
-                            >
-                                {{ m.display_label }}
-                            </Link>
+                            <div class="flex items-center gap-2">
+                                <SampleAvatar
+                                    :photo-url="m.eye_photoUrl || ''"
+                                    :alt="m.display_label"
+                                    :gender="m.effective_gender || ''"
+                                />
+                                <Link
+                                    :href="route('eyes.matches', m.eye_id)"
+                                    class="ref-link"
+                                    :class="m.ignored ? 'line-through decoration-sepia-400/60' : ''"
+                                >
+                                    {{ m.display_label }}
+                                </Link>
+                            </div>
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td class="num">{{ m.numSharedSegments }}</td>

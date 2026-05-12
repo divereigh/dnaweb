@@ -5,6 +5,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import Pagination from '@/Components/App/Pagination.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
+import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 
 const props = defineProps({
@@ -142,6 +143,14 @@ function ancestryCompareUrl(otherUuid) {
                 :eyebrow="`Eye #${eye.id}`"
                 :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
+                <template #titleBefore>
+                    <SampleAvatar
+                        :photo-url="eye.photoUrl || ''"
+                        :alt="eye.display_label"
+                        :gender="eye.effective_gender || ''"
+                        size="md"
+                    />
+                </template>
                 <template #titleAfter>
                     <button
                         type="button"
@@ -260,6 +269,12 @@ function ancestryCompareUrl(otherUuid) {
                         :class="m.ignored ? 'opacity-50' : ''"
                     >
                         <td>
+                            <div class="flex items-center gap-2">
+                                <SampleAvatar
+                                    :photo-url="m.other_photoUrl || ''"
+                                    :alt="m.display_label"
+                                    :gender="m.effective_gender || ''"
+                                />
                             <Link
                                 v-if="m.person_id"
                                 :href="route('people.show', m.person_id)"
@@ -298,6 +313,7 @@ function ancestryCompareUrl(otherUuid) {
                             >
                                 eye
                             </span>
+                            </div>
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td class="num">{{ m.numSharedSegments }}</td>

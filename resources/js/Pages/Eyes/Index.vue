@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
+import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 
 defineProps({
     eyes: { type: Array, required: true },
@@ -36,10 +37,17 @@ defineProps({
                 <tbody>
                     <tr v-for="e in eyes" :key="e.id">
                         <td>
-                            <Link :href="route('eyes.matches', e.id)" class="ref-link">
-                                {{ e.displayName || `Eye #${e.id}` }}
-                            </Link>
-                            <span class="ms-2 font-mono text-[11px] text-sepia-400">#{{ e.id }}</span>
+                            <div class="flex items-center gap-2">
+                                <SampleAvatar
+                                    :photo-url="e.photoUrl || ''"
+                                    :alt="e.displayName || ''"
+                                    :gender="e.effective_gender || ''"
+                                />
+                                <Link :href="route('eyes.matches', e.id)" class="ref-link">
+                                    {{ e.displayName || `Eye #${e.id}` }}
+                                </Link>
+                                <span class="font-mono text-[11px] text-sepia-400">#{{ e.id }}</span>
+                            </div>
                         </td>
                         <td>
                             <Link

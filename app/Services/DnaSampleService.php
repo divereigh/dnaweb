@@ -18,19 +18,25 @@ class DnaSampleService
               x.id,
               x.dnaUUID,
               x.displayName,
+              x.photoUrl,
+              x.gender,
               x.createdDate,
               x.managed,
               x.person_id,
-              x.person_name
+              x.person_name,
+              x.person_gender
             FROM (
               SELECT
                 s.id,
                 s.dnaUUID,
                 s.displayName,
+                s.photoUrl,
+                s.gender,
                 s.createdDate,
                 s.managed,
                 p.id AS person_id,
-                p.fullName AS person_name
+                p.fullName AS person_name,
+                p.gender AS person_gender
               FROM dna_samples s
               LEFT JOIN people p ON p.dnaSampleId = s.id
               WHERE s.disabled = 0
@@ -42,10 +48,13 @@ class DnaSampleService
                 s.id,
                 s.dnaUUID,
                 s.displayName,
+                s.photoUrl,
+                s.gender,
                 s.createdDate,
                 s.managed,
                 p.id AS person_id,
-                p.fullName AS person_name
+                p.fullName AS person_name,
+                p.gender AS person_gender
               FROM people p
               JOIN dna_samples s ON s.id = p.dnaSampleId
               WHERE s.disabled = 0
@@ -59,6 +68,7 @@ class DnaSampleService
             $row = (array) $r;
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
+            $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
             return $row;
         }, $rows);
     }
@@ -86,6 +96,7 @@ class DnaSampleService
         $r = (array) $row;
         $r['display_label'] = Format::displayLabel($r['person_name'] ?? null, $r['displayName'] ?? null);
         $r['created_fmt'] = Format::createdDate($r['createdDate'] ?? null);
+        $r['effective_gender'] = Format::effectiveGender($r['person_gender'] ?? null, $r['gender'] ?? null);
         return $r;
     }
 
@@ -167,6 +178,7 @@ class DnaSampleService
             $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
+            $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
             return $row;
         }, $rows);
     }

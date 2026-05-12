@@ -129,6 +129,7 @@ function closeEdit() {
                     <SampleAvatar
                         :photo-url="sample.photoUrl || ''"
                         :alt="sample.display_label"
+                        :gender="sample.effective_gender || ''"
                         size="md"
                     />
                 </template>
@@ -207,6 +208,7 @@ function closeEdit() {
                                 <SampleAvatar
                                     :photo-url="m.other_photoUrl || ''"
                                     :alt="m.display_label"
+                                    :gender="m.effective_gender || ''"
                                 />
                                 <Link
                                     :href="route('dna.matches', m.other_id)"

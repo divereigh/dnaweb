@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
+import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 
 const props = defineProps({
     samples: { type: Array, required: true },
@@ -95,12 +96,19 @@ function go(page) {
                 <tbody>
                     <tr v-for="s in samples" :key="s.id">
                         <td>
+                            <div class="flex items-center gap-2">
+                                <SampleAvatar
+                                    :photo-url="s.photoUrl || ''"
+                                    :alt="s.displayName || ''"
+                                    :gender="s.effective_gender || ''"
+                                />
                             <Link :href="route('dna.matches', s.id)" class="ref-link">
                                 {{ s.displayName || `Sample #${s.id}` }}
                             </Link>
-                            <span class="ms-2 font-mono text-[11px] text-sepia-400"
+                            <span class="font-mono text-[11px] text-sepia-400"
                                 >#{{ s.id }}</span
                             >
+                            </div>
                         </td>
                         <td>
                             <Link

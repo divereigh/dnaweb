@@ -33,11 +33,13 @@ class CommonMatchService
               ex.sample2 AS other_id,
               sx.displayName,
               sx.dnaUUID,
+              sx.photoUrl,
               sx.gender,
               sx.createdDate,
               sx.managed,
               p.id AS person_id,
               p.fullName AS person_name,
+              p.gender AS person_gender,
               ex.sharedCentimorgans AS cm_to_eye,
               ex.numSharedSegments  AS segs_to_eye,
               ex.matchClusterCode   AS matchClusterCode,
@@ -64,6 +66,7 @@ class CommonMatchService
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
             $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
+            $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
             return $row;
         }, $rows);
     }

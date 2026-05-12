@@ -52,4 +52,23 @@ class Format
         }
         return '(UNKNOWN)';
     }
+
+    /**
+     * Returns the gender we should display for a sample, with the linked
+     * people row winning over dna_samples when both are present.
+     * Output is normalised to 'M', 'F', or '' (unknown / non-binary).
+     */
+    public static function effectiveGender(?string $personGender, ?string $sampleGender): string
+    {
+        foreach ([$personGender, $sampleGender] as $g) {
+            if ($g === null) {
+                continue;
+            }
+            $g = strtoupper(trim($g));
+            if ($g === 'M' || $g === 'F') {
+                return $g;
+            }
+        }
+        return '';
+    }
 }
