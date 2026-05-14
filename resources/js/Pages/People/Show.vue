@@ -284,7 +284,7 @@ defineProps({
                         <td>
                             <ClusterPill
                                 :code="m.matchClusterCode || ''"
-                                :cls="m.cluster_class || ''"
+                                :paternal-cluster="m.eye_paternalCluster || ''"
                             />
                         </td>
                         <td class="max-w-xs truncate text-sepia-600" :title="m.notes">

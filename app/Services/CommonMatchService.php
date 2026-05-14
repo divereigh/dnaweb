@@ -64,7 +64,6 @@ class CommonMatchService
         return array_map(function ($r) {
             $row = (array) $r;
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
-            $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
             return $row;

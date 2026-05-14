@@ -109,7 +109,7 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                         <td>
                             <ClusterPill
                                 :code="m.matchClusterCode || ''"
-                                :cls="m.cluster_class || ''"
+                                :paternal-cluster="eye.paternalCluster || ''"
                             />
                         </td>
                         <td class="ident">{{ m.created_fmt }}</td>

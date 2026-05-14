@@ -199,6 +199,7 @@ class PersonDetailService
               ds_eye.displayName AS eye_name,
               ds_eye.photoUrl AS eye_photoUrl,
               ds_eye.gender AS eye_gender,
+              ds_eye.paternalCluster AS eye_paternalCluster,
               p_eye.id AS person_id,
               p_eye.fullName AS person_name,
               p_eye.gender AS person_gender,
@@ -221,7 +222,6 @@ class PersonDetailService
 
         return array_map(function ($r) {
             $row = (array) $r;
-            $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['eye_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['eye_gender'] ?? null);

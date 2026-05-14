@@ -245,7 +245,7 @@ function closeEdit() {
                         <td>
                             <ClusterPill
                                 :code="m.matchClusterCode || ''"
-                                :cls="m.cluster_class || ''"
+                                :paternal-cluster="sample.paternalCluster || ''"
                             />
                         </td>
                         <td class="ident">{{ m.created_fmt }}</td>

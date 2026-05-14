@@ -79,6 +79,7 @@ class DnaSampleService
             SELECT
               s.id, s.dnaUUID, s.displayName, s.gender, s.createdDate, s.managed, s.disabled,
               s.photoUrl,
+              s.paternalCluster,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
@@ -175,7 +176,6 @@ class DnaSampleService
         return array_map(function ($r) {
             $row = (array) $r;
             $row['created_fmt'] = Format::createdDate($row['other_createdDate'] ?? null);
-            $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);

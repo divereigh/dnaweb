@@ -16,18 +16,6 @@ class Format
         }
     }
 
-    public static function clusterClass(?string $code): string
-    {
-        if (!$code) {
-            return '';
-        }
-        $total = 0;
-        for ($i = 0, $n = strlen($code); $i < $n; $i++) {
-            $total += ord($code[$i]);
-        }
-        return 'cluster-' . (($total % 10) + 1);
-    }
-
     public static function years(?int $minBirth, ?int $maxBirth, ?int $death): string
     {
         if (!$minBirth && !$maxBirth && !$death) {

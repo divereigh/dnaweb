@@ -129,6 +129,7 @@ class EyeMatchService
               s.photoUrl,
               s.managed,
               s.gender,
+              s.paternalCluster,
               s.createdDate,
               p.id AS person_id,
               p.fullName AS person_name,
@@ -233,7 +234,6 @@ class EyeMatchService
         }
 
         $row = (array) $rows[0];
-        $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
         $row['eye_display_label'] = Format::displayLabel($row['eye_person_name'] ?? null, $row['eye_name'] ?? null);
         $row['other_display_label'] = Format::displayLabel($row['other_person_name'] ?? null, $row['other_name'] ?? null);
         $row['eye_effective_gender'] = Format::effectiveGender($row['eye_person_gender'] ?? null, $row['eye_gender'] ?? null);
@@ -338,7 +338,6 @@ class EyeMatchService
     {
         foreach ($rows as &$row) {
             $row['created_fmt'] = Format::createdDate($row['other_createdDate'] ?? null);
-            $row['cluster_class'] = Format::clusterClass($row['matchClusterCode'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
