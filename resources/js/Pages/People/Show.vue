@@ -34,6 +34,9 @@ defineProps({
                 "
             >
                 <template #actions>
+                    <Link :href="route('people.tree', person.id)" class="btn-ghost">
+                        Ancestor tree →
+                    </Link>
                     <Link :href="route('people.index')" class="btn-ghost">← People</Link>
                 </template>
             </PageHeader>
