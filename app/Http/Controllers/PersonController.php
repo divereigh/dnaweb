@@ -7,6 +7,7 @@ use App\Models\DnaSample;
 use App\Models\Person;
 use App\Services\PersonDetailService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class PersonController extends Controller
@@ -21,6 +22,12 @@ class PersonController extends Controller
         $data = $request->validated();
         $years = $request->birthYears();
 
+        try {
+            $link = $request->ancestryLink();
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['ancestry_url' => $e->getMessage()])->withInput();
+        }
+
         $person = Person::query()->firstOrNew(['dnaSampleId' => $sampleId]);
         $person->fullName = $data['fullName'];
         $person->minBirth = $years['minBirth'];
@@ -28,6 +35,14 @@ class PersonController extends Controller
         $person->death    = $data['death'] ?? null;
         $person->gender   = $data['gender'] ?? null;
         $person->save();
+
+        if ($link) {
+            DB::statement('
+                INSERT INTO gedcom_people (atreeid, ancestryid, peopleid)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE peopleid = VALUES(peopleid)
+            ', [$link['atreeid'], $link['ancestryid'], $person->id]);
+        }
 
         return back();
     }

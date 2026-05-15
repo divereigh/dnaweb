@@ -30,6 +30,7 @@ const initial = computed(() => {
         birth,
         death: p.death || null,
         gender: p.gender || '',
+        ancestry_url: '',
     };
 });
 
@@ -55,6 +56,7 @@ function submit() {
         birth: data.birth || null,
         death: data.death === '' ? null : data.death,
         gender: data.gender || null,
+        ancestry_url: data.ancestry_url?.trim() || null,
     })).put(route('dna.person.upsert', props.sampleId), {
         preserveScroll: true,
         preserveState: true,
@@ -144,6 +146,25 @@ function close() {
                     </select>
                     <p v-if="form.errors.gender" class="mt-1 text-xs text-red-600">
                         {{ form.errors.gender }}
+                    </p>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-xs font-medium uppercase tracking-eyebrow text-sepia-500">
+                        Ancestry tree link
+                    </label>
+                    <input
+                        v-model="form.ancestry_url"
+                        type="text"
+                        maxlength="500"
+                        placeholder="Paste an Ancestry family-tree URL or {person}:1030:{tree}"
+                        class="w-full rounded-md border-paper-300 font-mono text-xs focus:border-wine-500 focus:ring-wine-500"
+                    />
+                    <p class="mt-1 text-[11px] text-sepia-400">
+                        Links this person to a gedcom_people row (tree id + ancestry id) — leave blank to skip.
+                    </p>
+                    <p v-if="form.errors.ancestry_url" class="mt-1 text-xs text-red-600">
+                        {{ form.errors.ancestry_url }}
                     </p>
                 </div>
             </div>
