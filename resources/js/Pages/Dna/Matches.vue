@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
@@ -29,12 +29,25 @@ function ancestryCompareUrl(otherUuid) {
     return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${other}/matchesofmatches`;
 }
 
+// When the page sample is itself an eye, A↔B compare links use A's UUID.
+function sampleCompareUrl(otherUuid) {
+    if (!props.sample?.dnaUUID || !otherUuid) return null;
+    const sample = String(props.sample.dnaUUID).toUpperCase();
+    const other = String(otherUuid).toUpperCase();
+    return `https://www.ancestry.com.au/discoveryui-matches/compare/${sample}/with/${other}/matchesofmatches`;
+}
+
 function ancestryHeaderUrl() {
     if (!props.selected_eye?.dnaUUID || !props.sample?.dnaUUID) return null;
     const eye = String(props.selected_eye.dnaUUID).toUpperCase();
     const sample = String(props.sample.dnaUUID).toUpperCase();
     return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${sample}/matchesofmatches`;
 }
+
+const sampleIsEye = computed(() => !!props.sample?.managed);
+const selectedEyeIsSample = computed(
+    () => !!props.selected_eye && Number(props.selected_eye.id) === Number(props.sample.id),
+);
 
 const selectedEye = ref(props.eye_id ?? '');
 const loading = ref(false);
@@ -134,6 +147,12 @@ function closeEdit() {
                     />
                 </template>
                 <template #titleAfter>
+                    <span
+                        v-if="sampleIsEye"
+                        class="inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
+                    >
+                        eye
+                    </span>
                     <button
                         type="button"
                         class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
@@ -250,21 +269,30 @@ function closeEdit() {
                         </td>
                         <td class="ident">{{ m.created_fmt }}</td>
                         <td class="!text-right">
-                            <a
-                                v-if="selected_eye && m.other_uuid"
-                                :href="ancestryCompareUrl(m.other_uuid)"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
-                                :title="`Compare on Ancestry: ${selected_eye.display_label} ↔ ${m.display_label}`"
-                            >
-                                <img
-                                    src="/ancestry-icon.svg"
-                                    alt=""
-                                    class="h-3.5 w-3.5"
-                                />
-                                DNA
-                            </a>
+                            <div class="inline-flex items-center gap-1">
+                                <a
+                                    v-if="sampleIsEye && m.other_uuid && !selectedEyeIsSample"
+                                    :href="sampleCompareUrl(m.other_uuid)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                    :title="`Compare on Ancestry: ${sample.display_label} ↔ ${m.display_label}`"
+                                >
+                                    <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                                    DNA
+                                </a>
+                                <a
+                                    v-if="selected_eye && m.other_uuid"
+                                    :href="ancestryCompareUrl(m.other_uuid)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                    :title="`Compare on Ancestry: ${selected_eye.display_label} ↔ ${m.display_label}`"
+                                >
+                                    <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                                    DNA
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="!matches.length">
