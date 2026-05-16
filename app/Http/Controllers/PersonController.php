@@ -34,6 +34,23 @@ class PersonController extends Controller
         $person->maxBirth = $years['maxBirth'];
         $person->death    = $data['death'] ?? null;
         $person->gender   = $data['gender'] ?? null;
+
+        // people has UNIQUE(fullName, alt) — bail before MySQL throws a
+        // 23000 with a generic 500. Real duplicate handling needs us to
+        // pick an alt value (loaders do this), which the UI doesn't yet.
+        $alt = (int) ($person->alt ?? 0);
+        $clashQuery = DB::table('people')
+            ->where('fullName', $person->fullName)
+            ->where('alt', $alt);
+        if ($person->exists) {
+            $clashQuery->where('id', '!=', $person->id);
+        }
+        if ($clashQuery->exists()) {
+            return back()->withErrors([
+                'fullName' => "A person named \"{$person->fullName}\" already exists. Duplicates are stored with a different alt value, which this dialog can't set yet.",
+            ])->withInput();
+        }
+
         $person->save();
 
         if ($link) {
