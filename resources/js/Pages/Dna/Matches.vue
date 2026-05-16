@@ -61,6 +61,21 @@ const selectedEyeIsSample = computed(
 
 const selectedEye = ref(props.eye_id ?? '');
 const loading = ref(false);
+const eyeListOpen = ref(false);
+
+// The match row inside eye_matches that corresponds to the currently
+// selected eye — supplies cM/cluster/etc for the closed-accordion bar.
+const selectedEyeRow = computed(() => {
+    if (!props.selected_eye) return null;
+    return props.eye_matches.find(
+        (e) => Number(e.other_id) === Number(props.selected_eye.id),
+    ) || null;
+});
+
+function matchLink(otherId) {
+    const base = route('dna.matches', otherId);
+    return props.selected_eye ? `${base}?eye=${props.selected_eye.id}` : base;
+}
 
 watch(selectedEye, (val) => {
     router.reload({
@@ -203,13 +218,51 @@ function closeEdit() {
         </template>
 
         <div v-if="eye_matches.length" class="card mb-4 overflow-hidden">
-            <header class="flex items-baseline justify-between border-b border-paper-300 bg-paper-100 px-4 py-2.5">
+            <button
+                type="button"
+                class="flex w-full items-center gap-3 border-b border-paper-300 bg-paper-100 px-4 py-2.5 text-left hover:bg-paper-200/60 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                :aria-expanded="eyeListOpen"
+                @click="eyeListOpen = !eyeListOpen"
+            >
+                <span
+                    class="text-sepia-500 transition-transform"
+                    :class="eyeListOpen ? 'rotate-90' : ''"
+                    aria-hidden="true"
+                >
+                    ▶
+                </span>
                 <p class="eyebrow">Matching eyes</p>
-                <p class="text-xs text-sepia-500">
-                    Pick one to filter the table below to matches in common with that eye.
+                <div
+                    v-if="selectedEyeRow"
+                    class="flex flex-1 items-center gap-2 text-sm"
+                >
+                    <SampleAvatar
+                        :photo-url="selectedEyeRow.other_photoUrl || ''"
+                        :alt="selectedEyeRow.display_label"
+                        :gender="selectedEyeRow.effective_gender || ''"
+                    />
+                    <span class="font-medium text-ink-500">
+                        {{ selectedEyeRow.display_label }}
+                    </span>
+                    <span class="inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
+                        eye
+                    </span>
+                    <span class="font-mono text-xs text-sepia-500">
+                        {{ selectedEyeRow.sharedCentimorgans }} cM
+                    </span>
+                    <ClusterPill
+                        :code="selectedEyeRow.matchClusterCode || ''"
+                        :paternal-cluster="sample.paternalCluster || ''"
+                    />
+                </div>
+                <p v-else class="flex-1 text-sm text-sepia-600">
+                    All Eyes ({{ eye_matches.length }})
                 </p>
-            </header>
-            <table class="ref-table">
+                <p v-if="!eyeListOpen" class="text-xs text-sepia-500">
+                    Click to pick a filter
+                </p>
+            </button>
+            <table v-show="eyeListOpen" class="ref-table">
                 <thead>
                     <tr>
                         <th></th>
@@ -258,13 +311,13 @@ function closeEdit() {
                                     :alt="e.display_label"
                                     :gender="e.effective_gender || ''"
                                 />
-                                <label
-                                    :for="`eye-pick-${e.other_id}`"
-                                    class="cursor-pointer font-medium text-ink-500"
+                                <Link
+                                    :href="route('dna.matches', e.other_id)"
+                                    class="ref-link"
                                     :class="e.ignored ? 'line-through decoration-sepia-400/60' : ''"
                                 >
                                     {{ e.display_label }}
-                                </label>
+                                </Link>
                                 <span class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
                                     eye
                                 </span>
@@ -365,7 +418,7 @@ function closeEdit() {
                                     :gender="m.effective_gender || ''"
                                 />
                                 <Link
-                                    :href="route('dna.matches', m.other_id)"
+                                    :href="matchLink(m.other_id)"
                                     class="ref-link"
                                     :class="m.ignored ? 'line-through decoration-sepia-400/60' : ''"
                                 >
