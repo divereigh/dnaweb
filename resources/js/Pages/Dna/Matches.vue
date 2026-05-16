@@ -6,6 +6,7 @@ import PageHeader from '@/Components/App/PageHeader.vue';
 import Pagination from '@/Components/App/Pagination.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
+import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 
 const props = defineProps({
@@ -154,6 +155,12 @@ function closeEdit() {
                         <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
                         DNA
                     </a>
+                    <AncestryProfileButtons
+                        :user-uuid="sample.userUUID || ''"
+                        :admin-user-uuid="sample.admin_userUUID || ''"
+                        :label="sample.display_label"
+                        :admin-label="sample.display_label"
+                    />
                     <span>{{ total.toLocaleString() }} {{ total === 1 ? 'match' : 'matches' }}</span>
                 </template>
                 <template #titleBefore>
@@ -304,6 +311,12 @@ function closeEdit() {
                                     <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
                                     DNA
                                 </a>
+                                <AncestryProfileButtons
+                                    :user-uuid="e.other_userUUID || ''"
+                                    :admin-user-uuid="e.other_admin_userUUID || ''"
+                                    :label="e.display_label"
+                                    :admin-label="e.display_label"
+                                />
                             </div>
                         </td>
                     </tr>
@@ -434,6 +447,12 @@ function closeEdit() {
                                     <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
                                     DNA
                                 </a>
+                                <AncestryProfileButtons
+                                    :user-uuid="m.other_userUUID || ''"
+                                    :admin-user-uuid="m.other_admin_userUUID || ''"
+                                    :label="m.display_label"
+                                    :admin-label="m.display_label"
+                                />
                             </div>
                         </td>
                     </tr>

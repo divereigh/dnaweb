@@ -28,6 +28,8 @@ class EyeMatchService
               s.displayName,
               s.photoUrl,
               s.gender,
+              s.userUUID,
+              admin.userUUID AS admin_userUUID,
               s.createdDate,
               s.managed,
               p.id AS person_id,
@@ -35,6 +37,7 @@ class EyeMatchService
               p.gender AS person_gender
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
+            LEFT JOIN dna_samples admin ON admin.id = s.adminid
             WHERE s.managed IS NOT NULL
               AND s.disabled = 0
             ORDER BY s.displayName, s.id
@@ -78,6 +81,8 @@ class EyeMatchService
               s.managed,
               s.gender,
               s.paternalCluster,
+              s.userUUID,
+              admin.userUUID AS admin_userUUID,
               s.createdDate,
               p.id AS person_id,
               p.fullName AS person_name,
@@ -87,6 +92,7 @@ class EyeMatchService
               p.gender AS person_gender
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
+            LEFT JOIN dna_samples admin ON admin.id = s.adminid
             WHERE s.id = ?
               AND s.managed IS NOT NULL
               AND s.disabled = 0
@@ -208,6 +214,8 @@ class EyeMatchService
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
+              s.userUUID AS other_userUUID,
+              admin.userUUID AS other_admin_userUUID,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
@@ -234,6 +242,9 @@ class EyeMatchService
         $peopleJoin = $withCols
             ? 'LEFT JOIN people p ON p.dnaSampleId = m.sample2'
             : '';
+        $adminJoin = $withCols
+            ? 'LEFT JOIN dna_samples admin ON admin.id = s.adminid'
+            : '';
 
         $sql = "
             SELECT * FROM (
@@ -241,6 +252,7 @@ class EyeMatchService
               FROM dna_matches2 m
               JOIN dna_samples s ON s.id = m.sample2
               $peopleJoin
+              $adminJoin
               LEFT JOIN dna_notes n ON n.sample = m.sample2 AND n.mgmtsample = ?
               WHERE m.sample1 = ?
             ) q

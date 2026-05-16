@@ -6,6 +6,7 @@ import PageHeader from '@/Components/App/PageHeader.vue';
 import Pagination from '@/Components/App/Pagination.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
+import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 
 const props = defineProps({
@@ -141,8 +142,25 @@ function ancestryCompareUrl(otherUuid) {
                 compact
                 :title="eye.display_label"
                 :eyebrow="`Eye #${eye.id}`"
-                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
+                <template #subtitle>
+                    <Link
+                        v-if="eye.person_id"
+                        :href="route('people.show', eye.person_id)"
+                        class="inline-flex items-center"
+                        :title="`Open ${eye.person_name || 'person'} #${eye.person_id}`"
+                    >
+                        <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                        <span class="sr-only">Open person</span>
+                    </Link>
+                    <AncestryProfileButtons
+                        :user-uuid="eye.userUUID || ''"
+                        :admin-user-uuid="eye.admin_userUUID || ''"
+                        :label="eye.display_label"
+                        :admin-label="eye.display_label"
+                    />
+                    <span>{{ total.toLocaleString() }} {{ total === 1 ? 'match' : 'matches' }}</span>
+                </template>
                 <template #titleBefore>
                     <SampleAvatar
                         :photo-url="eye.photoUrl || ''"
@@ -360,6 +378,12 @@ function ancestryCompareUrl(otherUuid) {
                                 >
                                     common ›
                                 </Link>
+                                <AncestryProfileButtons
+                                    :user-uuid="m.other_userUUID || ''"
+                                    :admin-user-uuid="m.other_admin_userUUID || ''"
+                                    :label="m.display_label"
+                                    :admin-label="m.display_label"
+                                />
                             </div>
                         </td>
                     </tr>

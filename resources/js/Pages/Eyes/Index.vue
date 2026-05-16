@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
+import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 
 defineProps({
     eyes: { type: Array, required: true },
@@ -64,15 +65,23 @@ defineProps({
                             {{ e.gender || '—' }}
                         </td>
                         <td class="!text-right">
-                            <Link
-                                v-if="e.person_id"
-                                :href="route('people.show', e.person_id)"
-                                class="inline-flex items-center"
-                                :title="`Open ${e.person_name || 'person'} #${e.person_id}`"
-                            >
-                                <img src="/icon-person.png" alt="" class="h-5 w-5" />
-                                <span class="sr-only">Open person</span>
-                            </Link>
+                            <div class="inline-flex items-center gap-1">
+                                <Link
+                                    v-if="e.person_id"
+                                    :href="route('people.show', e.person_id)"
+                                    class="inline-flex items-center"
+                                    :title="`Open ${e.person_name || 'person'} #${e.person_id}`"
+                                >
+                                    <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                    <span class="sr-only">Open person</span>
+                                </Link>
+                                <AncestryProfileButtons
+                                    :user-uuid="e.userUUID || ''"
+                                    :admin-user-uuid="e.admin_userUUID || ''"
+                                    :label="e.display_label"
+                                    :admin-label="e.display_label"
+                                />
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="!eyes.length">

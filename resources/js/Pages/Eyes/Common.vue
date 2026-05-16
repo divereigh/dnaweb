@@ -4,6 +4,7 @@ import PageHeader from '@/Components/App/PageHeader.vue';
 import Pagination from '@/Components/App/Pagination.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
+import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
 defineProps({
@@ -118,15 +119,23 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                             {{ m.notes || '' }}
                         </td>
                         <td class="!text-right">
-                            <Link
-                                v-if="m.person_id"
-                                :href="route('people.show', m.person_id)"
-                                class="inline-flex items-center"
-                                :title="`Open ${m.person_name || 'person'} #${m.person_id}`"
-                            >
-                                <img src="/icon-person.png" alt="" class="h-5 w-5" />
-                                <span class="sr-only">Open person</span>
-                            </Link>
+                            <div class="inline-flex items-center gap-1">
+                                <Link
+                                    v-if="m.person_id"
+                                    :href="route('people.show', m.person_id)"
+                                    class="inline-flex items-center"
+                                    :title="`Open ${m.person_name || 'person'} #${m.person_id}`"
+                                >
+                                    <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                    <span class="sr-only">Open person</span>
+                                </Link>
+                                <AncestryProfileButtons
+                                    :user-uuid="m.userUUID || ''"
+                                    :admin-user-uuid="m.admin_userUUID || ''"
+                                    :label="m.display_label"
+                                    :admin-label="m.display_label"
+                                />
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="!common.length">

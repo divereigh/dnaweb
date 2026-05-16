@@ -4,6 +4,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
+import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 
 defineProps({
     person: { type: Object, required: true },
@@ -280,6 +281,12 @@ defineProps({
                                 >
                                     {{ m.display_label }}
                                 </Link>
+                                <AncestryProfileButtons
+                                    :user-uuid="m.eye_userUUID || ''"
+                                    :admin-user-uuid="m.eye_admin_userUUID || ''"
+                                    :label="m.display_label"
+                                    :admin-label="m.display_label"
+                                />
                             </div>
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>

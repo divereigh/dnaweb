@@ -109,6 +109,15 @@ The actions cell on each row can show up to three "DNA" buttons opening Ancestry
 
 When A is an eye and C == A, the C↔B duplicate is suppressed. Tooltips disambiguate when multiple buttons appear in the same cell.
 
+## Ancestry profile (USER / ADMIN) buttons
+
+Every sample row across the app renders up to two extra Ancestry buttons next to the home/DNA action buttons:
+
+- **USER** — visible when `dna_samples.userUUID` is non-null; links to `https://www.ancestry.com.au/profile/{userUUID}`.
+- **ADMIN** — visible when `dna_samples.adminid` is non-null AND the admin row has its own `userUUID`; links to the admin's profile. The admin lookup is single-hop — if the admin sample itself has an `adminid`, that's ignored.
+
+Practically: a self-managed kit shows only USER; a kit managed by someone else shows only ADMIN. The two never overlap because a sample either ran its own session (userUUID set, adminid null) or was loaded under someone else's (adminid set, userUUID null).
+
 ## Coexistence with the Perl loaders
 
 The Perl scripts at `~/ancestry/program` write to `dna_samples`, `dna_matches`, `people`, etc., continuously. The web app's writes are deliberately scoped to columns the loaders do NOT overwrite:

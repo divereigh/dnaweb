@@ -4,6 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
+import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 
 const props = defineProps({
     samples: { type: Array, required: true },
@@ -130,15 +131,23 @@ function go(page) {
                             <span v-else class="text-xs text-sepia-400">—</span>
                         </td>
                         <td class="!text-right">
-                            <Link
-                                v-if="s.person_id"
-                                :href="route('people.show', s.person_id)"
-                                class="inline-flex items-center"
-                                :title="`Open ${s.person_name || 'person'} #${s.person_id}`"
-                            >
-                                <img src="/icon-person.png" alt="" class="h-5 w-5" />
-                                <span class="sr-only">Open person</span>
-                            </Link>
+                            <div class="inline-flex items-center gap-1">
+                                <Link
+                                    v-if="s.person_id"
+                                    :href="route('people.show', s.person_id)"
+                                    class="inline-flex items-center"
+                                    :title="`Open ${s.person_name || 'person'} #${s.person_id}`"
+                                >
+                                    <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                    <span class="sr-only">Open person</span>
+                                </Link>
+                                <AncestryProfileButtons
+                                    :user-uuid="s.userUUID || ''"
+                                    :admin-user-uuid="s.admin_userUUID || ''"
+                                    :label="s.display_label"
+                                    :admin-label="s.display_label"
+                                />
+                            </div>
                         </td>
                     </tr>
                     <tr v-if="!samples.length">

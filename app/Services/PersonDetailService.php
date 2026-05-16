@@ -203,6 +203,8 @@ class PersonDetailService
               ds_eye.photoUrl AS eye_photoUrl,
               ds_eye.gender AS eye_gender,
               ds_eye.paternalCluster AS eye_paternalCluster,
+              ds_eye.userUUID AS eye_userUUID,
+              admin.userUUID AS eye_admin_userUUID,
               p_eye.id AS person_id,
               p_eye.fullName AS person_name,
               p_eye.gender AS person_gender,
@@ -218,6 +220,7 @@ class PersonDetailService
              AND ds_eye.managed IS NOT NULL
              AND ds_eye.managed > 0
             LEFT JOIN people p_eye ON p_eye.dnaSampleId = ds_eye.id
+            LEFT JOIN dna_samples admin ON admin.id = ds_eye.adminid
             LEFT JOIN dna_notes dn ON dn.sample = ? AND dn.mgmtsample = ds_eye.id
             WHERE m.sample2 = ?
             ORDER BY m.sharedCentimorgans DESC, ds_eye.displayName ASC

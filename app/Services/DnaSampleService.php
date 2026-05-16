@@ -20,6 +20,8 @@ class DnaSampleService
               x.displayName,
               x.photoUrl,
               x.gender,
+              x.userUUID,
+              x.admin_userUUID,
               x.createdDate,
               x.managed,
               x.person_id,
@@ -32,6 +34,8 @@ class DnaSampleService
                 s.displayName,
                 s.photoUrl,
                 s.gender,
+                s.userUUID,
+                admin.userUUID AS admin_userUUID,
                 s.createdDate,
                 s.managed,
                 p.id AS person_id,
@@ -39,6 +43,7 @@ class DnaSampleService
                 p.gender AS person_gender
               FROM dna_samples s
               LEFT JOIN people p ON p.dnaSampleId = s.id
+              LEFT JOIN dna_samples admin ON admin.id = s.adminid
               WHERE s.disabled = 0
                 AND s.displayName LIKE ?
 
@@ -50,6 +55,8 @@ class DnaSampleService
                 s.displayName,
                 s.photoUrl,
                 s.gender,
+                s.userUUID,
+                admin.userUUID AS admin_userUUID,
                 s.createdDate,
                 s.managed,
                 p.id AS person_id,
@@ -57,6 +64,7 @@ class DnaSampleService
                 p.gender AS person_gender
               FROM people p
               JOIN dna_samples s ON s.id = p.dnaSampleId
+              LEFT JOIN dna_samples admin ON admin.id = s.adminid
               WHERE s.disabled = 0
                 AND p.fullName LIKE ?
             ) x
@@ -80,6 +88,8 @@ class DnaSampleService
               s.id, s.dnaUUID, s.displayName, s.gender, s.createdDate, s.managed, s.disabled,
               s.photoUrl,
               s.paternalCluster,
+              s.userUUID,
+              admin.userUUID AS admin_userUUID,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
@@ -88,6 +98,7 @@ class DnaSampleService
               p.gender AS person_gender
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
+            LEFT JOIN dna_samples admin ON admin.id = s.adminid
             WHERE s.id = ? AND s.disabled = 0
         ', [$sampleId]);
 
@@ -141,6 +152,8 @@ class DnaSampleService
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
+              s.userUUID AS other_userUUID,
+              admin.userUUID AS other_admin_userUUID,
               p.id AS person_id,
               p.fullName AS person_name,
               p.gender AS person_gender,
@@ -154,6 +167,7 @@ class DnaSampleService
               AND s.managed IS NOT NULL
               AND s.disabled = 0
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
+            LEFT JOIN dna_samples admin ON admin.id = s.adminid
             WHERE m.sample1 = ?
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
         ', [$sampleId]);
@@ -194,6 +208,8 @@ class DnaSampleService
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
+              s.userUUID AS other_userUUID,
+              admin.userUUID AS other_admin_userUUID,
               p.id AS person_id,
               p.fullName AS person_name,
               p.minBirth AS person_minBirth,
@@ -211,6 +227,7 @@ class DnaSampleService
             ' . $eyeJoin . '
             JOIN dna_samples s ON s.id = m.sample2
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
+            LEFT JOIN dna_samples admin ON admin.id = s.adminid
             WHERE m.sample1 = ?
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
             LIMIT ? OFFSET ?
