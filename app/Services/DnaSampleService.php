@@ -146,23 +146,14 @@ class DnaSampleService
      */
     public function loadingInProgress(int $sampleId): bool
     {
+        // v_pending_match2match captures the "still has pages to fetch
+        // for an enabled (eye, other, session) triple" predicate.
+        // We add the don't-include-failed filter here.
         $row = DB::selectOne('
             SELECT 1 AS x
-            FROM dna_samples mgmt
-            INNER JOIN dna_matches2 dm
-              ON dm.sample1 = mgmt.id
-             AND dm.sample2 = ?
-            INNER JOIN dna_samples other
-              ON other.id = dm.sample2
-             AND other.disabled = 0
-            INNER JOIN session ON mgmt.managed = session.id
-            LEFT JOIN dna_match2match_loaded
-              ON dna_match2match_loaded.mgmtsample = dm.sample1
-             AND dna_match2match_loaded.othsample  = dm.sample2
-            WHERE mgmt.disabled = 0
-              AND (dna_match2match_loaded.totalPages IS NULL
-                   OR dna_match2match_loaded.lastPage < dna_match2match_loaded.totalPages)
-              AND (dna_match2match_loaded.fail IS NULL OR dna_match2match_loaded.fail = 0)
+            FROM v_pending_match2match
+            WHERE othsample = ?
+              AND (fail IS NULL OR fail = 0)
             LIMIT 1
         ', [$sampleId]);
         return $row !== null;
