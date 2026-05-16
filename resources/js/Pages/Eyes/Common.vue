@@ -75,6 +75,7 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                         <th>Cluster</th>
                         <th>Tested</th>
                         <th>Notes</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -116,9 +117,20 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                         <td class="max-w-xs truncate text-sepia-600" :title="m.notes">
                             {{ m.notes || '' }}
                         </td>
+                        <td class="!text-right">
+                            <Link
+                                v-if="m.person_id"
+                                :href="route('people.show', m.person_id)"
+                                class="inline-flex items-center"
+                                :title="`Open ${m.person_name || 'person'} #${m.person_id}`"
+                            >
+                                <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                <span class="sr-only">Open person</span>
+                            </Link>
+                        </td>
                     </tr>
                     <tr v-if="!common.length">
-                        <td colspan="6" class="empty-cell">No common matches.</td>
+                        <td colspan="7" class="empty-cell">No common matches.</td>
                     </tr>
                 </tbody>
             </table>

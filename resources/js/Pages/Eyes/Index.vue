@@ -31,7 +31,7 @@ defineProps({
                         <th>Person</th>
                         <th data-numeric>Matches</th>
                         <th>Sex</th>
-                        <th>UUID</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,7 +63,17 @@ defineProps({
                         <td class="font-mono text-xs text-sepia-500">
                             {{ e.gender || '—' }}
                         </td>
-                        <td class="ident">{{ e.dnaUUID }}</td>
+                        <td class="!text-right">
+                            <Link
+                                v-if="e.person_id"
+                                :href="route('people.show', e.person_id)"
+                                class="inline-flex items-center"
+                                :title="`Open ${e.person_name || 'person'} #${e.person_id}`"
+                            >
+                                <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                <span class="sr-only">Open person</span>
+                            </Link>
+                        </td>
                     </tr>
                     <tr v-if="!eyes.length">
                         <td colspan="5" class="empty-cell">No eyes.</td>

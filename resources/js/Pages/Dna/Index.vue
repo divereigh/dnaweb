@@ -90,7 +90,7 @@ function go(page) {
                         <th>Person</th>
                         <th>Tested</th>
                         <th>Status</th>
-                        <th>UUID</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -129,7 +129,17 @@ function go(page) {
                             >
                             <span v-else class="text-xs text-sepia-400">—</span>
                         </td>
-                        <td class="ident">{{ s.dnaUUID }}</td>
+                        <td class="!text-right">
+                            <Link
+                                v-if="s.person_id"
+                                :href="route('people.show', s.person_id)"
+                                class="inline-flex items-center"
+                                :title="`Open ${s.person_name || 'person'} #${s.person_id}`"
+                            >
+                                <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                <span class="sr-only">Open person</span>
+                            </Link>
+                        </td>
                     </tr>
                     <tr v-if="!samples.length">
                         <td colspan="5" class="empty-cell">No matches.</td>

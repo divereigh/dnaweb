@@ -330,6 +330,15 @@ function ancestryCompareUrl(otherUuid) {
                         </td>
                         <td class="!text-right">
                             <div class="inline-flex items-center gap-2">
+                                <Link
+                                    v-if="m.person_id"
+                                    :href="route('people.show', m.person_id)"
+                                    class="inline-flex items-center"
+                                    :title="`Open ${m.person_name || 'person'} #${m.person_id}`"
+                                >
+                                    <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                    <span class="sr-only">Open person</span>
+                                </Link>
                                 <a
                                     v-if="m.other_uuid"
                                     :href="ancestryCompareUrl(m.other_uuid)"

@@ -270,6 +270,15 @@ function closeEdit() {
                         <td class="ident">{{ m.created_fmt }}</td>
                         <td class="!text-right">
                             <div class="inline-flex items-center gap-1">
+                                <Link
+                                    v-if="m.person_id"
+                                    :href="route('people.show', m.person_id)"
+                                    class="inline-flex items-center"
+                                    :title="`Open ${m.person_name || 'person'} #${m.person_id}`"
+                                >
+                                    <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                    <span class="sr-only">Open person</span>
+                                </Link>
                                 <a
                                     v-if="sampleIsEye && m.other_uuid && !selectedEyeIsSample"
                                     :href="sampleCompareUrl(m.other_uuid)"
