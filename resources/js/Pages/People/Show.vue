@@ -198,16 +198,12 @@ defineProps({
                     <p class="eyebrow mb-2">DNA</p>
                     <div v-if="person.dnaSampleId">
                         <p class="text-sm">
-                            Sample
                             <Link
                                 :href="route('dna.matches', person.dnaSampleId)"
-                                class="font-mono text-ink-600 hover:text-wine-500"
+                                class="ref-link"
                             >
-                                #{{ person.dnaSampleId }}
+                                {{ person.dnaName || `Sample #${person.dnaSampleId}` }}
                             </Link>
-                        </p>
-                        <p v-if="person.dnaName" class="mt-0.5 text-sm text-sepia-600">
-                            {{ person.dnaName }}
                         </p>
                         <p
                             v-if="person.is_managed_sample"
