@@ -1,0 +1,33 @@
+# systemd unit for the gedcom_tree name fetcher.
+#
+# Installed at /etc/systemd/system/fetch-tree-names.service.
+#
+# Reads DB credentials from the same EnvironmentFile the
+# match2match worker uses (see match2match-worker@.service for
+# the file shape — 0600 file with ANCESTRY_DB_* KEY=value lines).
+#
+# Enable + start:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now fetch-tree-names.service
+#
+# Tail logs:
+#   journalctl -u fetch-tree-names.service -f
+
+[Unit]
+Description=Fetch missing gedcom_tree names from Ancestry
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=damo
+WorkingDirectory=/home/damo/ancestry-program
+EnvironmentFile=/home/damo/.config/ancestry/db.env
+ExecStart=/usr/bin/perl ./fetch-tree-names.pl
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
