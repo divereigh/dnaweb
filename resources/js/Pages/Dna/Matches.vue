@@ -132,10 +132,19 @@ function closeEdit() {
                 compact
                 :title="sample.display_label"
                 :eyebrow="`Sample #${sample.id}`"
-                :subtitle="`${total.toLocaleString()} ${total === 1 ? 'match' : 'matches'}`"
             >
-                <template v-if="selected_eye" #subtitle>
+                <template #subtitle>
+                    <Link
+                        v-if="sample.person_id"
+                        :href="route('people.show', sample.person_id)"
+                        class="inline-flex items-center"
+                        :title="`Open ${sample.person_name || 'person'} #${sample.person_id}`"
+                    >
+                        <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                        <span class="sr-only">Open person</span>
+                    </Link>
                     <a
+                        v-if="selected_eye"
                         :href="ancestryHeaderUrl()"
                         target="_blank"
                         rel="noopener noreferrer"
