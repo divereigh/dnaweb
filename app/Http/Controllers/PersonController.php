@@ -54,11 +54,26 @@ class PersonController extends Controller
         $person->save();
 
         if ($link) {
-            DB::statement('
-                INSERT INTO gedcom_people (atreeid, ancestryid, peopleid)
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE peopleid = VALUES(peopleid)
-            ', [$link['atreeid'], $link['ancestryid'], $person->id]);
+            // gedcom_people has both PRIMARY KEY (atreeid, ancestryid) AND
+            // UNIQUE KEY (atreeid, peopleid). Only one row per tree may
+            // claim a given peopleid, so before we point our (tree,
+            // ancestry-id) at this person we have to clear any *other*
+            // row in the same tree that's already pointing at them.
+            DB::transaction(function () use ($link, $person) {
+                DB::update('
+                    UPDATE gedcom_people
+                       SET peopleid = NULL
+                     WHERE atreeid = ?
+                       AND peopleid = ?
+                       AND ancestryid <> ?
+                ', [$link['atreeid'], $person->id, $link['ancestryid']]);
+
+                DB::statement('
+                    INSERT INTO gedcom_people (atreeid, ancestryid, peopleid)
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE peopleid = VALUES(peopleid)
+                ', [$link['atreeid'], $link['ancestryid'], $person->id]);
+            });
         }
 
         return back();
