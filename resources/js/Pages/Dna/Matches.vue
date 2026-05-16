@@ -44,6 +44,15 @@ function ancestryHeaderUrl() {
     return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${sample}/matchesofmatches`;
 }
 
+// When the page sample is NOT an eye but the row is, view the compare
+// page from the row-eye's perspective (it has the Ancestry session).
+function rowEyeCompareUrl(otherUuid) {
+    if (!props.sample?.dnaUUID || !otherUuid) return null;
+    const eye = String(otherUuid).toUpperCase();
+    const sample = String(props.sample.dnaUUID).toUpperCase();
+    return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${sample}/matchesofmatches`;
+}
+
 const sampleIsEye = computed(() => !!props.sample?.managed);
 const selectedEyeIsSample = computed(
     () => !!props.selected_eye && Number(props.selected_eye.id) === Number(props.sample.id),
@@ -286,6 +295,17 @@ function closeEdit() {
                                     rel="noopener noreferrer"
                                     class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
                                     :title="`Compare on Ancestry: ${sample.display_label} ↔ ${m.display_label}`"
+                                >
+                                    <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                                    DNA
+                                </a>
+                                <a
+                                    v-if="!sampleIsEye && m.other_managed && m.other_uuid"
+                                    :href="rowEyeCompareUrl(m.other_uuid)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                    :title="`Compare on Ancestry: ${m.display_label} ↔ ${sample.display_label}`"
                                 >
                                     <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
                                     DNA

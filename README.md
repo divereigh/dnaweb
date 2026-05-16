@@ -94,6 +94,21 @@ cd /var/www/dnaweb && ./deploy/deploy.sh
 
 Plan: `~/.claude/plans/i-have-two-folders-eager-horizon.md`.
 
+## Compare-on-Ancestry buttons (`/dna/{id}/matches`)
+
+The actions cell on each row can show up to three "DNA" buttons opening Ancestry's compare page in a new tab. Which appear depends on whether the page's sample (A) is a managed eye, whether the row (B) is, and whether an eye (C) is picked from the "in common with" filter. The compare URL always uses an eye as the from-side because only an eye has the Ancestry session needed to render the page.
+
+| sample (A) | row (B) | filter (C) | Compare buttons rendered |
+|------------|---------|------------|--------------------------|
+| eye        | any     | none       | A↔B                      |
+| eye        | any     | C set      | A↔B, C↔B                 |
+| not eye    | not eye | none       | (none)                   |
+| not eye    | not eye | C set      | C↔B                      |
+| not eye    | eye     | none       | B↔A                      |
+| not eye    | eye     | C set      | B↔A, C↔B                 |
+
+When A is an eye and C == A, the C↔B duplicate is suppressed. Tooltips disambiguate when multiple buttons appear in the same cell.
+
 ## Coexistence with the Perl loaders
 
 The Perl scripts at `~/ancestry/program` write to `dna_samples`, `dna_matches`, `people`, etc., continuously. The web app's writes are deliberately scoped to columns the loaders do NOT overwrite:
