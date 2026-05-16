@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
@@ -81,6 +81,45 @@ function matchLink(otherId) {
 function reloadPage() {
     router.reload({ preserveState: true, preserveScroll: true });
 }
+
+// While the queue is still draining, poll only the loading_in_progress
+// prop every 10s. When it flips false, do one full reload to pull the
+// freshly-loaded matches in. Click-to-refresh button still works for
+// impatient users.
+let loadingPollTimer = null;
+function startLoadingPoll() {
+    if (loadingPollTimer) return;
+    loadingPollTimer = setInterval(() => {
+        router.reload({
+            only: ['loading_in_progress'],
+            preserveScroll: true,
+            preserveState: true,
+        });
+    }, 10000);
+}
+function stopLoadingPoll() {
+    if (loadingPollTimer) {
+        clearInterval(loadingPollTimer);
+        loadingPollTimer = null;
+    }
+}
+
+watch(
+    () => props.loading_in_progress,
+    (current, previous) => {
+        if (current) {
+            startLoadingPoll();
+        } else {
+            stopLoadingPoll();
+            if (previous === true) {
+                router.reload({ preserveScroll: true });
+            }
+        }
+    },
+    { immediate: true },
+);
+
+onUnmounted(stopLoadingPoll);
 
 watch(selectedEye, (val) => {
     router.reload({
@@ -186,7 +225,7 @@ function closeEdit() {
                         type="button"
                         @click="reloadPage"
                         class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 hover:bg-amber-100"
-                        title="Match-of-match data is still loading — click to refresh"
+                        title="Match-of-match data is still loading — auto-refreshes every 10 s; click to refresh now"
                     >
                         <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
