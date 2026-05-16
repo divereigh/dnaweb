@@ -222,11 +222,15 @@ defineProps({
                 <div v-if="ancestry_trees.length" class="card p-4">
                     <p class="eyebrow mb-2">Ancestry trees</p>
                     <ul class="space-y-1 text-sm text-sepia-600">
-                        <li v-for="t in ancestry_trees" :key="t.atreeid">
-                            <span class="text-ink-500">{{ t.name }}</span>
-                            <span class="ms-1 font-mono text-[11px] text-sepia-400"
-                                >#{{ t.ancestryid }}</span
+                        <li v-for="t in ancestry_trees" :key="`${t.atreeid}-${t.ancestryid}`">
+                            <a
+                                :href="`https://www.ancestry.com.au/family-tree/tree/${t.atreeid}/family?cfpid=${t.ancestryid}`"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="ref-link"
                             >
+                                {{ t.name }}
+                            </a>
                         </li>
                     </ul>
                 </div>
