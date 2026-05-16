@@ -52,6 +52,7 @@ class DnaMatchesController extends Controller
             'eye_matches' => $this->service->listEyeMatches($id),
             'eye_id' => $eyeId,
             'selected_eye' => $selectedEye,
+            'loading_in_progress' => $this->service->loadingInProgress($id),
         ]);
     }
 }

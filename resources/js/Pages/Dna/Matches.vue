@@ -19,6 +19,7 @@ const props = defineProps({
     eye_matches: { type: Array, required: true },
     eye_id: { type: Number, default: null },
     selected_eye: { type: Object, default: null },
+    loading_in_progress: { type: Boolean, default: false },
 });
 
 const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye'];
@@ -75,6 +76,10 @@ const selectedEyeRow = computed(() => {
 function matchLink(otherId) {
     const base = route('dna.matches', otherId);
     return props.selected_eye ? `${base}?eye=${props.selected_eye.id}` : base;
+}
+
+function reloadPage() {
+    router.reload({ preserveState: true, preserveScroll: true });
 }
 
 watch(selectedEye, (val) => {
@@ -176,7 +181,20 @@ function closeEdit() {
                         :label="sample.display_label"
                         :admin-label="sample.display_label"
                     />
-                    <span>{{ total.toLocaleString() }} {{ total === 1 ? 'match' : 'matches' }}</span>
+                    <button
+                        v-if="loading_in_progress"
+                        type="button"
+                        @click="reloadPage"
+                        class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 hover:bg-amber-100"
+                        title="Match-of-match data is still loading — click to refresh"
+                    >
+                        <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
+                            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                        </svg>
+                        Loading…
+                    </button>
+                    <span v-else>{{ total.toLocaleString() }} {{ total === 1 ? 'match' : 'matches' }}</span>
                 </template>
                 <template #titleBefore>
                     <SampleAvatar

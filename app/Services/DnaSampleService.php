@@ -137,6 +137,38 @@ class DnaSampleService
     }
 
     /**
+     * Are the Perl loaders still actively loading match-of-match data
+     * for this sample? Used to decide whether to show a "loading…"
+     * indicator below the eye picker. True when, for at least one
+     * managed eye that matches this sample, dna_match2match_loaded
+     * either has no row, has no totalPages yet, or is partway through
+     * pagination, AND hasn't failed.
+     */
+    public function loadingInProgress(int $sampleId): bool
+    {
+        $row = DB::selectOne('
+            SELECT 1 AS x
+            FROM dna_samples mgmt
+            INNER JOIN dna_matches2 dm
+              ON dm.sample1 = mgmt.id
+             AND dm.sample2 = ?
+            INNER JOIN dna_samples other
+              ON other.id = dm.sample2
+             AND other.disabled = 0
+            INNER JOIN session ON mgmt.managed = session.id
+            LEFT JOIN dna_match2match_loaded
+              ON dna_match2match_loaded.mgmtsample = dm.sample1
+             AND dna_match2match_loaded.othsample  = dm.sample2
+            WHERE mgmt.disabled = 0
+              AND (dna_match2match_loaded.totalPages IS NULL
+                   OR dna_match2match_loaded.lastPage < dna_match2match_loaded.totalPages)
+              AND (dna_match2match_loaded.fail IS NULL OR dna_match2match_loaded.fail = 0)
+            LIMIT 1
+        ', [$sampleId]);
+        return $row !== null;
+    }
+
+    /**
      * Every match of this sample that is itself a managed eye, in the
      * same row shape as listMatches() — no pagination. Used to render
      * the "matching eyes" picker at the top of the matches page.
