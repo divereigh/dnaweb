@@ -15,7 +15,7 @@ const props = defineProps({
     pages: { type: Number, required: true },
     total: { type: Number, required: true },
     per_page: { type: Number, required: true },
-    eyes: { type: Array, required: true },
+    eye_matches: { type: Array, required: true },
     eye_id: { type: Number, default: null },
     selected_eye: { type: Object, default: null },
 });
@@ -195,16 +195,120 @@ function closeEdit() {
             </PageHeader>
         </template>
 
-        <div class="filter-bar mb-4 sm:grid-cols-[auto_minmax(0,1fr)]">
-            <label for="eye-filter" class="!whitespace-normal">
-                Show only matches in common with:
-            </label>
-            <select id="eye-filter" v-model="selectedEye" class="text-sm">
-                <option value="">All</option>
-                <option v-for="e in eyes" :key="e.id" :value="e.id">
-                    {{ e.display_label }}
-                </option>
-            </select>
+        <div v-if="eye_matches.length" class="card mb-4 overflow-hidden">
+            <header class="flex items-baseline justify-between border-b border-paper-300 bg-paper-100 px-4 py-2.5">
+                <p class="eyebrow">Matching eyes</p>
+                <p class="text-xs text-sepia-500">
+                    Pick one to filter the table below to matches in common with that eye.
+                </p>
+            </header>
+            <table class="ref-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Name</th>
+                        <th data-numeric>cM</th>
+                        <th>Cluster</th>
+                        <th>Tested</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <input
+                                id="eye-pick-all"
+                                v-model="selectedEye"
+                                type="radio"
+                                value=""
+                                class="cursor-pointer"
+                            />
+                        </td>
+                        <td colspan="5">
+                            <label for="eye-pick-all" class="cursor-pointer text-sm text-sepia-600">
+                                All matches (no filter)
+                            </label>
+                        </td>
+                    </tr>
+                    <tr
+                        v-for="e in eye_matches"
+                        :key="e.other_id"
+                        :class="e.ignored ? 'opacity-50' : ''"
+                    >
+                        <td>
+                            <input
+                                :id="`eye-pick-${e.other_id}`"
+                                v-model.number="selectedEye"
+                                type="radio"
+                                :value="e.other_id"
+                                class="cursor-pointer"
+                            />
+                        </td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <SampleAvatar
+                                    :photo-url="e.other_photoUrl || ''"
+                                    :alt="e.display_label"
+                                    :gender="e.effective_gender || ''"
+                                />
+                                <label
+                                    :for="`eye-pick-${e.other_id}`"
+                                    class="cursor-pointer font-medium text-ink-500"
+                                    :class="e.ignored ? 'line-through decoration-sepia-400/60' : ''"
+                                >
+                                    {{ e.display_label }}
+                                </label>
+                                <span class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
+                                    eye
+                                </span>
+                            </div>
+                        </td>
+                        <td class="num">{{ e.sharedCentimorgans }}</td>
+                        <td>
+                            <ClusterPill
+                                :code="e.matchClusterCode || ''"
+                                :paternal-cluster="sample.paternalCluster || ''"
+                            />
+                        </td>
+                        <td class="ident">{{ e.created_fmt }}</td>
+                        <td class="!text-right">
+                            <div class="inline-flex items-center gap-1">
+                                <Link
+                                    v-if="e.person_id"
+                                    :href="route('people.show', e.person_id)"
+                                    class="inline-flex items-center"
+                                    :title="`Open ${e.person_name || 'person'} #${e.person_id}`"
+                                >
+                                    <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                    <span class="sr-only">Open person</span>
+                                </Link>
+                                <a
+                                    v-if="!sampleIsEye && e.other_uuid"
+                                    :href="rowEyeCompareUrl(e.other_uuid)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                    :title="`Compare on Ancestry: ${e.display_label} ↔ ${sample.display_label}`"
+                                >
+                                    <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                                    DNA
+                                </a>
+                                <a
+                                    v-if="sampleIsEye && e.other_uuid"
+                                    :href="sampleCompareUrl(e.other_uuid)"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                    :title="`Compare on Ancestry: ${sample.display_label} ↔ ${e.display_label}`"
+                                >
+                                    <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                                    DNA
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
         <div

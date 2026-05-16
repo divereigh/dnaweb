@@ -67,58 +67,6 @@ class EyeMatchService
         return $this->decorateEyeRows($eyes);
     }
 
-    /**
-     * Lightweight list of managed eyes for use in dropdowns/selects.
-     * Optionally exclude a specific id (e.g. the page's own sample), and
-     * optionally restrict to eyes that have a direct DNA match with the
-     * given sample id.
-     *
-     * @return array<int, array{id:int, display_label:string}>
-     */
-    public function listOptions(?int $excludeId = null, ?int $matchesSampleId = null): array
-    {
-        if ($matchesSampleId) {
-            // dna_matches2 is directional — rows from the sample's own
-            // perspective sit at sample1 = ?, with the matched other on
-            // sample2. We list the managed eyes among the other parties.
-            $sql = '
-                SELECT s.id, s.displayName, p.fullName AS person_name
-                FROM dna_matches2 m
-                JOIN dna_samples s
-                  ON s.id = m.sample2
-                 AND s.managed IS NOT NULL
-                 AND s.disabled = 0
-                LEFT JOIN people p ON p.dnaSampleId = s.id
-                WHERE m.sample1 = ?
-                ORDER BY COALESCE(p.fullName, s.displayName), s.id
-            ';
-            $bind = [$matchesSampleId];
-        } else {
-            $sql = '
-                SELECT s.id, s.displayName, p.fullName AS person_name
-                FROM dna_samples s
-                LEFT JOIN people p ON p.dnaSampleId = s.id
-                WHERE s.managed IS NOT NULL AND s.disabled = 0
-                ORDER BY COALESCE(p.fullName, s.displayName), s.id
-            ';
-            $bind = [];
-        }
-
-        $rows = DB::select($sql, $bind);
-
-        $out = [];
-        foreach ($rows as $r) {
-            if ($excludeId !== null && (int) $r->id === $excludeId) {
-                continue;
-            }
-            $out[] = [
-                'id' => (int) $r->id,
-                'display_label' => Format::displayLabel($r->person_name ?? null, $r->displayName ?? null),
-            ];
-        }
-        return $out;
-    }
-
     public function getEye(int $eyeId): ?array
     {
         $rows = DB::select('

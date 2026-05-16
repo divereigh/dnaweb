@@ -49,7 +49,7 @@ class DnaMatchesController extends Controller
             'pages' => $totalPages,
             'total' => $total,
             'per_page' => $pageSize,
-            'eyes' => $this->eyes->listOptions(excludeId: $id, matchesSampleId: $id),
+            'eye_matches' => $this->service->listEyeMatches($id),
             'eye_id' => $eyeId,
             'selected_eye' => $selectedEye,
         ]);

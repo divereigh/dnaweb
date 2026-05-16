@@ -125,6 +125,49 @@ class DnaSampleService
         return (int) ($row?->c ?? 0);
     }
 
+    /**
+     * Every match of this sample that is itself a managed eye, in the
+     * same row shape as listMatches() — no pagination. Used to render
+     * the "matching eyes" picker at the top of the matches page.
+     */
+    public function listEyeMatches(int $sampleId): array
+    {
+        $rows = DB::select('
+            SELECT
+              m.sample2 AS other_id,
+              s.dnaUUID AS other_uuid,
+              s.displayName AS other_name,
+              s.managed AS other_managed,
+              s.gender AS other_gender,
+              s.createdDate AS other_createdDate,
+              s.photoUrl AS other_photoUrl,
+              p.id AS person_id,
+              p.fullName AS person_name,
+              p.gender AS person_gender,
+              m.sharedCentimorgans,
+              m.numSharedSegments,
+              m.meiosis,
+              m.matchClusterCode,
+              m.ignored
+            FROM dna_matches2 m
+            JOIN dna_samples s ON s.id = m.sample2
+              AND s.managed IS NOT NULL
+              AND s.disabled = 0
+            LEFT JOIN people p ON p.dnaSampleId = m.sample2
+            WHERE m.sample1 = ?
+            ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
+        ', [$sampleId]);
+
+        return array_map(function ($r) {
+            $row = (array) $r;
+            $row['created_fmt'] = Format::createdDate($row['other_createdDate'] ?? null);
+            $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
+            $row['ignored'] = (bool) ($row['ignored'] ?? false);
+            $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
+            return $row;
+        }, $rows);
+    }
+
     public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null): array
     {
         $offset = max($page - 1, 0) * $pageSize;
