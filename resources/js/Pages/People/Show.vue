@@ -225,7 +225,7 @@ defineProps({
                                 rel="noopener noreferrer"
                                 class="ref-link"
                             >
-                                {{ t.name }}
+                                {{ t.name || 'Unknown Tree' }}
                             </a>
                         </li>
                     </ul>

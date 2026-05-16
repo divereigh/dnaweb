@@ -167,12 +167,15 @@ class PersonDetailService
 
     public function ancestryTrees(int $personId): array
     {
+        // LEFT JOIN gedcom_tree so a gedcom_people row referencing a tree
+        // we don't have metadata for still surfaces — UI renders the link
+        // with an "Unknown Tree" label so the user can still click through.
         return array_map(fn ($r) => (array) $r, DB::select('
-            SELECT gt.atreeid, gt.name, gp.ancestryid
+            SELECT gp.atreeid, gt.name, gp.ancestryid
             FROM gedcom_people gp
-            JOIN gedcom_tree gt ON gt.atreeid = gp.atreeid
+            LEFT JOIN gedcom_tree gt ON gt.atreeid = gp.atreeid
             WHERE gp.peopleid = ?
-            ORDER BY gt.name
+            ORDER BY gt.name IS NULL, gt.name, gp.atreeid
         ', [$personId]));
     }
 
