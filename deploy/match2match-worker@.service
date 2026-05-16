@@ -17,6 +17,22 @@
 #
 # Tail logs:
 #   journalctl -u match2match-worker@1.service -f
+#
+# The worker reads DB credentials from ANCESTRY_DB_* environment
+# variables (via treelib::opendb). systemd doesn't source ~/.bashrc
+# so we pull them from an EnvironmentFile owned by the service user
+# at mode 0600 — keeps the password out of this repo file (which is
+# 0644 and committed to git).
+#
+# Create on each host where a worker runs:
+#   mkdir -p ~/.config/ancestry
+#   cat > ~/.config/ancestry/db.env <<'EOF'
+#   ANCESTRY_DB_HOST=localhost
+#   ANCESTRY_DB_NAME=dnaweb
+#   ANCESTRY_DB_USER=damo
+#   ANCESTRY_DB_PASS=...
+#   EOF
+#   chmod 0600 ~/.config/ancestry/db.env
 
 [Unit]
 Description=DNA match2match queue worker %i
@@ -26,7 +42,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=damo
-WorkingDirectory=/home/damo/ancestry/program
+WorkingDirectory=/home/damo/ancestry-program
+EnvironmentFile=/home/damo/.config/ancestry/db.env
 ExecStart=/usr/bin/perl ./worker-match2match.pl
 Restart=always
 RestartSec=10
