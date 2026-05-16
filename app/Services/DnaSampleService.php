@@ -146,17 +146,57 @@ class DnaSampleService
      */
     public function loadingInProgress(int $sampleId): bool
     {
-        // v_pending_match2match captures the "still has pages to fetch
-        // for an enabled (eye, other, session) triple" predicate.
-        // We add the don't-include-failed filter here.
+        // Any non-terminal queue row for this sample means the worker
+        // either hasn't picked it up yet or is currently loading it.
         $row = DB::selectOne('
             SELECT 1 AS x
             FROM v_pending_match2match
             WHERE othsample = ?
-              AND (fail IS NULL OR fail = 0)
+              AND status IN (\'pending\', \'running\')
             LIMIT 1
         ', [$sampleId]);
         return $row !== null;
+    }
+
+    /**
+     * Idempotently push all not-yet-loaded (eye, sample) pairs onto
+     * the queue at web priority (10). Called when a user navigates to
+     * /dna/{id}/matches so the worker starts on those pairs first.
+     * Done/abandoned pairs are left alone — use requeue.pl for those.
+     */
+    public function enqueueForSample(int $sampleId): void
+    {
+        // Materialise the candidate pairs first so the INSERT...SELECT
+        // doesn't drag the view (which has its own `priority` column)
+        // into the ON DUPLICATE KEY UPDATE scope — MariaDB resolves
+        // the unqualified `priority` on the UPDATE clause against the
+        // source SELECT's columns and complains it is ambiguous.
+        $pairs = DB::select('
+            SELECT mgmtsample, othsample
+            FROM v_pending_match2match
+            WHERE othsample = ? AND status = ?
+        ', [$sampleId, 'pending']);
+
+        if (!$pairs) {
+            return;
+        }
+
+        $sql = 'INSERT INTO dna_match2match_loaded
+                    (mgmtsample, othsample, status, enqueued_at, priority)
+                VALUES ' . implode(',', array_fill(0, count($pairs), '(?, ?, ?, NOW(), ?)')) . '
+                ON DUPLICATE KEY UPDATE
+                    priority    = LEAST(priority, VALUES(priority)),
+                    enqueued_at = COALESCE(enqueued_at, VALUES(enqueued_at))';
+
+        $bind = [];
+        foreach ($pairs as $p) {
+            $bind[] = $p->mgmtsample;
+            $bind[] = $p->othsample;
+            $bind[] = 'pending';
+            $bind[] = 10;
+        }
+
+        DB::statement($sql, $bind);
     }
 
     /**

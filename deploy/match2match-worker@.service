@@ -1,0 +1,37 @@
+# systemd template unit for the match2match queue worker.
+#
+# Installed at /etc/systemd/system/match2match-worker@.service.
+# Each instance is identified by the %i placeholder so you can run
+# multiple parallel workers — they pass `--worker N` through to the
+# script for visibility (claimed_by carries hostname:pid anyway, so
+# concurrent workers are safe at the DB layer).
+#
+# Enable + start:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now match2match-worker@1.service
+#   sudo systemctl enable --now match2match-worker@2.service
+#   # ...as many as you want
+#
+# Stop one for ad-hoc work:
+#   sudo systemctl stop match2match-worker@1.service
+#
+# Tail logs:
+#   journalctl -u match2match-worker@1.service -f
+
+[Unit]
+Description=DNA match2match queue worker %i
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=damo
+WorkingDirectory=/home/damo/ancestry/program
+ExecStart=/usr/bin/perl ./worker-match2match.pl
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

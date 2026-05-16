@@ -19,6 +19,12 @@ class DnaMatchesController extends Controller
         $sample = $this->service->get($id);
         abort_unless($sample, 404, 'DNA sample not found');
 
+        // Visiting this page is what tells the queue "someone cares
+        // about this sample". Idempotent at priority=10 so repeated
+        // visits don't pile up duplicates but a busy sample bumps
+        // priority over routine background fills.
+        $this->service->enqueueForSample($id);
+
         // Optional "common with this eye" filter. Validate the eye is a
         // real managed kit and isn't the page's own sample.
         $eyeId = (int) $request->input('eye') ?: null;
