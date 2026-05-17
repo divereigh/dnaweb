@@ -172,11 +172,14 @@ class PersonDetailService
         // LEFT JOIN gedcom_tree so a gedcom_people row referencing a tree
         // we don't have metadata for still surfaces — UI renders the link
         // with an "Unknown Tree" label so the user can still click through.
+        // Soft-deleted trees (disabled=1) are dropped; a NULL gedcom_tree
+        // row (never fetched) is kept.
         return array_map(fn ($r) => (array) $r, DB::select('
             SELECT gp.atreeid, gt.name, gp.ancestryid
             FROM gedcom_people gp
             LEFT JOIN gedcom_tree gt ON gt.atreeid = gp.atreeid
             WHERE gp.peopleid = ?
+              AND (gt.disabled IS NULL OR gt.disabled = 0)
             ORDER BY gt.name IS NULL, gt.name, gp.atreeid
         ', [$personId]));
     }
