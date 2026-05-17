@@ -21,9 +21,10 @@ const props = defineProps({
     selected_eye: { type: Object, default: null },
     loading_in_progress: { type: Boolean, default: false },
     ancestry_trees: { type: Array, default: () => [] },
+    filters: { type: Object, default: () => ({ q: '' }) },
 });
 
-const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye'];
+const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters'];
 
 function ancestryCompareUrl(otherUuid) {
     if (!props.selected_eye?.dnaUUID || !otherUuid) return null;
@@ -79,6 +80,28 @@ function matchLink(otherId) {
     const base = route('dna.matches', otherId);
     return props.selected_eye ? `${base}?eye=${props.selected_eye.id}` : base;
 }
+
+// Search by display name. Debounced — typing fires after 280ms idle,
+// which is what Eyes/Matches uses too. Preserves the eye filter so
+// searches happen within whatever common-with view is active.
+const q = ref(props.filters?.q ?? '');
+let qTimer = null;
+watch(q, (val) => {
+    if (qTimer) clearTimeout(qTimer);
+    qTimer = setTimeout(() => {
+        router.reload({
+            only: ONLY,
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            data: {
+                q: val.trim() || undefined,
+                eye: props.selected_eye?.id || undefined,
+                page: 1,
+            },
+        });
+    }, 280);
+});
 
 function reloadPage() {
     router.reload({ preserveState: true, preserveScroll: true });
@@ -473,6 +496,18 @@ function closeEdit() {
                 </li>
             </ul>
         </div>
+
+        <form
+            class="filter-bar mb-4 sm:grid-cols-[minmax(0,1fr)]"
+            @submit.prevent
+        >
+            <input
+                v-model="q"
+                type="search"
+                placeholder="Search this sample's matches by name…"
+                class="text-sm"
+            />
+        </form>
 
         <div
             v-if="loading"

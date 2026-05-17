@@ -114,11 +114,12 @@ class DnaSampleService
         return $r;
     }
 
-    public function countMatches(int $sampleId, ?int $commonWithEye = null): int
+    public function countMatches(int $sampleId, ?int $commonWithEye = null, string $search = ''): int
     {
         // dna_matches2 is directional: rows where sample1 = X are exactly
         // X's view of its matches. Eye-filter becomes a JOIN to the eye's
-        // own rows by sample2 (the other party they share).
+        // own rows by sample2 (the other party they share). Search needs
+        // the dna_samples/people joins to look at display names.
         $bind = [];
         $eyeJoin = '';
         if ($commonWithEye) {
@@ -129,12 +130,24 @@ class DnaSampleService
         }
         $bind[] = $sampleId;
 
+        $searchJoin = '';
+        $searchWhere = '';
+        if ($search !== '') {
+            $searchJoin = '
+                JOIN dna_samples s ON s.id = m.sample2
+                LEFT JOIN people p ON p.dnaSampleId = m.sample2
+            ';
+            $searchWhere = ' AND (s.displayName LIKE ? OR p.fullName LIKE ?)';
+            $bind[] = "%{$search}%";
+            $bind[] = "%{$search}%";
+        }
+
         $row = DB::selectOne('
             SELECT COUNT(*) AS c
             FROM dna_matches2 m
-            ' . $eyeJoin . '
-            WHERE m.sample1 = ?
-        ', $bind);
+            ' . $eyeJoin . $searchJoin . '
+            WHERE m.sample1 = ?' . $searchWhere
+        , $bind);
         return (int) ($row?->c ?? 0);
     }
 
@@ -251,7 +264,7 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = ''): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -265,6 +278,14 @@ class DnaSampleService
         }
 
         $bind[] = $sampleId;        // m.sample1 = ?
+
+        $searchWhere = '';
+        if ($search !== '') {
+            $searchWhere = ' AND (s.displayName LIKE ? OR p.fullName LIKE ?)';
+            $bind[] = "%{$search}%";
+            $bind[] = "%{$search}%";
+        }
+
         $bind[] = $pageSize;
         $bind[] = $offset;
 
@@ -297,7 +318,7 @@ class DnaSampleService
             JOIN dna_samples s ON s.id = m.sample2
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
-            WHERE m.sample1 = ?
+            WHERE m.sample1 = ?' . $searchWhere . '
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
             LIMIT ? OFFSET ?
         ', $bind);

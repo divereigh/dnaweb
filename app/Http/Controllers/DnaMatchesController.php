@@ -43,8 +43,9 @@ class DnaMatchesController extends Controller
 
         $page = max((int) ($request->input('page') ?: 1), 1);
         $pageSize = 50;
+        $search = trim((string) $request->input('q', ''));
 
-        $total = $this->service->countMatches($id, $eyeId);
+        $total = $this->service->countMatches($id, $eyeId, $search);
         $totalPages = max(1, (int) ceil($total / $pageSize));
         if ($page > $totalPages) {
             $page = $totalPages;
@@ -52,7 +53,7 @@ class DnaMatchesController extends Controller
 
         return Inertia::render('Dna/Matches', [
             'sample' => $sample,
-            'matches' => $this->service->listMatches($id, $page, $pageSize, $eyeId),
+            'matches' => $this->service->listMatches($id, $page, $pageSize, $eyeId, $search),
             'page' => $page,
             'pages' => $totalPages,
             'total' => $total,
@@ -64,6 +65,7 @@ class DnaMatchesController extends Controller
             'ancestry_trees' => $sample['person_id']
                 ? $this->persons->ancestryTrees((int) $sample['person_id'])
                 : [],
+            'filters' => ['q' => $search],
         ]);
     }
 }
