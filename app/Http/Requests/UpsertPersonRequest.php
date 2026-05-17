@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\PerlApi;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpsertPersonRequest extends FormRequest
@@ -40,6 +41,16 @@ class UpsertPersonRequest extends FormRequest
         if ($raw === '') {
             return null;
         }
+
+        // Prefer the Perl API — it's the canonical source of these
+        // regexes (also used by the loaders). Falls through to the
+        // PHP copy below if the service is unreachable or returns
+        // null, so a downed Mojo process doesn't break edits.
+        $parsed = app(PerlApi::class)->parseUrl($raw);
+        if ($parsed !== null) {
+            return $parsed;
+        }
+
         if (preg_match('#/family-tree/tree/(\d+).*\?cfpid=(-?\d+)#', $raw, $m)) {
             return ['atreeid' => (int) $m[1], 'ancestryid' => (int) $m[2]];
         }
