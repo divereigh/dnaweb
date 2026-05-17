@@ -1,0 +1,42 @@
+# systemd unit for the dnaweb Perl API (Mojolicious).
+#
+# Installs at /etc/systemd/system/dnaweb-perl-api.service.
+# Listens on 127.0.0.1:8082 — nginx proxies /api/perl/ to it on
+# production, and laptop dev SSH-tunnels the same port back.
+#
+# Reads DB credentials from the same EnvironmentFile the
+# match2match worker uses (~/.config/ancestry/db.env, mode 0600).
+#
+# Prereq on production (one-time):
+#   sudo apt install libmojolicious-perl    # or `cpanm Mojolicious`
+#
+# Install + start:
+#   sudo install -m 0644 -o root -g root \
+#     deploy/dnaweb-perl-api.service \
+#     /etc/systemd/system/dnaweb-perl-api.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dnaweb-perl-api.service
+#
+# Tail:
+#   journalctl -u dnaweb-perl-api.service -f
+
+[Unit]
+Description=dnaweb Perl API (Mojolicious)
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=damo
+WorkingDirectory=/home/damo/ancestry-program/perl-api
+EnvironmentFile=/home/damo/.config/ancestry/db.env
+Environment=MOJO_LISTEN=http://127.0.0.1:8082
+ExecStart=/usr/bin/hypnotoad -f -m production /home/damo/ancestry-program/perl-api/api.pl
+ExecReload=/usr/bin/hypnotoad /home/damo/ancestry-program/perl-api/api.pl
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
