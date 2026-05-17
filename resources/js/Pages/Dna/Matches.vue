@@ -20,6 +20,7 @@ const props = defineProps({
     eye_id: { type: Number, default: null },
     selected_eye: { type: Object, default: null },
     loading_in_progress: { type: Boolean, default: false },
+    ancestry_trees: { type: Array, default: () => [] },
 });
 
 const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye'];
@@ -63,6 +64,7 @@ const selectedEyeIsSample = computed(
 const selectedEye = ref(props.eye_id ?? '');
 const loading = ref(false);
 const eyeListOpen = ref(false);
+const treesOpen = ref(false);
 
 // The match row inside eye_matches that corresponds to the currently
 // selected eye — supplies cM/cluster/etc for the closed-accordion bar.
@@ -434,6 +436,42 @@ function closeEdit() {
                     </tr>
                 </tbody>
             </table>
+        </div>
+
+        <div v-if="ancestry_trees.length" class="card mb-4 overflow-hidden">
+            <button
+                type="button"
+                class="flex w-full items-center gap-3 border-b border-paper-300 bg-paper-100 px-4 py-2.5 text-left hover:bg-paper-200/60 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                :aria-expanded="treesOpen"
+                @click="treesOpen = !treesOpen"
+            >
+                <span
+                    class="text-sepia-500 transition-transform"
+                    :class="treesOpen ? 'rotate-90' : ''"
+                    aria-hidden="true"
+                >
+                    ▶
+                </span>
+                <p class="eyebrow flex-1">
+                    Ancestry trees ({{ ancestry_trees.length }})
+                </p>
+            </button>
+            <ul v-show="treesOpen" class="divide-y divide-paper-200 px-4 py-2 text-sm text-sepia-600">
+                <li
+                    v-for="t in ancestry_trees"
+                    :key="`${t.atreeid}-${t.ancestryid}`"
+                    class="py-1"
+                >
+                    <a
+                        :href="`https://www.ancestry.com.au/family-tree/tree/${t.atreeid}/family?cfpid=${t.ancestryid}`"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="ref-link"
+                    >
+                        {{ t.name || 'Unknown Tree' }}
+                    </a>
+                </li>
+            </ul>
         </div>
 
         <div

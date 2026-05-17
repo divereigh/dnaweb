@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\DnaSampleService;
 use App\Services\EyeMatchService;
+use App\Services\PersonDetailService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -12,6 +13,7 @@ class DnaMatchesController extends Controller
     public function __construct(
         private DnaSampleService $service,
         private EyeMatchService $eyes,
+        private PersonDetailService $persons,
     ) {}
 
     public function index(Request $request, int $id)
@@ -59,6 +61,9 @@ class DnaMatchesController extends Controller
             'eye_id' => $eyeId,
             'selected_eye' => $selectedEye,
             'loading_in_progress' => $this->service->loadingInProgress($id),
+            'ancestry_trees' => $sample['person_id']
+                ? $this->persons->ancestryTrees((int) $sample['person_id'])
+                : [],
         ]);
     }
 }
