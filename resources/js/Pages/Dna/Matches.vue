@@ -324,9 +324,9 @@ function closeEdit() {
                     <tr>
                         <th></th>
                         <th>Name</th>
+                        <th>Predicted</th>
                         <th data-numeric>cM</th>
                         <th>Cluster</th>
-                        <th>Tested</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -380,6 +380,9 @@ function closeEdit() {
                                 </span>
                             </div>
                         </td>
+                        <td class="text-sm text-sepia-700">
+                            {{ (e.kinships || []).join(' or ') }}
+                        </td>
                         <td class="num">{{ e.sharedCentimorgans }}</td>
                         <td>
                             <ClusterPill
@@ -387,7 +390,6 @@ function closeEdit() {
                                 :paternal-cluster="sample.paternalCluster || ''"
                             />
                         </td>
-                        <td class="ident">{{ e.created_fmt }}</td>
                         <td class="!text-right">
                             <div class="inline-flex items-center gap-1">
                                 <Link
@@ -455,9 +457,9 @@ function closeEdit() {
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Predicted</th>
                         <th data-numeric>cM</th>
                         <th>Cluster</th>
-                        <th>Tested</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -505,6 +507,9 @@ function closeEdit() {
                             >
                             </div>
                         </td>
+                        <td class="text-sm text-sepia-700">
+                            {{ (m.kinships || []).join(' or ') }}
+                        </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td>
                             <ClusterPill
@@ -512,7 +517,6 @@ function closeEdit() {
                                 :paternal-cluster="sample.paternalCluster || ''"
                             />
                         </td>
-                        <td class="ident">{{ m.created_fmt }}</td>
                         <td class="!text-right">
                             <div class="inline-flex items-center gap-1">
                                 <Link

@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 
 class PersonDetailService
 {
+    public function __construct(private KinshipLabelService $kinship) {}
+
     public function get(int $personId): ?array
     {
         $rows = DB::select('
@@ -226,12 +228,33 @@ class PersonDetailService
             ORDER BY m.sharedCentimorgans DESC, ds_eye.displayName ASC
         ', [$dnaSampleId, $dnaSampleId]);
 
-        return array_map(function ($r) {
+        // The focus person's effective gender drives the kinship label
+        // (sample2 in the kinship row is the focus's dna sample).
+        $focusGenderRow = DB::selectOne('
+            SELECT p.gender AS person_gender, s.gender AS sample_gender
+              FROM dna_samples s
+              LEFT JOIN people p ON p.dnaSampleId = s.id
+             WHERE s.id = ?
+        ', [$dnaSampleId]);
+        $focusGender = Format::effectiveGender(
+            $focusGenderRow->person_gender ?? null,
+            $focusGenderRow->sample_gender ?? null,
+        );
+
+        $rows = array_map(function ($r) use ($dnaSampleId, $focusGender) {
             $row = (array) $r;
+            $row['sample2'] = $dnaSampleId;
+            $row['focus_gender'] = $focusGender;
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['eye_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['eye_gender'] ?? null);
             return $row;
         }, $rows);
+
+        // Kinship rows are (sample1=eye_id, sample2=this person). Look
+        // them up keyed on eye_id; the gender that drives label choice
+        // is the focus person's, which is constant per page.
+        $this->kinship->decorate($rows, 'eye_id', 'sample2', 'focus_gender');
+        return $rows;
     }
 }

@@ -255,6 +255,7 @@ defineProps({
                 <thead>
                     <tr>
                         <th>Eye</th>
+                        <th>Predicted</th>
                         <th data-numeric>cM</th>
                         <th data-numeric>Segs</th>
                         <th>Cluster</th>
@@ -288,6 +289,9 @@ defineProps({
                                     :admin-label="m.display_label"
                                 />
                             </div>
+                        </td>
+                        <td class="text-sm text-sepia-700">
+                            {{ (m.kinships || []).join(' or ') }}
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td class="num">{{ m.numSharedSegments }}</td>

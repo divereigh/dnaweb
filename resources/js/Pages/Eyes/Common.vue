@@ -71,10 +71,10 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                 <thead>
                     <tr>
                         <th>Name</th>
+                        <th>Predicted</th>
                         <th data-numeric>cM → eye</th>
                         <th data-numeric>cM → match</th>
                         <th>Cluster</th>
-                        <th>Tested</th>
                         <th>Notes</th>
                         <th></th>
                     </tr>
@@ -106,6 +106,9 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                                 </span>
                             </div>
                         </td>
+                        <td class="text-sm text-sepia-700">
+                            {{ (m.kinships || []).join(' or ') }}
+                        </td>
                         <td class="num">{{ m.cm_to_eye }}</td>
                         <td class="num">{{ m.cm_to_match }}</td>
                         <td>
@@ -114,7 +117,6 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                                 :paternal-cluster="eye.paternalCluster || ''"
                             />
                         </td>
-                        <td class="ident">{{ m.created_fmt }}</td>
                         <td class="max-w-xs truncate text-sepia-600" :title="m.notes">
                             {{ m.notes || '' }}
                         </td>

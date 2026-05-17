@@ -9,6 +9,8 @@ class CommonMatchService
 {
     public const ALLOWED_PER_PAGE = [25, 50, 100, 200];
 
+    public function __construct(private KinshipLabelService $kinship) {}
+
     public function count(int $eyeId, int $otherId): int
     {
         // dna_matches2 is directional. People in common with both eye and
@@ -64,12 +66,16 @@ class CommonMatchService
             LIMIT ? OFFSET ?
         ', [$otherId, $eyeId, $eyeId, $eyeId, $otherId, $limit, $offset]);
 
-        return array_map(function ($r) {
+        $rows = array_map(function ($r) use ($eyeId) {
             $row = (array) $r;
+            $row['sample1'] = $eyeId;
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
             return $row;
         }, $rows);
+
+        $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+        return $rows;
     }
 }

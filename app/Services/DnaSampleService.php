@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;
 
 class DnaSampleService
 {
+    public function __construct(private KinshipLabelService $kinship) {}
+
     public function search(string $q, int $limit, int $offset): array
     {
         if ($q === '') {
@@ -235,14 +237,18 @@ class DnaSampleService
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
         ', [$sampleId]);
 
-        return array_map(function ($r) {
+        $rows = array_map(function ($r) use ($sampleId) {
             $row = (array) $r;
+            $row['sample1'] = $sampleId;
             $row['created_fmt'] = Format::createdDate($row['other_createdDate'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
             return $row;
         }, $rows);
+
+        $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+        return $rows;
     }
 
     public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null): array
@@ -296,13 +302,17 @@ class DnaSampleService
             LIMIT ? OFFSET ?
         ', $bind);
 
-        return array_map(function ($r) {
+        $rows = array_map(function ($r) use ($sampleId) {
             $row = (array) $r;
+            $row['sample1'] = $sampleId;
             $row['created_fmt'] = Format::createdDate($row['other_createdDate'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
             return $row;
         }, $rows);
+
+        $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+        return $rows;
     }
 }

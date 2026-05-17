@@ -18,6 +18,8 @@ class EyeMatchService
         'created' => 'other_createdDate',
     ];
 
+    public function __construct(private KinshipLabelService $kinship) {}
+
     public function listEyes(): array
     {
         // Step 1: managed kits only (small set, fast).
@@ -127,7 +129,7 @@ class EyeMatchService
         $bind[] = $offset;
 
         $rows = array_map(fn ($r) => (array) $r, DB::select($sql, $bind));
-        return $this->decorateMatchRows($rows);
+        return $this->decorateMatchRows($rows, $eyeId);
     }
 
     public function listClusters(int $eyeId): array
@@ -294,14 +296,17 @@ class EyeMatchService
         }, $rows);
     }
 
-    private function decorateMatchRows(array $rows): array
+    private function decorateMatchRows(array $rows, int $eyeId): array
     {
         foreach ($rows as &$row) {
+            $row['sample1'] = $eyeId;
             $row['created_fmt'] = Format::createdDate($row['other_createdDate'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
         }
+        unset($row);
+        $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
         return $rows;
     }
 }

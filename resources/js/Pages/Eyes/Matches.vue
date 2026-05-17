@@ -243,6 +243,7 @@ function ancestryCompareUrl(otherUuid) {
                         >
                             Name <span class="sort-mark">{{ sortMark('name') }}</span>
                         </th>
+                        <th>Predicted</th>
                         <th
                             data-numeric
                             :class="['sortable', isActive('cm') ? 'is-active' : '']"
@@ -269,12 +270,6 @@ function ancestryCompareUrl(otherUuid) {
                             @click="setSort('cluster')"
                         >
                             Cluster <span class="sort-mark">{{ sortMark('cluster') }}</span>
-                        </th>
-                        <th
-                            :class="['sortable', isActive('created') ? 'is-active' : '']"
-                            @click="setSort('created')"
-                        >
-                            Tested <span class="sort-mark">{{ sortMark('created') }}</span>
                         </th>
                         <th>Notes</th>
                         <th></th>
@@ -333,6 +328,9 @@ function ancestryCompareUrl(otherUuid) {
                             </span>
                             </div>
                         </td>
+                        <td class="text-sm text-sepia-700">
+                            {{ (m.kinships || []).join(' or ') }}
+                        </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td class="num">{{ m.numSharedSegments }}</td>
                         <td class="num">{{ m.meiosis }}</td>
@@ -342,7 +340,6 @@ function ancestryCompareUrl(otherUuid) {
                                 :paternal-cluster="eye.paternalCluster || ''"
                             />
                         </td>
-                        <td class="ident">{{ m.created_fmt }}</td>
                         <td class="max-w-xs truncate text-sepia-600" :title="m.notes">
                             {{ m.notes || '' }}
                         </td>
