@@ -16,6 +16,21 @@ class DnaMatchesController extends Controller
         private PersonDetailService $persons,
     ) {}
 
+    /**
+     * Force a full reload: flip every queue row for this sample back
+     * to pending with progress cleared, plus enqueue any pending
+     * pairs that don't have a row yet. The page polling picks up the
+     * fresh `loading_in_progress=true` state and the spinner takes
+     * over until the workers drain.
+     */
+    public function requeue(int $id)
+    {
+        abort_unless($this->service->get($id), 404, 'DNA sample not found');
+        $this->service->requeueAll($id);
+        $this->service->enqueueForSample($id);
+        return back();
+    }
+
     public function index(Request $request, int $id)
     {
         $sample = $this->service->get($id);

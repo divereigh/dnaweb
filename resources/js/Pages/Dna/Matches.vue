@@ -107,6 +107,30 @@ function reloadPage() {
     router.reload({ preserveState: true, preserveScroll: true });
 }
 
+// Force a full requeue of every (eye, this-sample) pair, then nudge
+// Inertia so loading_in_progress flips to true and the spinner takes
+// over. The polling watcher then takes care of refreshing the page
+// when the workers drain.
+const requeuing = ref(false);
+function forceReload() {
+    if (requeuing.value) return;
+    requeuing.value = true;
+    router.post(
+        route('dna.matches.requeue', props.sample.id),
+        {},
+        {
+            preserveState: true,
+            preserveScroll: true,
+            onFinish: () => { requeuing.value = false; },
+            onSuccess: () => router.reload({
+                only: ['loading_in_progress'],
+                preserveScroll: true,
+                preserveState: true,
+            }),
+        },
+    );
+}
+
 // While the queue is still draining, poll only the loading_in_progress
 // prop every 10s. When it flips false, do one full reload to pull the
 // freshly-loaded matches in. Click-to-refresh button still works for
@@ -258,7 +282,26 @@ function closeEdit() {
                         </svg>
                         Loading…
                     </button>
-                    <span v-else>{{ total.toLocaleString() }} {{ total === 1 ? 'match' : 'matches' }}</span>
+                    <button
+                        v-else
+                        type="button"
+                        :disabled="requeuing"
+                        @click="forceReload"
+                        class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500 disabled:opacity-60"
+                        title="Re-fetch every (eye ↔ this sample) pair from Ancestry, ignoring already-loaded state"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            class="h-3.5 w-3.5"
+                            :class="requeuing ? 'animate-spin' : ''"
+                            aria-hidden="true"
+                        >
+                            <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.989a.75.75 0 0 0-.75.75v4.242a.75.75 0 0 0 1.5 0v-2.43l.31.31a7 7 0 0 0 11.712-3.138.75.75 0 0 0-1.449-.39zm1.23-3.723a.75.75 0 0 0 .219-.53V2.929a.75.75 0 0 0-1.5 0v2.42l-.31-.31A7 7 0 0 0 3.239 8.175a.75.75 0 1 0 1.448.389A5.5 5.5 0 0 1 13.89 6.1l.311.31h-2.432a.75.75 0 0 0 0 1.5h4.243a.75.75 0 0 0 .53-.219z" clip-rule="evenodd" />
+                        </svg>
+                        RELOAD
+                    </button>
                 </template>
                 <template #titleBefore>
                     <SampleAvatar

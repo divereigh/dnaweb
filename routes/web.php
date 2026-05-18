@@ -25,6 +25,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/dna', [DnaController::class, 'index'])->name('dna.index');
     Route::get('/dna/{id}/matches', [DnaMatchesController::class, 'index'])->name('dna.matches');
+    Route::post('/dna/{id}/matches/requeue', [DnaMatchesController::class, 'requeue'])->name('dna.matches.requeue');
     Route::put('/dna/{sampleId}/person', [PersonController::class, 'upsertForSample'])->name('dna.person.upsert');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

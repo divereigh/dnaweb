@@ -174,10 +174,40 @@ class DnaSampleService
     }
 
     /**
+     * Force a fresh reload of every (eye, sample) pair for this
+     * sample — done, abandoned, and any retry-backoff rows get
+     * flipped back to pending with their progress counters cleared.
+     * Workers will then re-fetch them from page 1.
+     *
+     * Skips rows currently `running` (a worker has them); those will
+     * complete and write fresh data anyway. Returns the number of
+     * rows that were updated.
+     */
+    public function requeueAll(int $sampleId, int $priority = 10): int
+    {
+        return DB::update("
+            UPDATE dna_match2match_loaded
+               SET status        = 'pending',
+                   lastPage      = NULL,
+                   totalPages    = NULL,
+                   success       = 0,
+                   fail          = 0,
+                   attempts      = 0,
+                   claimed_at    = NULL,
+                   claimed_by    = NULL,
+                   next_retry_at = NULL,
+                   enqueued_at   = NOW(),
+                   priority      = ?
+             WHERE othsample = ?
+               AND status <> 'running'
+        ", [$priority, $sampleId]);
+    }
+
+    /**
      * Idempotently push all not-yet-loaded (eye, sample) pairs onto
      * the queue at web priority (10). Called when a user navigates to
      * /dna/{id}/matches so the worker starts on those pairs first.
-     * Done/abandoned pairs are left alone — use requeue.pl for those.
+     * Done/abandoned pairs are left alone — use requeueAll for those.
      */
     public function enqueueForSample(int $sampleId): void
     {
