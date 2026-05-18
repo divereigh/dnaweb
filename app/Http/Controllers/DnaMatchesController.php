@@ -21,14 +21,21 @@ class DnaMatchesController extends Controller
         $sample = $this->service->get($id);
         abort_unless($sample, 404, 'DNA sample not found');
 
-        // Visiting this page is what tells the queue "someone cares
-        // about this sample". Idempotent at priority=10 so repeated
-        // visits don't pile up duplicates but a busy sample bumps
-        // priority over routine background fills.
-        $this->service->enqueueForSample($id);
+        // Skip the enqueue + every expensive query on partial reloads
+        // (loading-poll, search-debounce, etc). The Vue side already
+        // tells Inertia which props it wants via `only:`; closures
+        // below are evaluated lazily, so a poll that asks only for
+        // `loading_in_progress` doesn't re-fetch matches/eye_matches.
+        $isPartial = $request->header('X-Inertia-Partial-Data') !== null;
 
-        // Optional "common with this eye" filter. Validate the eye is a
-        // real managed kit and isn't the page's own sample.
+        if (!$isPartial) {
+            // Visiting this page is what tells the queue "someone cares
+            // about this sample". Idempotent at priority=10 — but doing
+            // the v_pending_match2match scan once per poll was burning
+            // ~350ms of DB work per 10s tick.
+            $this->service->enqueueForSample($id);
+        }
+
         $eyeId = (int) $request->input('eye') ?: null;
         $selectedEye = null;
         if ($eyeId === $id) {
@@ -45,27 +52,37 @@ class DnaMatchesController extends Controller
         $pageSize = 50;
         $search = trim((string) $request->input('q', ''));
 
-        $total = $this->service->countMatches($id, $eyeId, $search);
-        $totalPages = max(1, (int) ceil($total / $pageSize));
-        if ($page > $totalPages) {
-            $page = $totalPages;
-        }
+        // Cache the count per-request — `total`, `pages` and the
+        // page-clamp in `matches` would otherwise call countMatches
+        // three times.
+        $countMemo = null;
+        $count = function () use (&$countMemo, $id, $eyeId, $search) {
+            return $countMemo ??= $this->service->countMatches($id, $eyeId, $search);
+        };
+        $resolvePage = function () use ($count, $page, $pageSize) {
+            return min($page, max(1, (int) ceil($count() / $pageSize)));
+        };
 
         return Inertia::render('Dna/Matches', [
-            'sample' => $sample,
-            'matches' => $this->service->listMatches($id, $page, $pageSize, $eyeId, $search),
-            'page' => $page,
-            'pages' => $totalPages,
-            'total' => $total,
-            'per_page' => $pageSize,
-            'eye_matches' => $this->service->listEyeMatches($id),
-            'eye_id' => $eyeId,
-            'selected_eye' => $selectedEye,
-            'loading_in_progress' => $this->service->loadingInProgress($id),
-            'ancestry_trees' => $sample['person_id']
+            'sample'         => $sample,
+            'eye_id'         => $eyeId,
+            'selected_eye'   => $selectedEye,
+            'per_page'       => $pageSize,
+            'filters'        => ['q' => $search],
+
+            // Heavy props as closures — Inertia only invokes them
+            // when the response includes the corresponding key, so
+            // a poll for `loading_in_progress` doesn't re-fetch
+            // matches / eye_matches / etc.
+            'matches'             => fn () => $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search),
+            'total'               => fn () => $count(),
+            'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),
+            'page'                => fn () => $resolvePage(),
+            'eye_matches'         => fn () => $this->service->listEyeMatches($id),
+            'loading_in_progress' => fn () => $this->service->loadingInProgress($id),
+            'ancestry_trees'      => fn () => $sample['person_id']
                 ? $this->persons->ancestryTrees((int) $sample['person_id'])
                 : [],
-            'filters' => ['q' => $search],
         ]);
     }
 }
