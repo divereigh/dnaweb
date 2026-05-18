@@ -107,7 +107,7 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">
-                            {{ (m.kinships || []).join(' or ') }}
+                            {{ (m.kinships || []).join(' / ') }}
                         </td>
                         <td class="num">{{ m.cm_to_eye }}</td>
                         <td class="num">{{ m.cm_to_match }}</td>

@@ -129,7 +129,11 @@ class KinshipLabelService
             foreach ($nspathMap[$key] ?? [] as $nspath) {
                 $labels[] = $this->labelFor($nspath, $g);
             }
-            $row['kinships'] = $labels;
+            // Different nspaths can map to the same friendly label
+            // (e.g. PPFC and PFCC both → "1st cousin 1x removed").
+            // Dedupe but keep insertion order so the primary path
+            // wins position.
+            $row['kinships'] = array_values(array_unique($labels));
         }
     }
 }

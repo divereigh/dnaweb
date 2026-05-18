@@ -449,7 +449,7 @@ function closeEdit() {
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">
-                            {{ (e.kinships || []).join(' or ') }}
+                            {{ (e.kinships || []).join(' / ') }}
                         </td>
                         <td class="num">{{ e.sharedCentimorgans }}</td>
                         <td>
@@ -624,7 +624,7 @@ function closeEdit() {
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">
-                            {{ (m.kinships || []).join(' or ') }}
+                            {{ (m.kinships || []).join(' / ') }}
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td>
