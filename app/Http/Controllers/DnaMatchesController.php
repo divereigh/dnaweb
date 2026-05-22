@@ -98,6 +98,13 @@ class DnaMatchesController extends Controller
             'ancestry_trees'      => fn () => $sample['person_id']
                 ? $this->persons->ancestryTrees((int) $sample['person_id'])
                 : [],
+            // Map of {peopleId: true} reachable from the title
+            // person by walking up father/mother edges. Vue lights
+            // up a family-tree icon next to rows whose linked
+            // person is in this set.
+            'connected_people'    => fn () => $sample['person_id']
+                ? $this->persons->connectedPeopleSet((int) $sample['person_id'])
+                : (object) [],
         ]);
     }
 }

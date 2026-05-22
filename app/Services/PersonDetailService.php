@@ -167,6 +167,40 @@ class PersonDetailService
         return ['full' => $full, 'half_father' => $halfFather, 'half_mother' => $halfMother];
     }
 
+    /**
+     * Set of people.id values connected to this person via shared
+     * ancestry — the person themself plus every ancestor reachable
+     * by walking up father/mother edges, no depth cap.
+     *
+     * Used by the DNA matches page to flag rows whose linked person
+     * is in the title person's ancestor tree (i.e. there is a
+     * documented family-tree connection on top of the DNA match).
+     *
+     * Returned as a map keyed by id for O(1) lookup on the client.
+     *
+     * @return array<int, true>
+     */
+    public function connectedPeopleSet(int $personId): array
+    {
+        $rows = DB::select('
+            WITH RECURSIVE peopleTree AS (
+                SELECT id, mother, father FROM people WHERE id = ?
+                UNION
+                SELECT p.id, p.mother, p.father
+                  FROM people p
+                  INNER JOIN peopleTree pt
+                    ON pt.mother = p.id OR pt.father = p.id
+            )
+            SELECT id FROM peopleTree
+        ', [$personId]);
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[(int) $r->id] = true;
+        }
+        return $out;
+    }
+
     public function ancestryTrees(int $personId): array
     {
         // LEFT JOIN gedcom_tree so a gedcom_people row referencing a tree
