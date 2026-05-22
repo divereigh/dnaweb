@@ -22,14 +22,7 @@ const props = defineProps({
     loading_in_progress: { type: Boolean, default: false },
     ancestry_trees: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({ q: '' }) },
-    connected_people: { type: Object, default: () => ({}) },
 });
-
-// O(1) "is this person connected to the title sample's tree?" check
-// for table rows. The backend already returns a map keyed by id.
-function isConnected(personId) {
-    return !!personId && !!props.connected_people[personId];
-}
 
 const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters'];
 
@@ -451,7 +444,7 @@ function closeEdit() {
                                     {{ e.display_label }}
                                 </Link>
                                 <img
-                                    v-if="isConnected(e.person_id)"
+                                    v-if="e.connected_via_tree"
                                     src="/icon-family-tree.png"
                                     alt=""
                                     class="ms-1 h-4 w-4 opacity-80"
@@ -614,7 +607,7 @@ function closeEdit() {
                                     {{ m.display_label }}
                                 </Link>
                                 <img
-                                    v-if="isConnected(m.person_id)"
+                                    v-if="m.connected_via_tree"
                                     src="/icon-family-tree.png"
                                     alt=""
                                     class="ms-1 h-4 w-4 opacity-80"

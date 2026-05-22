@@ -78,6 +78,29 @@ class DnaMatchesController extends Controller
             return min($page, max(1, (int) ceil($count() / $pageSize)));
         };
 
+        // Set of people.id connected to the title's person via shared
+        // ancestry (walk-both). Materialised once on demand; used to
+        // annotate each match row with `connected_via_tree` so the
+        // map doesn't have to ship over the wire (can be 30k+ ids).
+        $connectedMemo = null;
+        $connected = function () use (&$connectedMemo, $sample) {
+            if ($connectedMemo !== null) {
+                return $connectedMemo;
+            }
+            if (empty($sample['person_id'])) {
+                return $connectedMemo = [];
+            }
+            return $connectedMemo = $this->persons->connectedPeopleSet((int) $sample['person_id']);
+        };
+        $annotateConnected = function (array $rows) use ($connected) {
+            $set = $connected();
+            foreach ($rows as &$row) {
+                $pid = (int) ($row['person_id'] ?? 0);
+                $row['connected_via_tree'] = $pid > 0 && isset($set[$pid]);
+            }
+            return $rows;
+        };
+
         return Inertia::render('Dna/Matches', [
             'sample'         => $sample,
             'eye_id'         => $eyeId,
@@ -89,22 +112,17 @@ class DnaMatchesController extends Controller
             // when the response includes the corresponding key, so
             // a poll for `loading_in_progress` doesn't re-fetch
             // matches / eye_matches / etc.
-            'matches'             => fn () => $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search),
+            'matches'             => fn () => $annotateConnected(
+                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search)
+            ),
             'total'               => fn () => $count(),
             'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),
             'page'                => fn () => $resolvePage(),
-            'eye_matches'         => fn () => $this->service->listEyeMatches($id),
+            'eye_matches'         => fn () => $annotateConnected($this->service->listEyeMatches($id)),
             'loading_in_progress' => fn () => $this->service->loadingInProgress($id),
             'ancestry_trees'      => fn () => $sample['person_id']
                 ? $this->persons->ancestryTrees((int) $sample['person_id'])
                 : [],
-            // Map of {peopleId: true} reachable from the title
-            // person by walking up father/mother edges. Vue lights
-            // up a family-tree icon next to rows whose linked
-            // person is in this set.
-            'connected_people'    => fn () => $sample['person_id']
-                ? $this->persons->connectedPeopleSet((int) $sample['person_id'])
-                : (object) [],
         ]);
     }
 }

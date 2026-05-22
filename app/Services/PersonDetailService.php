@@ -168,15 +168,20 @@ class PersonDetailService
     }
 
     /**
-     * Set of people.id values connected to this person via shared
-     * ancestry — the person themself plus every ancestor reachable
-     * by walking up father/mother edges, no depth cap.
+     * Set of people.id values "connected" to this person via shared
+     * ancestry — the person themself, all their ancestors, AND every
+     * descendant of those ancestors. The two-directional walk
+     * captures cousins, aunts/uncles, half-siblings, etc; anyone who
+     * shares any ancestor with the target person, transitively.
      *
-     * Used by the DNA matches page to flag rows whose linked person
-     * is in the title person's ancestor tree (i.e. there is a
-     * documented family-tree connection on top of the DNA match).
+     * Equivalent to: title's walk-up ∪ {anyone whose walk-up
+     * intersects with title's walk-up} (which is exactly the
+     * descendants of the title's ancestors). Single CTE, no per-row
+     * intersection check.
      *
-     * Returned as a map keyed by id for O(1) lookup on the client.
+     * Returned as a map keyed by id for O(1) PHP lookup. Can be
+     * large (tens of thousands of ids on a well-populated tree) —
+     * not shipped over the wire as-is.
      *
      * @return array<int, true>
      */
@@ -189,7 +194,8 @@ class PersonDetailService
                 SELECT p.id, p.mother, p.father
                   FROM people p
                   INNER JOIN peopleTree pt
-                    ON pt.mother = p.id OR pt.father = p.id
+                    ON pt.mother = p.id OR pt.father = p.id   -- p is parent of pt
+                    OR p.mother = pt.id OR p.father = pt.id   -- p is child of pt
             )
             SELECT id FROM peopleTree
         ', [$personId]);
