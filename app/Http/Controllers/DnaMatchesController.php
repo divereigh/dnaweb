@@ -149,14 +149,17 @@ class DnaMatchesController extends Controller
             return $rows;
         };
 
-        // The title sample's own note from the selected eye's
-        // perspective — only meaningful when the title isn't itself
-        // an eye (its own notes show via the row-level path) and
-        // there's an eye selected to look from.
-        $titleNote = fn () => (empty($sample['managed']) && $eyeId)
+        // The title sample's own note, viewed through whichever eye
+        // we're using for the rest of the notes ($notesEye). When
+        // $notesEye is null (no managed-eye context at all) there's
+        // no place for a note to live, so skip the lookup. When the
+        // title is itself an eye with no selected filter, $notesEye
+        // === $id, and the lookup just finds nothing in normal use
+        // (notes about oneself aren't usually written) — harmless.
+        $titleNote = fn () => $notesEye
             ? optional(\Illuminate\Support\Facades\DB::selectOne(
                 'SELECT notes FROM dna_notes WHERE sample = ? AND mgmtsample = ?',
-                [$id, $eyeId]
+                [$id, $notesEye]
             ))->notes
             : null;
 

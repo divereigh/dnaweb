@@ -369,6 +369,16 @@ function closeEdit() {
                         </svg>
                         <span class="sr-only">{{ sample.person_id ? 'Edit person' : 'Create person' }}</span>
                     </button>
+                    <button
+                        v-if="notes_eye_id"
+                        type="button"
+                        class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                        :title="title_note ? `Edit notes for ${sample.display_label}` : `Add notes for ${sample.display_label}`"
+                        @click="openNoteEditor(sample.id, sample.display_label, title_note)"
+                    >
+                        <img src="/icon-note.png" alt="" class="h-4 w-4" />
+                        <span class="sr-only">{{ title_note ? 'Edit notes' : 'Add notes' }}</span>
+                    </button>
                 </template>
                 <template #actions>
                     <Link :href="route('dna.index')" class="btn-ghost">← DNA search</Link>
@@ -681,6 +691,16 @@ function closeEdit() {
                                     <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793zM12.379 4.793 3 14.172V17h2.828l9.379-9.379-2.828-2.828z" />
                                 </svg>
                                 <span class="sr-only">{{ m.person_id ? 'Edit' : 'Create' }}</span>
+                            </button>
+                            <button
+                                v-if="notes_eye_id"
+                                type="button"
+                                class="ms-1 inline-flex items-center rounded p-0.5 align-middle text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                                :title="m.note ? `Edit notes for ${m.display_label}` : `Add notes for ${m.display_label}`"
+                                @click="openNoteEditor(m.other_id, m.display_label, m.note)"
+                            >
+                                <img src="/icon-note.png" alt="" class="h-3.5 w-3.5" />
+                                <span class="sr-only">{{ m.note ? 'Edit notes' : 'Add notes' }}</span>
                             </button>
                             <span
                                 v-if="m.other_managed"
