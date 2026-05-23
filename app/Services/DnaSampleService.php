@@ -185,21 +185,30 @@ class DnaSampleService
      */
     public function requeueAll(int $sampleId, int $priority = 10): int
     {
+        // Only resurrect rows whose mgmtsample is *still* a loadable
+        // eye — managed, enabled, with a session. Without this the
+        // RELOAD button can revive rows for eyes that have since been
+        // un-managed, and they sit pending forever (workers reject
+        // them on the same predicate).
         return DB::update("
-            UPDATE dna_match2match_loaded
-               SET status        = 'pending',
-                   lastPage      = NULL,
-                   totalPages    = NULL,
-                   success       = 0,
-                   fail          = 0,
-                   attempts      = 0,
-                   claimed_at    = NULL,
-                   claimed_by    = NULL,
-                   next_retry_at = NULL,
-                   enqueued_at   = NOW(),
-                   priority      = ?
-             WHERE othsample = ?
-               AND status <> 'running'
+            UPDATE dna_match2match_loaded l
+              JOIN dna_samples m ON m.id = l.mgmtsample
+                                AND m.disabled = 0
+                                AND m.managed IS NOT NULL
+              JOIN session     s ON s.id = m.managed
+               SET l.status        = 'pending',
+                   l.lastPage      = NULL,
+                   l.totalPages    = NULL,
+                   l.success       = 0,
+                   l.fail          = 0,
+                   l.attempts      = 0,
+                   l.claimed_at    = NULL,
+                   l.claimed_by    = NULL,
+                   l.next_retry_at = NULL,
+                   l.enqueued_at   = NOW(),
+                   l.priority      = ?
+             WHERE l.othsample = ?
+               AND l.status <> 'running'
         ", [$priority, $sampleId]);
     }
 
