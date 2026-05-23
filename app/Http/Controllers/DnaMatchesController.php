@@ -67,12 +67,13 @@ class DnaMatchesController extends Controller
         $pageSize = 50;
         $search = trim((string) $request->input('q', ''));
 
-        // Whose notes do we show next to each match row? If the title
-        // sample is itself a managed eye, its notes are the relevant
-        // ones (it wrote them about the matches). Otherwise fall
-        // back to the selected eye filter (if any). The label is for
-        // the "via Eye X" line in the note-edit side panel.
-        $notesEye = !empty($sample['managed']) ? $id : $eyeId;
+        // Whose notes do we show next to each match row? The selected
+        // eye wins — the user is explicitly looking through that eye,
+        // so its notes are the relevant ones. If no eye is selected
+        // but the title is itself a managed eye, fall back to the
+        // title's own notes. Otherwise no notes are displayed. The
+        // label feeds the "via Eye X" line in the note-edit panel.
+        $notesEye = $eyeId ?: (!empty($sample['managed']) ? $id : null);
         $notesEyeLabel = null;
         if ($notesEye === $id) {
             $notesEyeLabel = $sample['display_label'];
