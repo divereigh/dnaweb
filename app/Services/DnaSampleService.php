@@ -260,6 +260,12 @@ class DnaSampleService
      */
     public function listEyeMatches(int $sampleId): array
     {
+        // matchClusterCode / parentSide here are deliberately the
+        // *eye's* POV of the title sample — `pov` row is
+        // (sample1=eye, sample2=title), and `s.paternalCluster` is
+        // the eye's own paternalCluster. That way the ParentSide
+        // pill rendered next to each picker entry tells you which
+        // side of *that eye's* tree the title falls on.
         $rows = DB::select('
             SELECT
               m.sample2 AS other_id,
@@ -270,6 +276,7 @@ class DnaSampleService
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
               s.userUUID AS other_userUUID,
+              s.paternalCluster AS paternalCluster,
               admin.userUUID AS other_admin_userUUID,
               p.id AS person_id,
               p.fullName AS person_name,
@@ -277,17 +284,19 @@ class DnaSampleService
               m.sharedCentimorgans,
               m.numSharedSegments,
               m.meiosis,
-              m.matchClusterCode,
+              pov.matchClusterCode AS matchClusterCode,
+              pov.parentSide AS parentSide,
               m.ignored
             FROM dna_matches2 m
             JOIN dna_samples s ON s.id = m.sample2
               AND s.managed IS NOT NULL
               AND s.disabled = 0
+            LEFT JOIN dna_matches2 pov ON pov.sample1 = m.sample2 AND pov.sample2 = ?
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
             WHERE m.sample1 = ?
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
-        ', [$sampleId]);
+        ', [$sampleId, $sampleId]);
 
         $rows = array_map(function ($r) use ($sampleId) {
             $row = (array) $r;
@@ -303,7 +312,7 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -314,6 +323,21 @@ class DnaSampleService
                 JOIN dna_matches2 eyem ON eyem.sample1 = ? AND eyem.sample2 = m.sample2
             ';
             $bind[] = $commonWithEye;
+        }
+
+        // ParentSide / cluster always come from the eye-on-other
+        // row (`pov.sample1 = eye, pov.sample2 = other`) so the
+        // pill reflects the eye doing the looking, not the title.
+        // When $povEye is null (title is non-eye and no eye is
+        // selected) both columns return NULL — the pill stays empty.
+        $povJoin = '';
+        $povCols = 'NULL AS matchClusterCode, NULL AS parentSide';
+        if ($povEye) {
+            $povJoin = '
+                LEFT JOIN dna_matches2 pov ON pov.sample1 = ? AND pov.sample2 = m.sample2
+            ';
+            $povCols = 'pov.matchClusterCode AS matchClusterCode, pov.parentSide AS parentSide';
+            $bind[] = $povEye;
         }
 
         // dna_notes is keyed by (sample = the "other" party,
@@ -363,13 +387,13 @@ class DnaSampleService
               m.sharedCentimorgans,
               m.numSharedSegments,
               m.meiosis,
-              m.matchClusterCode,
+              ' . $povCols . ',
               m.predictedKinships,
               m.ignored,
               m.dnapath,
               ' . $noteCol . '
             FROM dna_matches2 m
-            ' . $eyeJoin . '
+            ' . $eyeJoin . $povJoin . '
             JOIN dna_samples s ON s.id = m.sample2
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid

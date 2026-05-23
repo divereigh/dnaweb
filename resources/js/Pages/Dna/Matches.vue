@@ -26,6 +26,8 @@ const props = defineProps({
     title_note: { type: String, default: null },
     notes_eye_id: { type: Number, default: null },
     notes_eye_label: { type: String, default: null },
+    pov_paternal_cluster: { type: String, default: null },
+    title_pill: { type: Object, default: null },
 });
 
 // Note-editor side panel state. One panel shared for the title-note
@@ -44,7 +46,10 @@ function closeNoteEditor() {
     editingNote.value = null;
 }
 
-const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters'];
+// `eye_matches` is fixed per title sample, so it's not in ONLY (no
+// need to refetch on search / eye-change). The others all shift
+// when the eye selection changes.
+const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters', 'pov_paternal_cluster', 'title_pill', 'notes_eye_id', 'notes_eye_label', 'title_note'];
 
 function ancestryCompareUrl(otherUuid) {
     if (!props.selected_eye?.dnaUUID || !otherUuid) return null;
@@ -340,6 +345,12 @@ function closeEdit() {
                     >
                         eye
                     </span>
+                    <ClusterPill
+                        v-if="title_pill"
+                        :code="title_pill.matchClusterCode || ''"
+                        :paternal-cluster="title_pill.paternalCluster || ''"
+                        :parent-side="title_pill.parentSide || ''"
+                    />
                     <button
                         type="button"
                         class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
@@ -418,7 +429,8 @@ function closeEdit() {
                     </span>
                     <ClusterPill
                         :code="selectedEyeRow.matchClusterCode || ''"
-                        :paternal-cluster="sample.paternalCluster || ''"
+                        :paternal-cluster="selectedEyeRow.paternalCluster || ''"
+                        :parent-side="selectedEyeRow.parentSide || ''"
                     />
                 </div>
                 <p v-else class="flex-1 text-sm text-sepia-600">
@@ -435,7 +447,7 @@ function closeEdit() {
                         <th>Name</th>
                         <th>Predicted</th>
                         <th data-numeric>cM</th>
-                        <th>Cluster</th>
+                        <th>ParentSide</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -503,7 +515,8 @@ function closeEdit() {
                         <td>
                             <ClusterPill
                                 :code="e.matchClusterCode || ''"
-                                :paternal-cluster="sample.paternalCluster || ''"
+                                :paternal-cluster="e.paternalCluster || ''"
+                                :parent-side="e.parentSide || ''"
                             />
                         </td>
                         <td class="!text-right">
@@ -623,7 +636,7 @@ function closeEdit() {
                         <th>Name</th>
                         <th>Predicted</th>
                         <th data-numeric>cM</th>
-                        <th>Cluster</th>
+                        <th>ParentSide</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -702,7 +715,8 @@ function closeEdit() {
                         <td>
                             <ClusterPill
                                 :code="m.matchClusterCode || ''"
-                                :paternal-cluster="sample.paternalCluster || ''"
+                                :paternal-cluster="pov_paternal_cluster || ''"
+                                :parent-side="m.parentSide || ''"
                             />
                         </td>
                         <td class="!text-right">

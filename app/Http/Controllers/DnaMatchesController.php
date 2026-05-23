@@ -67,18 +67,52 @@ class DnaMatchesController extends Controller
         $pageSize = 50;
         $search = trim((string) $request->input('q', ''));
 
-        // Whose notes do we show next to each match row? The selected
-        // eye wins — the user is explicitly looking through that eye,
-        // so its notes are the relevant ones. If no eye is selected
-        // but the title is itself a managed eye, fall back to the
-        // title's own notes. Otherwise no notes are displayed. The
-        // label feeds the "via Eye X" line in the note-edit panel.
+        // Whose notes / ParentSide do we show next to each match row?
+        // The selected eye wins — the user is explicitly looking
+        // through that eye, so its notes (and ParentSide cluster) are
+        // the relevant ones. If no eye is selected but the title is
+        // itself a managed eye, fall back to the title's own. Else
+        // no notes / cluster. Notes and ParentSide use the same
+        // POV eye (one is a row-level note, the other a row-level
+        // cluster, both keyed off the same "who's looking" question).
         $notesEye = $eyeId ?: (!empty($sample['managed']) ? $id : null);
+        $povEye = $notesEye;
         $notesEyeLabel = null;
         if ($notesEye === $id) {
             $notesEyeLabel = $sample['display_label'];
         } elseif ($notesEye && $selectedEye) {
             $notesEyeLabel = $selectedEye['display_label'];
+        }
+
+        // ParentSide pill data. Per-row cluster needs the POV eye's
+        // paternalCluster to flip p1/p2 into PATERNAL/MATERNAL (only
+        // used when the row's `parentSide` enum is NULL — non-null
+        // wins). The title-level pill shows up when an eye is
+        // selected, displaying the title's ParentSide *from that
+        // eye's POV*. dna_matches2 (sample1=eye, sample2=title) is
+        // the row that carries it.
+        $povPaternalCluster = null;
+        if ($povEye === $id) {
+            $povPaternalCluster = $sample['paternalCluster'] ?? null;
+        } elseif ($povEye && $selectedEye) {
+            $povPaternalCluster = $selectedEye['paternalCluster'] ?? null;
+        }
+
+        $titlePill = null;
+        if ($eyeId && $selectedEye) {
+            $row = \Illuminate\Support\Facades\DB::selectOne(
+                'SELECT matchClusterCode, parentSide
+                   FROM dna_matches2
+                  WHERE sample1 = ? AND sample2 = ?',
+                [$eyeId, $id]
+            );
+            if ($row && ($row->matchClusterCode || $row->parentSide)) {
+                $titlePill = [
+                    'matchClusterCode' => $row->matchClusterCode,
+                    'parentSide'       => $row->parentSide,
+                    'paternalCluster'  => $selectedEye['paternalCluster'] ?? null,
+                ];
+            }
         }
 
         // Cache the count per-request — `total`, `pages` and the
@@ -127,21 +161,23 @@ class DnaMatchesController extends Controller
             : null;
 
         return Inertia::render('Dna/Matches', [
-            'sample'           => $sample,
-            'eye_id'           => $eyeId,
-            'selected_eye'     => $selectedEye,
-            'per_page'         => $pageSize,
-            'filters'          => ['q' => $search],
-            'title_note'       => $titleNote,
-            'notes_eye_id'     => $notesEye,
-            'notes_eye_label'  => $notesEyeLabel,
+            'sample'               => $sample,
+            'eye_id'               => $eyeId,
+            'selected_eye'         => $selectedEye,
+            'per_page'             => $pageSize,
+            'filters'              => ['q' => $search],
+            'title_note'           => $titleNote,
+            'notes_eye_id'         => $notesEye,
+            'notes_eye_label'      => $notesEyeLabel,
+            'pov_paternal_cluster' => $povPaternalCluster,
+            'title_pill'           => $titlePill,
 
             // Heavy props as closures — Inertia only invokes them
             // when the response includes the corresponding key, so
             // a poll for `loading_in_progress` doesn't re-fetch
             // matches / eye_matches / etc.
             'matches'             => fn () => $annotateConnected(
-                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye)
+                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye)
             ),
             'total'               => fn () => $count(),
             'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),
