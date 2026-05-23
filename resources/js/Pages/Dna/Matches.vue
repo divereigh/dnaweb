@@ -98,7 +98,9 @@ const selectedEyeRow = computed(() => {
 
 function matchLink(otherId) {
     const base = route('dna.matches', otherId);
-    return props.selected_eye ? `${base}?eye=${props.selected_eye.id}` : base;
+    if (props.selected_eye) return `${base}?eye=${props.selected_eye.id}`;
+    if (props.sample?.managed) return `${base}?eye=${props.sample.id}`;
+    return base;
 }
 
 // Search by display name. Debounced — typing fires after 280ms idle,
@@ -476,7 +478,7 @@ function closeEdit() {
                                     :gender="e.effective_gender || ''"
                                 />
                                 <Link
-                                    :href="route('dna.matches', e.other_id)"
+                                    :href="matchLink(e.other_id)"
                                     class="ref-link"
                                     :class="e.ignored ? 'line-through decoration-sepia-400/60' : ''"
                                 >
