@@ -39,6 +39,9 @@ const titleClasses = computed(() => [
             >
                 <slot name="subtitle">{{ subtitle }}</slot>
             </div>
+            <div v-if="$slots.belowSubtitle" class="mt-1">
+                <slot name="belowSubtitle" />
+            </div>
         </div>
         <div v-if="$slots.actions" class="flex flex-wrap items-center gap-2 sm:justify-end">
             <slot name="actions" />

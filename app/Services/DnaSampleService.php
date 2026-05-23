@@ -303,7 +303,7 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = ''): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -314,6 +314,21 @@ class DnaSampleService
                 JOIN dna_matches2 eyem ON eyem.sample1 = ? AND eyem.sample2 = m.sample2
             ';
             $bind[] = $commonWithEye;
+        }
+
+        // dna_notes is keyed by (sample = the "other" party,
+        // mgmtsample = the eye doing the noting). $notesEye picks
+        // which eye's notes to surface: the title sample if it is
+        // itself an eye (the controller's call sets this) — else
+        // the eye selected via the filter.
+        $notesJoin = '';
+        $noteCol = 'NULL AS note';
+        if ($notesEye) {
+            $notesJoin = '
+                LEFT JOIN dna_notes n ON n.sample = m.sample2 AND n.mgmtsample = ?
+            ';
+            $noteCol = 'n.notes AS note';
+            $bind[] = $notesEye;
         }
 
         $bind[] = $sampleId;        // m.sample1 = ?
@@ -351,12 +366,14 @@ class DnaSampleService
               m.matchClusterCode,
               m.predictedKinships,
               m.ignored,
-              m.dnapath
+              m.dnapath,
+              ' . $noteCol . '
             FROM dna_matches2 m
             ' . $eyeJoin . '
             JOIN dna_samples s ON s.id = m.sample2
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
+            ' . $notesJoin . '
             WHERE m.sample1 = ?' . $searchWhere . '
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
             LIMIT ? OFFSET ?

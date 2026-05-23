@@ -8,6 +8,7 @@ import ClusterPill from '@/Components/App/ClusterPill.vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
+import NoteEditDialog from '@/Components/App/NoteEditDialog.vue';
 
 const props = defineProps({
     sample: { type: Object, required: true },
@@ -22,7 +23,26 @@ const props = defineProps({
     loading_in_progress: { type: Boolean, default: false },
     ancestry_trees: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({ q: '' }) },
+    title_note: { type: String, default: null },
+    notes_eye_id: { type: Number, default: null },
+    notes_eye_label: { type: String, default: null },
 });
+
+// Note-editor side panel state. One panel shared for the title-note
+// click and every row-note click; openNoteEditor sets which (sample,
+// label, initial-text) we're editing.
+const editingNote = ref(null);
+function openNoteEditor(sampleId, sampleLabel, initial) {
+    if (!props.notes_eye_id) return;
+    editingNote.value = {
+        sampleId,
+        sampleLabel,
+        initial: initial || '',
+    };
+}
+function closeNoteEditor() {
+    editingNote.value = null;
+}
 
 const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters'];
 
@@ -339,6 +359,25 @@ function closeEdit() {
                 <template #actions>
                     <Link :href="route('dna.index')" class="btn-ghost">← DNA search</Link>
                 </template>
+                <template v-if="title_note" #belowSubtitle>
+                    <div class="ps-[4ch] text-xs italic text-sepia-500">
+                        <button
+                            type="button"
+                            class="inline-flex items-start gap-1.5 text-left hover:text-wine-500 focus:outline-none focus:underline"
+                            :title="`Edit notes for ${sample.display_label}`"
+                            @click="openNoteEditor(sample.id, sample.display_label, title_note)"
+                        >
+                            <img
+                                src="/icon-note.png"
+                                alt=""
+                                class="mt-0.5 h-3.5 w-3.5 shrink-0"
+                            />
+                            <span>
+                                {{ title_note.length > 80 ? title_note.slice(0, 80) + '…' : title_note }}
+                            </span>
+                        </button>
+                    </div>
+                </template>
             </PageHeader>
         </template>
 
@@ -587,11 +626,8 @@ function closeEdit() {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr
-                        v-for="m in matches"
-                        :key="m.other_id"
-                        :class="m.ignored ? 'opacity-50' : ''"
-                    >
+                    <template v-for="m in matches" :key="m.other_id">
+                    <tr :class="m.ignored ? 'opacity-50' : ''">
                         <td>
                             <div class="flex items-center gap-2">
                                 <SampleAvatar
@@ -635,6 +671,26 @@ function closeEdit() {
                                 class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
                                 >eye</span
                             >
+                            </div>
+                            <div
+                                v-if="m.note"
+                                class="mt-1 ps-[4ch] text-xs italic text-sepia-500"
+                            >
+                                <button
+                                    type="button"
+                                    class="inline-flex items-start gap-1.5 text-left hover:text-wine-500 focus:outline-none focus:underline"
+                                    :title="`Edit notes for ${m.display_label}`"
+                                    @click="openNoteEditor(m.other_id, m.display_label, m.note)"
+                                >
+                                    <img
+                                        src="/icon-note.png"
+                                        alt=""
+                                        class="mt-0.5 h-3.5 w-3.5 shrink-0"
+                                    />
+                                    <span>
+                                        {{ m.note.length > 80 ? m.note.slice(0, 80) + '…' : m.note }}
+                                    </span>
+                                </button>
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">
@@ -700,6 +756,7 @@ function closeEdit() {
                             </div>
                         </td>
                     </tr>
+                    </template>
                     <tr v-if="!matches.length">
                         <td colspan="5" class="empty-cell">No matches.</td>
                     </tr>
@@ -718,6 +775,16 @@ function closeEdit() {
             :person-id="editing?.personId ?? null"
             :prefill="editing?.prefill ?? {}"
             @close="closeEdit"
+        />
+
+        <NoteEditDialog
+            :show="!!editingNote"
+            :sample-id="editingNote?.sampleId ?? 0"
+            :sample-label="editingNote?.sampleLabel ?? ''"
+            :eye-id="notes_eye_id ?? 0"
+            :eye-label="notes_eye_label ?? ''"
+            :initial="editingNote?.initial ?? ''"
+            @close="closeNoteEditor"
         />
     </AuthenticatedLayout>
 </template>

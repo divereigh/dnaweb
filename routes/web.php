@@ -3,6 +3,7 @@
 use App\Http\Controllers\CommonMatchesController;
 use App\Http\Controllers\DnaController;
 use App\Http\Controllers\DnaMatchesController;
+use App\Http\Controllers\DnaNoteController;
 use App\Http\Controllers\EyesController;
 use App\Http\Controllers\EyeMatchesController;
 use App\Http\Controllers\PeopleController;
@@ -26,6 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dna', [DnaController::class, 'index'])->name('dna.index');
     Route::get('/dna/{id}/matches', [DnaMatchesController::class, 'index'])->name('dna.matches');
     Route::post('/dna/{id}/matches/requeue', [DnaMatchesController::class, 'requeue'])->name('dna.matches.requeue');
+    Route::put('/dna/notes/{sample}/{mgmtsample}', [DnaNoteController::class, 'update'])->name('dna.notes.update');
     Route::put('/dna/{sampleId}/person', [PersonController::class, 'upsertForSample'])->name('dna.person.upsert');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

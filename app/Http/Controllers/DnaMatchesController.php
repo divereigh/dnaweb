@@ -67,6 +67,19 @@ class DnaMatchesController extends Controller
         $pageSize = 50;
         $search = trim((string) $request->input('q', ''));
 
+        // Whose notes do we show next to each match row? If the title
+        // sample is itself a managed eye, its notes are the relevant
+        // ones (it wrote them about the matches). Otherwise fall
+        // back to the selected eye filter (if any). The label is for
+        // the "via Eye X" line in the note-edit side panel.
+        $notesEye = !empty($sample['managed']) ? $id : $eyeId;
+        $notesEyeLabel = null;
+        if ($notesEye === $id) {
+            $notesEyeLabel = $sample['display_label'];
+        } elseif ($notesEye && $selectedEye) {
+            $notesEyeLabel = $selectedEye['display_label'];
+        }
+
         // Cache the count per-request — `total`, `pages` and the
         // page-clamp in `matches` would otherwise call countMatches
         // three times.
@@ -101,19 +114,33 @@ class DnaMatchesController extends Controller
             return $rows;
         };
 
+        // The title sample's own note from the selected eye's
+        // perspective — only meaningful when the title isn't itself
+        // an eye (its own notes show via the row-level path) and
+        // there's an eye selected to look from.
+        $titleNote = fn () => (empty($sample['managed']) && $eyeId)
+            ? optional(\Illuminate\Support\Facades\DB::selectOne(
+                'SELECT notes FROM dna_notes WHERE sample = ? AND mgmtsample = ?',
+                [$id, $eyeId]
+            ))->notes
+            : null;
+
         return Inertia::render('Dna/Matches', [
-            'sample'         => $sample,
-            'eye_id'         => $eyeId,
-            'selected_eye'   => $selectedEye,
-            'per_page'       => $pageSize,
-            'filters'        => ['q' => $search],
+            'sample'           => $sample,
+            'eye_id'           => $eyeId,
+            'selected_eye'     => $selectedEye,
+            'per_page'         => $pageSize,
+            'filters'          => ['q' => $search],
+            'title_note'       => $titleNote,
+            'notes_eye_id'     => $notesEye,
+            'notes_eye_label'  => $notesEyeLabel,
 
             // Heavy props as closures — Inertia only invokes them
             // when the response includes the corresponding key, so
             // a poll for `loading_in_progress` doesn't re-fetch
             // matches / eye_matches / etc.
             'matches'             => fn () => $annotateConnected(
-                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search)
+                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye)
             ),
             'total'               => fn () => $count(),
             'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),
