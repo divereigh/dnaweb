@@ -44,7 +44,7 @@ defineProps({
                                     :alt="e.displayName || ''"
                                     :gender="e.effective_gender || ''"
                                 />
-                                <Link :href="route('eyes.matches', e.id)" class="ref-link">
+                                <Link :href="route('dna.matches', e.id)" class="ref-link">
                                     {{ e.displayName || `Eye #${e.id}` }}
                                 </Link>
                                 <span class="font-mono text-[11px] text-sepia-400">#{{ e.id }}</span>

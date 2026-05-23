@@ -276,7 +276,7 @@ defineProps({
                                     :gender="m.effective_gender || ''"
                                 />
                                 <Link
-                                    :href="route('eyes.matches', m.eye_id)"
+                                    :href="route('dna.matches', m.eye_id)"
                                     class="ref-link"
                                     :class="m.ignored ? 'line-through decoration-sepia-400/60' : ''"
                                 >

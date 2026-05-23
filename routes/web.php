@@ -17,8 +17,10 @@ Route::redirect('/dashboard', '/eyes')->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/eyes', [EyesController::class, 'index'])->name('eyes.index');
-    Route::get('/eye/{id}/matches', [EyeMatchesController::class, 'index'])->name('eyes.matches');
-    Route::get('/eye/{id}/match/{otherId}/common', [CommonMatchesController::class, 'index'])->name('common.index');
+    // Soft-deleted 2026-05-22: superseded by /dna/{id}/matches (which handles both eyes and non-eyes).
+    // Controllers, services and Vue pages retained in case we need to revive these.
+    // Route::get('/eye/{id}/matches', [EyeMatchesController::class, 'index'])->name('eyes.matches');
+    // Route::get('/eye/{id}/match/{otherId}/common', [CommonMatchesController::class, 'index'])->name('common.index');
 
     Route::get('/people', [PeopleController::class, 'index'])->name('people.index');
     Route::get('/person/{id}', [PersonController::class, 'show'])->name('people.show');
