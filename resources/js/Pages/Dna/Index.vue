@@ -128,7 +128,7 @@ function go(page) {
                                 src="/icon-eye.png"
                                 alt="Eye"
                                 title="Managed eye"
-                                class="h-4 w-4"
+                                class="h-6 w-6"
                             />
                             <span v-else class="text-xs text-sepia-400">—</span>
                         </td>

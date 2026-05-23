@@ -211,7 +211,7 @@ defineProps({
                             src="/icon-eye.png"
                             alt="Eye"
                             title="Managed eye"
-                            class="mt-2 h-4 w-4"
+                            class="mt-2 h-6 w-6"
                         />
                     </div>
                     <p v-else class="text-sm text-sepia-400">No sample linked.</p>

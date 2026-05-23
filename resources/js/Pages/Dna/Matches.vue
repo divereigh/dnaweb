@@ -340,34 +340,13 @@ function closeEdit() {
                     />
                 </template>
                 <template #titleAfter>
-                    <img
-                        v-if="sampleIsEye"
-                        src="/icon-eye.png"
-                        alt="Eye"
-                        title="Managed eye"
-                        class="h-4 w-4"
-                    />
-                    <ClusterPill
-                        v-if="title_pill"
-                        :code="title_pill.matchClusterCode || ''"
-                        :paternal-cluster="title_pill.paternalCluster || ''"
-                        :parent-side="title_pill.parentSide || ''"
-                    />
                     <button
                         type="button"
                         class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
                         :title="sample.person_id ? 'Edit person' : 'Create person'"
                         @click="openSampleEdit(sample)"
                     >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            class="h-4 w-4"
-                            aria-hidden="true"
-                        >
-                            <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793zM12.379 4.793 3 14.172V17h2.828l9.379-9.379-2.828-2.828z" />
-                        </svg>
+                        <img src="/icon-person-edit.png" alt="" class="h-6 w-6" />
                         <span class="sr-only">{{ sample.person_id ? 'Edit person' : 'Create person' }}</span>
                     </button>
                     <button
@@ -377,9 +356,22 @@ function closeEdit() {
                         :title="title_note ? `Edit notes for ${sample.display_label}` : `Add notes for ${sample.display_label}`"
                         @click="openNoteEditor(sample.id, sample.display_label, title_note)"
                     >
-                        <img src="/icon-note.png" alt="" class="h-4 w-4" />
+                        <img src="/icon-note.png" alt="" class="h-6 w-6" />
                         <span class="sr-only">{{ title_note ? 'Edit notes' : 'Add notes' }}</span>
                     </button>
+                    <img
+                        v-if="sampleIsEye"
+                        src="/icon-eye.png"
+                        alt="Eye"
+                        title="Managed eye"
+                        class="h-6 w-6"
+                    />
+                    <ClusterPill
+                        v-if="title_pill"
+                        :code="title_pill.matchClusterCode || ''"
+                        :paternal-cluster="title_pill.paternalCluster || ''"
+                        :parent-side="title_pill.parentSide || ''"
+                    />
                 </template>
                 <template #actions>
                     <Link :href="route('dna.index')" class="btn-ghost">← DNA search</Link>
@@ -426,7 +418,7 @@ function closeEdit() {
                     <span class="font-medium text-ink-500">
                         {{ selectedEyeRow.display_label }}
                     </span>
-                    <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="h-4 w-4" />
+                    <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="h-6 w-6" />
                     <span class="font-mono text-xs text-sepia-500">
                         {{ selectedEyeRow.sharedCentimorgans }} cM
                     </span>
@@ -503,10 +495,10 @@ function closeEdit() {
                                     v-if="e.connected_via_tree"
                                     src="/icon-link.png"
                                     alt=""
-                                    class="ms-1 h-4 w-4 opacity-80"
+                                    class="ms-1 h-6 w-6 opacity-80"
                                     :title="`Connected to ${sample.display_label} via the family tree`"
                                 />
-                                <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="ms-2 h-4 w-4" />
+                                <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="ms-2 h-6 w-6" />
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">
@@ -658,47 +650,39 @@ function closeEdit() {
                                 >
                                     {{ m.display_label }}
                                 </Link>
+                                <button
+                                    type="button"
+                                    class="ms-1 inline-flex items-center rounded p-0.5 align-middle text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                                    :title="m.person_id ? 'Edit person' : 'Create person'"
+                                    @click="openEdit(m)"
+                                >
+                                    <img src="/icon-person-edit.png" alt="" class="h-6 w-6" />
+                                    <span class="sr-only">{{ m.person_id ? 'Edit' : 'Create' }}</span>
+                                </button>
+                                <button
+                                    v-if="notes_eye_id"
+                                    type="button"
+                                    class="ms-1 inline-flex items-center rounded p-0.5 align-middle text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                                    :title="m.note ? `Edit notes for ${m.display_label}` : `Add notes for ${m.display_label}`"
+                                    @click="openNoteEditor(m.other_id, m.display_label, m.note)"
+                                >
+                                    <img src="/icon-note.png" alt="" class="h-6 w-6" />
+                                    <span class="sr-only">{{ m.note ? 'Edit notes' : 'Add notes' }}</span>
+                                </button>
                                 <img
                                     v-if="m.connected_via_tree"
                                     src="/icon-link.png"
                                     alt=""
-                                    class="ms-1 h-4 w-4 opacity-80"
+                                    class="ms-1 h-6 w-6 opacity-80"
                                     :title="`Connected to ${sample.display_label} via the family tree`"
                                 />
-                            <button
-                                type="button"
-                                class="ms-1 inline-flex items-center rounded p-0.5 align-middle text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
-                                :title="m.person_id ? 'Edit person' : 'Create person'"
-                                @click="openEdit(m)"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
-                                    class="h-3.5 w-3.5"
-                                    aria-hidden="true"
-                                >
-                                    <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-.793.793-2.828-2.828.793-.793zM12.379 4.793 3 14.172V17h2.828l9.379-9.379-2.828-2.828z" />
-                                </svg>
-                                <span class="sr-only">{{ m.person_id ? 'Edit' : 'Create' }}</span>
-                            </button>
-                            <button
-                                v-if="notes_eye_id"
-                                type="button"
-                                class="ms-1 inline-flex items-center rounded p-0.5 align-middle text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
-                                :title="m.note ? `Edit notes for ${m.display_label}` : `Add notes for ${m.display_label}`"
-                                @click="openNoteEditor(m.other_id, m.display_label, m.note)"
-                            >
-                                <img src="/icon-note.png" alt="" class="h-3.5 w-3.5" />
-                                <span class="sr-only">{{ m.note ? 'Edit notes' : 'Add notes' }}</span>
-                            </button>
-                            <img
-                                v-if="m.other_managed"
-                                src="/icon-eye.png"
-                                alt="Eye"
-                                title="Managed eye"
-                                class="ms-2 h-4 w-4"
-                            />
+                                <img
+                                    v-if="m.other_managed"
+                                    src="/icon-eye.png"
+                                    alt="Eye"
+                                    title="Managed eye"
+                                    class="ms-2 h-6 w-6"
+                                />
                             </div>
                             <div
                                 v-if="m.note"
