@@ -340,12 +340,13 @@ function closeEdit() {
                     />
                 </template>
                 <template #titleAfter>
-                    <span
+                    <img
                         v-if="sampleIsEye"
-                        class="inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
-                    >
-                        eye
-                    </span>
+                        src="/icon-eye.png"
+                        alt="Eye"
+                        title="Managed eye"
+                        class="h-4 w-4"
+                    />
                     <ClusterPill
                         v-if="title_pill"
                         :code="title_pill.matchClusterCode || ''"
@@ -387,18 +388,11 @@ function closeEdit() {
                     <div class="ps-[4ch] text-xs italic text-sepia-500">
                         <button
                             type="button"
-                            class="inline-flex items-start gap-1.5 text-left hover:text-wine-500 focus:outline-none focus:underline"
+                            class="text-left hover:text-wine-500 focus:outline-none focus:underline"
                             :title="`Edit notes for ${sample.display_label}`"
                             @click="openNoteEditor(sample.id, sample.display_label, title_note)"
                         >
-                            <img
-                                src="/icon-note.png"
-                                alt=""
-                                class="mt-0.5 h-3.5 w-3.5 shrink-0"
-                            />
-                            <span>
-                                {{ title_note.length > 80 ? title_note.slice(0, 80) + '…' : title_note }}
-                            </span>
+                            {{ title_note.length > 80 ? title_note.slice(0, 80) + '…' : title_note }}
                         </button>
                     </div>
                 </template>
@@ -432,9 +426,7 @@ function closeEdit() {
                     <span class="font-medium text-ink-500">
                         {{ selectedEyeRow.display_label }}
                     </span>
-                    <span class="inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
-                        eye
-                    </span>
+                    <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="h-4 w-4" />
                     <span class="font-mono text-xs text-sepia-500">
                         {{ selectedEyeRow.sharedCentimorgans }} cM
                     </span>
@@ -509,14 +501,12 @@ function closeEdit() {
                                 </Link>
                                 <img
                                     v-if="e.connected_via_tree"
-                                    src="/icon-family-tree.png"
+                                    src="/icon-link.png"
                                     alt=""
                                     class="ms-1 h-4 w-4 opacity-80"
                                     :title="`Connected to ${sample.display_label} via the family tree`"
                                 />
-                                <span class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600">
-                                    eye
-                                </span>
+                                <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="ms-2 h-4 w-4" />
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">
@@ -670,7 +660,7 @@ function closeEdit() {
                                 </Link>
                                 <img
                                     v-if="m.connected_via_tree"
-                                    src="/icon-family-tree.png"
+                                    src="/icon-link.png"
                                     alt=""
                                     class="ms-1 h-4 w-4 opacity-80"
                                     :title="`Connected to ${sample.display_label} via the family tree`"
@@ -702,11 +692,13 @@ function closeEdit() {
                                 <img src="/icon-note.png" alt="" class="h-3.5 w-3.5" />
                                 <span class="sr-only">{{ m.note ? 'Edit notes' : 'Add notes' }}</span>
                             </button>
-                            <span
+                            <img
                                 v-if="m.other_managed"
-                                class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
-                                >eye</span
-                            >
+                                src="/icon-eye.png"
+                                alt="Eye"
+                                title="Managed eye"
+                                class="ms-2 h-4 w-4"
+                            />
                             </div>
                             <div
                                 v-if="m.note"
@@ -714,18 +706,11 @@ function closeEdit() {
                             >
                                 <button
                                     type="button"
-                                    class="inline-flex items-start gap-1.5 text-left hover:text-wine-500 focus:outline-none focus:underline"
+                                    class="text-left hover:text-wine-500 focus:outline-none focus:underline"
                                     :title="`Edit notes for ${m.display_label}`"
                                     @click="openNoteEditor(m.other_id, m.display_label, m.note)"
                                 >
-                                    <img
-                                        src="/icon-note.png"
-                                        alt=""
-                                        class="mt-0.5 h-3.5 w-3.5 shrink-0"
-                                    />
-                                    <span>
-                                        {{ m.note.length > 80 ? m.note.slice(0, 80) + '…' : m.note }}
-                                    </span>
+                                    {{ m.note.length > 80 ? m.note.slice(0, 80) + '…' : m.note }}
                                 </button>
                             </div>
                         </td>

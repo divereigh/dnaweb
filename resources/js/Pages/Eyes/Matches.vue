@@ -320,12 +320,13 @@ function ancestryCompareUrl(otherUuid) {
                                 </svg>
                                 <span class="sr-only">{{ m.person_id ? 'Edit' : 'Create' }}</span>
                             </button>
-                            <span
+                            <img
                                 v-if="m.other_managed"
-                                class="ms-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
-                            >
-                                eye
-                            </span>
+                                src="/icon-eye.png"
+                                alt="Eye"
+                                title="Managed eye"
+                                class="ms-2 h-4 w-4"
+                            />
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">

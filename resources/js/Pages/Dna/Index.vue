@@ -123,11 +123,13 @@ function go(page) {
                         </td>
                         <td class="ident">{{ s.created_fmt }}</td>
                         <td>
-                            <span
+                            <img
                                 v-if="s.managed"
-                                class="inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
-                                >eye</span
-                            >
+                                src="/icon-eye.png"
+                                alt="Eye"
+                                title="Managed eye"
+                                class="h-4 w-4"
+                            />
                             <span v-else class="text-xs text-sepia-400">—</span>
                         </td>
                         <td class="!text-right">

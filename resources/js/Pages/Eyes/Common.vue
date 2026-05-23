@@ -98,12 +98,13 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                                 <span v-else class="font-medium text-ink-500">
                                     {{ m.display_label }}
                                 </span>
-                                <span
+                                <img
                                     v-if="m.managed"
-                                    class="inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
-                                >
-                                    eye
-                                </span>
+                                    src="/icon-eye.png"
+                                    alt="Eye"
+                                    title="Managed eye"
+                                    class="h-4 w-4"
+                                />
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">

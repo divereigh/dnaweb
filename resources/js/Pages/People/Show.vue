@@ -206,12 +206,13 @@ defineProps({
                                 {{ person.dnaName || `Sample #${person.dnaSampleId}` }}
                             </Link>
                         </p>
-                        <p
+                        <img
                             v-if="person.is_managed_sample"
-                            class="mt-2 inline-flex items-center rounded bg-red-600/10 px-1.5 py-0.5 text-[10px] font-medium text-red-600"
-                        >
-                            eye
-                        </p>
+                            src="/icon-eye.png"
+                            alt="Eye"
+                            title="Managed eye"
+                            class="mt-2 h-4 w-4"
+                        />
                     </div>
                     <p v-else class="text-sm text-sepia-400">No sample linked.</p>
                 </div>
