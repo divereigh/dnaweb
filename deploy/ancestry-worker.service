@@ -1,0 +1,38 @@
+# systemd unit for the dna_notes → Ancestry push worker.
+#
+# Installed at /etc/systemd/system/ancestry-worker.service.
+# Drains dna_notes rows with pushreq=1, POSTs the notes to the
+# Ancestry tags/3 endpoint, clears pushreq on success.
+#
+# Single instance — the operation is idempotent so multiple workers
+# would be safe, but there's rarely enough traffic to justify it.
+#
+# Enable + start:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now ancestry-worker.service
+#
+# Tail logs:
+#   journalctl -u ancestry-worker.service -f
+#
+# DB credentials come from the same ~/.config/ancestry/db.env file
+# the match2match worker uses (see match2match-worker@.service for
+# the setup recipe).
+
+[Unit]
+Description=DNA notes → Ancestry push worker
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=damo
+WorkingDirectory=/home/damo/ancestry-program
+EnvironmentFile=/home/damo/.config/ancestry/db.env
+ExecStart=/usr/bin/perl ./worker-ancestry.pl
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
