@@ -198,6 +198,7 @@ watch(
 onUnmounted(stopLoadingPoll);
 
 watch(selectedEye, (val) => {
+    eyeListOpen.value = false;
     router.reload({
         only: ONLY,
         preserveState: true,
