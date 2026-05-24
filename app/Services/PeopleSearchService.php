@@ -116,13 +116,24 @@ class PeopleSearchService
                 // No usable search tokens — force an empty result set.
                 $where[] = '1=0';
             } else {
+                // MariaDB optimiser bug: OR-of-MATCH across two tables
+                // combined with a filesort-requiring ORDER BY silently
+                // drops rows (the row-by-row MATCH path returns 0 score
+                // when filesort is in play). Materialise the matching
+                // ids via UNION instead — each MATCH then uses its own
+                // FT index and rows survive the outer sort.
                 $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
                 $phon = $phon !== '' ? $phon : '+__never_matches__';
-                $where[] = '(
-                    MATCH(p.fullName)              AGAINST (? IN BOOLEAN MODE)
-                 OR MATCH(p.fullName_phonetic)     AGAINST (? IN BOOLEAN MODE)
-                 OR MATCH(ds.displayName)          AGAINST (? IN BOOLEAN MODE)
-                 OR MATCH(ds.displayName_phonetic) AGAINST (? IN BOOLEAN MODE)
+                $where[] = 'p.id IN (
+                    (SELECT p2.id FROM people p2 WHERE MATCH(p2.fullName)          AGAINST (? IN BOOLEAN MODE))
+                    UNION
+                    (SELECT p2.id FROM people p2 WHERE MATCH(p2.fullName_phonetic) AGAINST (? IN BOOLEAN MODE))
+                    UNION
+                    (SELECT p2.id FROM people p2 INNER JOIN dna_samples ds2 ON ds2.id = p2.dnaSampleId
+                                   WHERE MATCH(ds2.displayName)          AGAINST (? IN BOOLEAN MODE))
+                    UNION
+                    (SELECT p2.id FROM people p2 INNER JOIN dna_samples ds2 ON ds2.id = p2.dnaSampleId
+                                   WHERE MATCH(ds2.displayName_phonetic) AGAINST (? IN BOOLEAN MODE))
                 )';
                 $bind[] = $lex;
                 $bind[] = $phon;
