@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\Format;
+use App\Support\PhoneticEncoder;
 use Illuminate\Support\Facades\DB;
 
 class DnaSampleService
@@ -14,65 +15,49 @@ class DnaSampleService
         if ($q === '') {
             return [];
         }
-        $like = "%{$q}%";
+        [$lex, $phon] = PhoneticEncoder::buildBoolean($q);
+        if ($lex === '' && $phon === '') {
+            return [];
+        }
+        // FT MATCH needs a non-empty BOOLEAN expression on each side;
+        // when one side has no usable tokens substitute a sentinel that
+        // matches nothing so the SQL stays uniform.
+        $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+        $phon = $phon !== '' ? $phon : '+__never_matches__';
+
         $rows = DB::select('
             SELECT
-              x.id,
-              x.dnaUUID,
-              x.displayName,
-              x.photoUrl,
-              x.gender,
-              x.userUUID,
-              x.admin_userUUID,
-              x.createdDate,
-              x.managed,
-              x.person_id,
-              x.person_name,
-              x.person_gender
-            FROM (
-              SELECT
-                s.id,
-                s.dnaUUID,
-                s.displayName,
-                s.photoUrl,
-                s.gender,
-                s.userUUID,
-                admin.userUUID AS admin_userUUID,
-                s.createdDate,
-                s.managed,
-                p.id AS person_id,
-                p.fullName AS person_name,
-                p.gender AS person_gender
-              FROM dna_samples s
-              LEFT JOIN people p ON p.dnaSampleId = s.id
-              LEFT JOIN dna_samples admin ON admin.id = s.adminid
-              WHERE s.disabled = 0
-                AND s.displayName LIKE ?
-
-              UNION DISTINCT
-
-              SELECT
-                s.id,
-                s.dnaUUID,
-                s.displayName,
-                s.photoUrl,
-                s.gender,
-                s.userUUID,
-                admin.userUUID AS admin_userUUID,
-                s.createdDate,
-                s.managed,
-                p.id AS person_id,
-                p.fullName AS person_name,
-                p.gender AS person_gender
-              FROM people p
-              JOIN dna_samples s ON s.id = p.dnaSampleId
-              LEFT JOIN dna_samples admin ON admin.id = s.adminid
-              WHERE s.disabled = 0
-                AND p.fullName LIKE ?
-            ) x
-            ORDER BY x.displayName, x.id
+              s.id,
+              s.dnaUUID,
+              s.displayName,
+              s.photoUrl,
+              s.gender,
+              s.userUUID,
+              admin.userUUID AS admin_userUUID,
+              s.createdDate,
+              s.managed,
+              p.id AS person_id,
+              p.fullName AS person_name,
+              p.gender AS person_gender,
+              (
+                MATCH(s.displayName)          AGAINST (? IN BOOLEAN MODE) * 2 +
+                MATCH(s.displayName_phonetic) AGAINST (? IN BOOLEAN MODE) +
+                COALESCE(MATCH(p.fullName)          AGAINST (? IN BOOLEAN MODE), 0) * 2 +
+                COALESCE(MATCH(p.fullName_phonetic) AGAINST (? IN BOOLEAN MODE), 0)
+              ) AS score
+            FROM dna_samples s
+            LEFT JOIN people p ON p.dnaSampleId = s.id
+            LEFT JOIN dna_samples admin ON admin.id = s.adminid
+            WHERE s.disabled = 0
+              AND (
+                  MATCH(s.displayName)          AGAINST (? IN BOOLEAN MODE)
+               OR MATCH(s.displayName_phonetic) AGAINST (? IN BOOLEAN MODE)
+               OR MATCH(p.fullName)             AGAINST (? IN BOOLEAN MODE)
+               OR MATCH(p.fullName_phonetic)    AGAINST (? IN BOOLEAN MODE)
+              )
+            ORDER BY score DESC, s.displayName, s.id
             LIMIT ? OFFSET ?
-        ', [$like, $like, $limit, $offset]);
+        ', [$lex, $phon, $lex, $phon, $lex, $phon, $lex, $phon, $limit, $offset]);
 
         return array_map(function ($r) {
             $row = (array) $r;
@@ -118,8 +103,8 @@ class DnaSampleService
     {
         // dna_matches2 is directional: rows where sample1 = X are exactly
         // X's view of its matches. Eye-filter becomes a JOIN to the eye's
-        // own rows by sample2 (the other party they share). Search needs
-        // the dna_samples/people joins to look at display names.
+        // own rows by sample2 (the other party they share). Search uses
+        // FULLTEXT MATCH on the joined sample / person name + phonetic.
         $bind = [];
         $eyeJoin = '';
         if ($commonWithEye) {
@@ -133,13 +118,26 @@ class DnaSampleService
         $searchJoin = '';
         $searchWhere = '';
         if ($search !== '') {
+            [$lex, $phon] = PhoneticEncoder::buildBoolean($search);
+            if ($lex === '' && $phon === '') {
+                return 0;
+            }
+            $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+            $phon = $phon !== '' ? $phon : '+__never_matches__';
             $searchJoin = '
                 JOIN dna_samples s ON s.id = m.sample2
                 LEFT JOIN people p ON p.dnaSampleId = m.sample2
             ';
-            $searchWhere = ' AND (s.displayName LIKE ? OR p.fullName LIKE ?)';
-            $bind[] = "%{$search}%";
-            $bind[] = "%{$search}%";
+            $searchWhere = ' AND (
+                MATCH(s.displayName)          AGAINST (? IN BOOLEAN MODE)
+             OR MATCH(s.displayName_phonetic) AGAINST (? IN BOOLEAN MODE)
+             OR MATCH(p.fullName)             AGAINST (? IN BOOLEAN MODE)
+             OR MATCH(p.fullName_phonetic)    AGAINST (? IN BOOLEAN MODE)
+            )';
+            $bind[] = $lex;
+            $bind[] = $phon;
+            $bind[] = $lex;
+            $bind[] = $phon;
         }
 
         $row = DB::selectOne('
@@ -359,9 +357,22 @@ class DnaSampleService
 
         $searchWhere = '';
         if ($search !== '') {
-            $searchWhere = ' AND (s.displayName LIKE ? OR p.fullName LIKE ?)';
-            $bind[] = "%{$search}%";
-            $bind[] = "%{$search}%";
+            [$lex, $phon] = PhoneticEncoder::buildBoolean($search);
+            if ($lex === '' && $phon === '') {
+                return [];
+            }
+            $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+            $phon = $phon !== '' ? $phon : '+__never_matches__';
+            $searchWhere = ' AND (
+                MATCH(s.displayName)          AGAINST (? IN BOOLEAN MODE)
+             OR MATCH(s.displayName_phonetic) AGAINST (? IN BOOLEAN MODE)
+             OR MATCH(p.fullName)             AGAINST (? IN BOOLEAN MODE)
+             OR MATCH(p.fullName_phonetic)    AGAINST (? IN BOOLEAN MODE)
+            )';
+            $bind[] = $lex;
+            $bind[] = $phon;
+            $bind[] = $lex;
+            $bind[] = $phon;
         }
 
         $bind[] = $pageSize;

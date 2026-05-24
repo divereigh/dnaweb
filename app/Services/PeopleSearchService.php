@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\Format;
+use App\Support\PhoneticEncoder;
 use Illuminate\Support\Facades\DB;
 
 class PeopleSearchService
@@ -110,9 +111,24 @@ class PeopleSearchService
         $bind = [];
         $where = ['1=1'];
         if ($q !== '') {
-            $where[] = '(p.fullName LIKE ? OR ds.displayName LIKE ?)';
-            $bind[] = "%{$q}%";
-            $bind[] = "%{$q}%";
+            [$lex, $phon] = PhoneticEncoder::buildBoolean($q);
+            if ($lex === '' && $phon === '') {
+                // No usable search tokens — force an empty result set.
+                $where[] = '1=0';
+            } else {
+                $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+                $phon = $phon !== '' ? $phon : '+__never_matches__';
+                $where[] = '(
+                    MATCH(p.fullName)              AGAINST (? IN BOOLEAN MODE)
+                 OR MATCH(p.fullName_phonetic)     AGAINST (? IN BOOLEAN MODE)
+                 OR MATCH(ds.displayName)          AGAINST (? IN BOOLEAN MODE)
+                 OR MATCH(ds.displayName_phonetic) AGAINST (? IN BOOLEAN MODE)
+                )';
+                $bind[] = $lex;
+                $bind[] = $phon;
+                $bind[] = $lex;
+                $bind[] = $phon;
+            }
         }
         if ($linked) {
             $where[] = 'p.dnaSampleId IS NOT NULL';

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\PhoneticEncoder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
 class Person extends Model
@@ -48,5 +50,21 @@ class Person extends Model
     public function motherPerson()
     {
         return $this->belongsTo(self::class, 'mother');
+    }
+
+    /**
+     * Keep fullName_phonetic in lockstep with fullName on every
+     * Eloquent write. Raw DB::update queries bypass this — coverage
+     * for those lives in the Perl loaders and the nightly
+     * `dna:backfill-phonetic --where-null` sweep.
+     */
+    protected function fullName(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => [
+                'fullName' => $value,
+                'fullName_phonetic' => PhoneticEncoder::encode($value ?? ''),
+            ],
+        );
     }
 }

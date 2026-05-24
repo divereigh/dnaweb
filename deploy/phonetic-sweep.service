@@ -1,0 +1,26 @@
+# systemd one-shot that runs the dna:backfill-phonetic --where-null
+# sweep. Paired with phonetic-sweep.timer to fire every five minutes;
+# rows the Perl loaders inserted since the last sweep get their
+# phonetic columns populated.
+#
+# Lexical FULLTEXT search is unaffected by sweep lag — InnoDB updates
+# its index on every write, so the raw displayName / fullName column
+# is searchable immediately. Only the typo-tolerant phonetic branch
+# has any delay, and that's bounded by the timer interval.
+#
+# Install:
+#   sudo cp deploy/phonetic-sweep.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now phonetic-sweep.timer
+
+[Unit]
+Description=dnaweb phonetic backfill sweep
+After=mariadb.service
+
+[Service]
+Type=oneshot
+User=damo
+WorkingDirectory=/srv/dnaweb/laravel
+ExecStart=/usr/bin/php artisan dna:backfill-phonetic --where-null
+StandardOutput=journal
+StandardError=journal

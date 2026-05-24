@@ -1,0 +1,14 @@
+# Fires phonetic-sweep.service every 5 minutes, plus once a minute
+# after boot to catch up anything missed during a downtime window.
+
+[Unit]
+Description=dnaweb phonetic backfill sweep timer
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
