@@ -187,17 +187,36 @@ class PersonDetailService
      */
     public function connectedPeopleSet(int $personId): array
     {
+        // Two-phase: walk up to collect biological ancestors, then walk
+        // down from every ancestor to collect their descendants.
+        //
+        // The earlier "walk parents OR children at every step" CTE
+        // bled across marriage boundaries — from a sibling it would
+        // walk UP to that sibling's *other* parent (a step-parent
+        // from our perspective), then DOWN through that step-parent's
+        // children with other partners, and on through the entire
+        // graph. Splitting the walk preserves biological-descent
+        // semantics: only people who share an actual ancestor with
+        // the title person end up in the set.
         $rows = DB::select('
-            WITH RECURSIVE peopleTree AS (
-                SELECT id, mother, father FROM people WHERE id = ?
+            WITH RECURSIVE
+              ancestors AS (
+                SELECT id, father, mother FROM people WHERE id = ?
                 UNION
-                SELECT p.id, p.mother, p.father
+                SELECT p.id, p.father, p.mother
                   FROM people p
-                  INNER JOIN peopleTree pt
-                    ON pt.mother = p.id OR pt.father = p.id   -- p is parent of pt
-                    OR p.mother = pt.id OR p.father = pt.id   -- p is child of pt
-            )
-            SELECT id FROM peopleTree
+                  INNER JOIN ancestors a
+                    ON a.father = p.id OR a.mother = p.id
+              ),
+              descendants AS (
+                SELECT id FROM ancestors
+                UNION
+                SELECT p.id
+                  FROM people p
+                  INNER JOIN descendants d
+                    ON p.father = d.id OR p.mother = d.id
+              )
+            SELECT id FROM descendants
         ', [$personId]);
 
         $out = [];
