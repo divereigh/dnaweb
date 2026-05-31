@@ -99,7 +99,59 @@ class DnaSampleService
         return $r;
     }
 
-    public function countMatches(int $sampleId, ?int $commonWithEye = null, string $search = ''): int
+    /**
+     * Build the ParentSide WHERE fragment for the match list. $side is
+     * one of ALL / PATERNAL / MATERNAL / P1 / P2 (case-insensitive).
+     * $alias is the SQL alias of the POV row (the eye-on-other row that
+     * carries matchClusterCode / parentSide). $paternalCluster is that
+     * eye's own paternalCluster, used to map p1/p2 → PATERNAL/MATERNAL.
+     *
+     * Mirrors ClusterPill.vue: the parentSide enum is authoritative
+     * when it holds one of the four enum values; otherwise the side is
+     * derived from matchClusterCode vs the eye's paternalCluster. P1/P2
+     * filter on the raw cluster code regardless of resolved side.
+     *
+     * @return array{0:string,1:array} [sqlFragment, binds]
+     */
+    private function parentSideFilter(string $side, string $alias, ?string $paternalCluster): array
+    {
+        $side = strtoupper(trim($side));
+        if ($side === '' || $side === 'ALL') {
+            return ['', []];
+        }
+        if ($side === 'P1' || $side === 'P2') {
+            return [" AND {$alias}.matchClusterCode = ?", [strtolower($side)]];
+        }
+
+        // parentSide enum is authoritative when set to a real value;
+        // NULL / empty / anything else falls through to cluster-derived.
+        $notAuthoritative = "({$alias}.parentSide IS NULL OR {$alias}.parentSide NOT IN ('PATERNAL','MATERNAL','BOTH','UNASSIGNED'))";
+        $pat = strtolower((string) $paternalCluster);
+        $patKnown = ($pat === 'p1' || $pat === 'p2');
+
+        if ($side === 'PATERNAL') {
+            if (! $patKnown) {
+                return [" AND {$alias}.parentSide = 'PATERNAL'", []];
+            }
+            return [
+                " AND ({$alias}.parentSide = 'PATERNAL' OR ({$notAuthoritative} AND {$alias}.matchClusterCode = ?))",
+                [$pat],
+            ];
+        }
+        if ($side === 'MATERNAL') {
+            if (! $patKnown) {
+                return [" AND {$alias}.parentSide = 'MATERNAL'", []];
+            }
+            $other = $pat === 'p1' ? 'p2' : 'p1';
+            return [
+                " AND ({$alias}.parentSide = 'MATERNAL' OR ({$notAuthoritative} AND {$alias}.matchClusterCode = ?))",
+                [$other],
+            ];
+        }
+        return ['', []];
+    }
+
+    public function countMatches(int $sampleId, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null): int
     {
         // dna_matches2 is directional: rows where sample1 = X are exactly
         // X's view of its matches. Eye-filter becomes a JOIN to the eye's
@@ -113,6 +165,20 @@ class DnaSampleService
             ';
             $bind[] = $commonWithEye;
         }
+
+        // ParentSide filter needs the POV row (eye-on-other). Join it
+        // only when both a POV eye and an active side filter exist.
+        [$sideWhere, $sideBind] = $povEye
+            ? $this->parentSideFilter($parentSide, 'pov', $povPaternalCluster)
+            : ['', []];
+        $povJoin = '';
+        if ($sideWhere !== '') {
+            $povJoin = '
+                LEFT JOIN dna_matches2 pov ON pov.sample1 = ? AND pov.sample2 = m.sample2
+            ';
+            $bind[] = $povEye;
+        }
+
         $bind[] = $sampleId;
 
         $searchJoin = '';
@@ -140,11 +206,15 @@ class DnaSampleService
             $bind[] = $phon;
         }
 
+        foreach ($sideBind as $b) {
+            $bind[] = $b;
+        }
+
         $row = DB::selectOne('
             SELECT COUNT(*) AS c
             FROM dna_matches2 m
-            ' . $eyeJoin . $searchJoin . '
-            WHERE m.sample1 = ?' . $searchWhere
+            ' . $eyeJoin . $povJoin . $searchJoin . '
+            WHERE m.sample1 = ?' . $searchWhere . $sideWhere
         , $bind);
         return (int) ($row?->c ?? 0);
     }
@@ -310,7 +380,7 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -337,6 +407,13 @@ class DnaSampleService
             $povCols = 'pov.matchClusterCode AS matchClusterCode, pov.parentSide AS parentSide';
             $bind[] = $povEye;
         }
+
+        // ParentSide dropdown filter — reuses the pov join above, so it
+        // only applies when a POV eye exists (which is also the only
+        // case the dropdown is enabled in the UI).
+        [$sideWhere, $sideBind] = $povEye
+            ? $this->parentSideFilter($parentSide, 'pov', $povPaternalCluster)
+            : ['', []];
 
         // dna_notes is keyed by (sample = the "other" party,
         // mgmtsample = the eye doing the noting). $notesEye picks
@@ -375,6 +452,10 @@ class DnaSampleService
             $bind[] = $phon;
         }
 
+        foreach ($sideBind as $b) {
+            $bind[] = $b;
+        }
+
         $bind[] = $pageSize;
         $bind[] = $offset;
 
@@ -409,7 +490,7 @@ class DnaSampleService
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
             ' . $notesJoin . '
-            WHERE m.sample1 = ?' . $searchWhere . '
+            WHERE m.sample1 = ?' . $searchWhere . $sideWhere . '
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
             LIMIT ? OFFSET ?
         ', $bind);

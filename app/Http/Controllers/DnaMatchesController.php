@@ -67,6 +67,15 @@ class DnaMatchesController extends Controller
         $pageSize = 50;
         $search = trim((string) $request->input('q', ''));
 
+        // ParentSide dropdown: ALL / PATERNAL / MATERNAL / P1 / P2.
+        // Only meaningful when there's a POV eye (selected eye, or the
+        // title is itself an eye) — otherwise there's no per-row side
+        // data, so we force it back to ALL below once $povEye is known.
+        $side = strtoupper(trim((string) $request->input('side', '')));
+        if (! in_array($side, ['PATERNAL', 'MATERNAL', 'P1', 'P2'], true)) {
+            $side = 'ALL';
+        }
+
         // Whose notes / ParentSide do we show next to each match row?
         // The selected eye wins — the user is explicitly looking
         // through that eye, so its notes (and ParentSide cluster) are
@@ -77,6 +86,12 @@ class DnaMatchesController extends Controller
         // cluster, both keyed off the same "who's looking" question).
         $notesEye = $eyeId ?: (!empty($sample['managed']) ? $id : null);
         $povEye = $notesEye;
+        // No POV eye → no per-row side data → the dropdown is disabled
+        // client-side; mirror that here so a stale ?side= in the URL
+        // can't silently filter to an empty list.
+        if (! $povEye) {
+            $side = 'ALL';
+        }
         $notesEyeLabel = null;
         if ($notesEye === $id) {
             $notesEyeLabel = $sample['display_label'];
@@ -119,8 +134,8 @@ class DnaMatchesController extends Controller
         // page-clamp in `matches` would otherwise call countMatches
         // three times.
         $countMemo = null;
-        $count = function () use (&$countMemo, $id, $eyeId, $search) {
-            return $countMemo ??= $this->service->countMatches($id, $eyeId, $search);
+        $count = function () use (&$countMemo, $id, $eyeId, $search, $povEye, $side, $povPaternalCluster) {
+            return $countMemo ??= $this->service->countMatches($id, $eyeId, $search, $povEye, $side, $povPaternalCluster);
         };
         $resolvePage = function () use ($count, $page, $pageSize) {
             return min($page, max(1, (int) ceil($count() / $pageSize)));
@@ -168,7 +183,8 @@ class DnaMatchesController extends Controller
             'eye_id'               => $eyeId,
             'selected_eye'         => $selectedEye,
             'per_page'             => $pageSize,
-            'filters'              => ['q' => $search],
+            'filters'              => ['q' => $search, 'side' => $side],
+            'side_enabled'         => (bool) $povEye,
             'title_note'           => $titleNote,
             'notes_eye_id'         => $notesEye,
             'notes_eye_label'      => $notesEyeLabel,
@@ -180,7 +196,7 @@ class DnaMatchesController extends Controller
             // a poll for `loading_in_progress` doesn't re-fetch
             // matches / eye_matches / etc.
             'matches'             => fn () => $annotateConnected(
-                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye)
+                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye, $side, $povPaternalCluster)
             ),
             'total'               => fn () => $count(),
             'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),

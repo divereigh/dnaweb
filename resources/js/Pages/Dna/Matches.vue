@@ -28,6 +28,7 @@ const props = defineProps({
     notes_eye_label: { type: String, default: null },
     pov_paternal_cluster: { type: String, default: null },
     title_pill: { type: Object, default: null },
+    side_enabled: { type: Boolean, default: false },
 });
 
 // Note-editor side panel state. One panel shared for the title-note
@@ -49,7 +50,7 @@ function closeNoteEditor() {
 // `eye_matches` is fixed per title sample, so it's not in ONLY (no
 // need to refetch on search / eye-change). The others all shift
 // when the eye selection changes.
-const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters', 'pov_paternal_cluster', 'title_pill', 'notes_eye_id', 'notes_eye_label', 'title_note'];
+const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters', 'pov_paternal_cluster', 'title_pill', 'notes_eye_id', 'notes_eye_label', 'title_note', 'side_enabled'];
 
 function ancestryCompareUrl(otherUuid) {
     if (!props.selected_eye?.dnaUUID || !otherUuid) return null;
@@ -112,22 +113,38 @@ function matchLink(otherId) {
 // which is what Eyes/Matches uses too. Preserves the eye filter so
 // searches happen within whatever common-with view is active.
 const q = ref(props.filters?.q ?? '');
+const side = ref(props.filters?.side ?? 'ALL');
+
+// Shared reload — both the search box and the ParentSide dropdown
+// reset to page 1 and preserve every other active filter.
+function reloadFilters() {
+    router.reload({
+        only: ONLY,
+        preserveState: true,
+        preserveScroll: true,
+        replace: true,
+        data: {
+            q: q.value.trim() || undefined,
+            side: side.value !== 'ALL' ? side.value : undefined,
+            eye: props.selected_eye?.id || undefined,
+            page: 1,
+        },
+    });
+}
+
 let qTimer = null;
-watch(q, (val) => {
+watch(q, () => {
     if (qTimer) clearTimeout(qTimer);
-    qTimer = setTimeout(() => {
-        router.reload({
-            only: ONLY,
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-            data: {
-                q: val.trim() || undefined,
-                eye: props.selected_eye?.id || undefined,
-                page: 1,
-            },
-        });
-    }, 280);
+    qTimer = setTimeout(reloadFilters, 280);
+});
+
+watch(side, reloadFilters);
+
+// When the POV eye disappears (e.g. switching the eye filter back to
+// "All"), the dropdown is disabled — snap the value back to ALL so a
+// stale PATERNAL/P1 selection doesn't linger in the URL.
+watch(() => props.side_enabled, (enabled) => {
+    if (!enabled && side.value !== 'ALL') side.value = 'ALL';
 });
 
 function reloadPage() {
@@ -204,7 +221,12 @@ watch(selectedEye, (val) => {
         preserveState: true,
         preserveScroll: true,
         replace: true,
-        data: { eye: val || undefined, page: 1 },
+        data: {
+            eye: val || undefined,
+            q: q.value.trim() || undefined,
+            side: side.value !== 'ALL' ? side.value : undefined,
+            page: 1,
+        },
         onStart: () => { loading.value = true; },
         onFinish: () => { loading.value = false; },
     });
@@ -595,15 +617,30 @@ function closeEdit() {
         </div>
 
         <form
-            class="filter-bar mb-4 sm:grid-cols-[minmax(0,1fr)]"
+            class="mb-4 flex flex-wrap items-center gap-2"
             @submit.prevent
         >
             <input
                 v-model="q"
                 type="search"
-                placeholder="Search this sample's matches by name…"
-                class="text-sm"
+                placeholder="Search matches by name…"
+                class="w-full max-w-xs rounded-md border-paper-300 text-sm focus:border-wine-500 focus:ring-wine-500"
             />
+            <label class="flex items-center gap-1.5 text-xs text-sepia-500">
+                ParentSide
+                <select
+                    v-model="side"
+                    :disabled="!side_enabled"
+                    class="rounded-md border-paper-300 text-sm focus:border-wine-500 focus:ring-wine-500 disabled:cursor-not-allowed disabled:bg-paper-100 disabled:text-sepia-400"
+                    :title="side_enabled ? 'Filter rows by ParentSide' : 'Select an eye to filter by ParentSide'"
+                >
+                    <option value="ALL">All</option>
+                    <option value="MATERNAL">Maternal</option>
+                    <option value="PATERNAL">Paternal</option>
+                    <option value="P1">P1</option>
+                    <option value="P2">P2</option>
+                </select>
+            </label>
         </form>
 
         <div
