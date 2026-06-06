@@ -506,6 +506,65 @@ class DnaSampleService
         }, $rows);
 
         $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+        $this->attachTrees($rows);
         return $rows;
+    }
+
+    /**
+     * Decorate each match row with the trees its person belongs to.
+     * One round-trip for the whole page: collect the person ids, pull
+     * (peopleId, tree) pairs from tree_people, and bucket them back
+     * onto the rows as a `trees` array of {id, name, letter, colour}.
+     * Rows with no person, or whose person is in no tree, get [].
+     *
+     * @param array<int,array<string,mixed>> $rows
+     */
+    private function attachTrees(array &$rows): void
+    {
+        $personIds = [];
+        foreach ($rows as $row) {
+            $pid = (int) ($row['person_id'] ?? 0);
+            if ($pid > 0) {
+                $personIds[$pid] = true;
+            }
+        }
+        foreach ($rows as &$row) {
+            $row['trees'] = [];
+        }
+        unset($row);
+        if (! $personIds) {
+            return;
+        }
+
+        $ids = array_keys($personIds);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $links = DB::select("
+            SELECT tp.peopleId AS person_id,
+                   t.id        AS tree_id,
+                   t.name      AS name,
+                   t.colour    AS colour
+            FROM tree_people tp
+            JOIN tree t ON t.id = tp.treeId
+            WHERE tp.peopleId IN ({$placeholders})
+            ORDER BY t.priority DESC, t.name ASC
+        ", $ids);
+
+        $byPerson = [];
+        foreach ($links as $l) {
+            $byPerson[(int) $l->person_id][] = [
+                'id'     => (int) $l->tree_id,
+                'name'   => $l->name,
+                'letter' => mb_strtoupper(mb_substr((string) $l->name, 0, 1)),
+                'colour' => $l->colour,
+            ];
+        }
+
+        foreach ($rows as &$row) {
+            $pid = (int) ($row['person_id'] ?? 0);
+            if ($pid > 0 && isset($byPerson[$pid])) {
+                $row['trees'] = $byPerson[$pid];
+            }
+        }
+        unset($row);
     }
 }

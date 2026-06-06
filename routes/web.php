@@ -10,6 +10,7 @@ use App\Http\Controllers\PeopleController;
 use App\Http\Controllers\PersonController;
 use App\Http\Controllers\PersonTreeController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TreeController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/eyes')->name('home');
@@ -30,6 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dna/{id}/matches', [DnaMatchesController::class, 'index'])->name('dna.matches');
     Route::post('/dna/{id}/matches/requeue', [DnaMatchesController::class, 'requeue'])->name('dna.matches.requeue');
     Route::put('/dna/notes/{sample}/{mgmtsample}', [DnaNoteController::class, 'update'])->name('dna.notes.update');
+    Route::put('/dna/trees/{tree}', [TreeController::class, 'update'])->name('dna.trees.update');
     Route::put('/dna/{sampleId}/person', [PersonController::class, 'upsertForSample'])->name('dna.person.upsert');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

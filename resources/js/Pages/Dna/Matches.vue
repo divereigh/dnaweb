@@ -9,6 +9,8 @@ import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 import NoteEditDialog from '@/Components/App/NoteEditDialog.vue';
+import TreePill from '@/Components/App/TreePill.vue';
+import TreeEditDialog from '@/Components/App/TreeEditDialog.vue';
 
 const props = defineProps({
     sample: { type: Object, required: true },
@@ -45,6 +47,17 @@ function openNoteEditor(sampleId, sampleLabel, initial) {
 }
 function closeNoteEditor() {
     editingNote.value = null;
+}
+
+// Tree-pill editor side panel. openTreeEditor receives the tree
+// object from a clicked pill; on save the dialog reloads `matches`
+// so every row carrying that tree picks up the new name/colour.
+const editingTree = ref(null);
+function openTreeEditor(tree) {
+    editingTree.value = { ...tree };
+}
+function closeTreeEditor() {
+    editingTree.value = null;
 }
 
 // `eye_matches` is fixed per title sample, so it's not in ONLY (no
@@ -667,6 +680,7 @@ function closeEdit() {
                         <th>Predicted</th>
                         <th data-numeric>cM</th>
                         <th>ParentSide</th>
+                        <th>Trees</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -746,6 +760,16 @@ function closeEdit() {
                                 :parent-side="m.parentSide || ''"
                             />
                         </td>
+                        <td>
+                            <div v-if="(m.trees || []).length" class="flex flex-wrap gap-1">
+                                <TreePill
+                                    v-for="t in m.trees"
+                                    :key="t.id"
+                                    :tree="t"
+                                    @edit="openTreeEditor"
+                                />
+                            </div>
+                        </td>
                         <td class="!text-right">
                             <div class="inline-flex items-center gap-1">
                                 <Link
@@ -801,7 +825,7 @@ function closeEdit() {
                     </tr>
                     </template>
                     <tr v-if="!matches.length">
-                        <td colspan="5" class="empty-cell">No matches.</td>
+                        <td colspan="6" class="empty-cell">No matches.</td>
                     </tr>
                 </tbody>
             </table>
@@ -828,6 +852,12 @@ function closeEdit() {
             :eye-label="notes_eye_label ?? ''"
             :initial="editingNote?.initial ?? ''"
             @close="closeNoteEditor"
+        />
+
+        <TreeEditDialog
+            :show="!!editingTree"
+            :tree="editingTree"
+            @close="closeTreeEditor"
         />
     </AuthenticatedLayout>
 </template>
