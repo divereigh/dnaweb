@@ -782,12 +782,6 @@ function closeEdit() {
                         </td>
                         <td>
                             <div class="flex flex-wrap items-center gap-1">
-                                <TreePill
-                                    v-for="t in (m.trees || [])"
-                                    :key="t.id"
-                                    :tree="t"
-                                    @edit="openTreeEditor"
-                                />
                                 <button
                                     v-if="m.person_id"
                                     type="button"
@@ -798,6 +792,12 @@ function closeEdit() {
                                     +
                                     <span class="sr-only">Add to tree</span>
                                 </button>
+                                <TreePill
+                                    v-for="t in (m.trees || [])"
+                                    :key="t.id"
+                                    :tree="t"
+                                    @edit="openTreeEditor"
+                                />
                             </div>
                         </td>
                         <td class="!text-right">
