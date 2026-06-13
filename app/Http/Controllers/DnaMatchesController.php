@@ -190,6 +190,9 @@ class DnaMatchesController extends Controller
             'notes_eye_label'      => $notesEyeLabel,
             'pov_paternal_cluster' => $povPaternalCluster,
             'title_pill'           => $titlePill,
+            'title_trees'          => fn () => $this->service->treesForPerson(
+                $sample['person_id'] ? (int) $sample['person_id'] : null
+            ),
 
             // Heavy props as closures — Inertia only invokes them
             // when the response includes the corresponding key, so

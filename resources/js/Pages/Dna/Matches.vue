@@ -31,6 +31,7 @@ const props = defineProps({
     notes_eye_label: { type: String, default: null },
     pov_paternal_cluster: { type: String, default: null },
     title_pill: { type: Object, default: null },
+    title_trees: { type: Array, default: () => [] },
     side_enabled: { type: Boolean, default: false },
 });
 
@@ -393,6 +394,16 @@ function closeEdit() {
                         :gender="sample.effective_gender || ''"
                         size="md"
                     />
+                </template>
+                <template v-if="(title_trees || []).length" #belowTitle>
+                    <div class="flex flex-wrap items-center gap-1">
+                        <TreePill
+                            v-for="t in title_trees"
+                            :key="t.id"
+                            :tree="t"
+                            @edit="openTreeEditor"
+                        />
+                    </div>
                 </template>
                 <template #titleAfter>
                     <button

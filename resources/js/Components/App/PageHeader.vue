@@ -30,6 +30,9 @@ const titleClasses = computed(() => [
                 </h1>
                 <slot name="titleAfter" />
             </div>
+            <div v-if="$slots.belowTitle" class="mt-1.5">
+                <slot name="belowTitle" />
+            </div>
             <div
                 v-if="subtitle || $slots.subtitle"
                 :class="[

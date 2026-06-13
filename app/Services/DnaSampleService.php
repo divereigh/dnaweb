@@ -511,11 +511,9 @@ class DnaSampleService
     }
 
     /**
-     * Decorate each match row with the trees its person belongs to.
-     * One round-trip for the whole page: collect the person ids, pull
-     * (peopleId, tree) pairs from tree_people, and bucket them back
-     * onto the rows as a `trees` array of {id, name, letter, colour}.
-     * Rows with no person, or whose person is in no tree, get [].
+     * Decorate each match row with the trees its person belongs to,
+     * as a `trees` array of {id, name, letter, colour}. Rows with no
+     * person, or whose person is in no tree, get [].
      *
      * @param array<int,array<string,mixed>> $rows
      */
@@ -528,16 +526,43 @@ class DnaSampleService
                 $personIds[$pid] = true;
             }
         }
+        $byPerson = $this->treesForPeople(array_keys($personIds));
+
         foreach ($rows as &$row) {
-            $row['trees'] = [];
+            $pid = (int) ($row['person_id'] ?? 0);
+            $row['trees'] = ($pid > 0 && isset($byPerson[$pid])) ? $byPerson[$pid] : [];
         }
         unset($row);
-        if (! $personIds) {
-            return;
-        }
+    }
 
-        $ids = array_keys($personIds);
-        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    /**
+     * Trees a single person belongs to, as a list of
+     * {id, name, letter, colour}. Empty list if no person / no trees.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function treesForPerson(?int $personId): array
+    {
+        if (! $personId) {
+            return [];
+        }
+        return $this->treesForPeople([$personId])[$personId] ?? [];
+    }
+
+    /**
+     * One round-trip mapping personId → list of {id,name,letter,colour}
+     * for every supplied person. Shared by the match-row decoration and
+     * the title-sample lookup.
+     *
+     * @param array<int> $personIds
+     * @return array<int,array<int,array<string,mixed>>>
+     */
+    private function treesForPeople(array $personIds): array
+    {
+        if (! $personIds) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($personIds), '?'));
         $links = DB::select("
             SELECT tp.peopleId AS person_id,
                    t.id        AS tree_id,
@@ -547,7 +572,7 @@ class DnaSampleService
             JOIN tree t ON t.id = tp.treeId
             WHERE tp.peopleId IN ({$placeholders})
             ORDER BY t.priority DESC, t.name ASC
-        ", $ids);
+        ", array_values($personIds));
 
         $byPerson = [];
         foreach ($links as $l) {
@@ -558,13 +583,6 @@ class DnaSampleService
                 'colour' => $l->colour,
             ];
         }
-
-        foreach ($rows as &$row) {
-            $pid = (int) ($row['person_id'] ?? 0);
-            if ($pid > 0 && isset($byPerson[$pid])) {
-                $row['trees'] = $byPerson[$pid];
-            }
-        }
-        unset($row);
+        return $byPerson;
     }
 }
