@@ -11,6 +11,7 @@ import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 import NoteEditDialog from '@/Components/App/NoteEditDialog.vue';
 import TreePill from '@/Components/App/TreePill.vue';
 import TreeEditDialog from '@/Components/App/TreeEditDialog.vue';
+import AddToTreeDialog from '@/Components/App/AddToTreeDialog.vue';
 
 const props = defineProps({
     sample: { type: Object, required: true },
@@ -58,6 +59,25 @@ function openTreeEditor(tree) {
 }
 function closeTreeEditor() {
     editingTree.value = null;
+}
+
+// "Add to tree" side panel. Distinct set of trees shown anywhere on
+// the current page feeds the panel's searchable picker.
+const pageTrees = computed(() => {
+    const by = new Map();
+    for (const m of props.matches) {
+        for (const t of m.trees || []) {
+            if (!by.has(t.id)) by.set(t.id, t);
+        }
+    }
+    return [...by.values()];
+});
+const addingToTree = ref(null);
+function openAddToTree(m) {
+    addingToTree.value = { personId: m.person_id, label: m.display_label };
+}
+function closeAddToTree() {
+    addingToTree.value = null;
 }
 
 // `eye_matches` is fixed per title sample, so it's not in ONLY (no
@@ -761,13 +781,23 @@ function closeEdit() {
                             />
                         </td>
                         <td>
-                            <div v-if="(m.trees || []).length" class="flex flex-wrap gap-1">
+                            <div class="flex flex-wrap items-center gap-1">
                                 <TreePill
-                                    v-for="t in m.trees"
+                                    v-for="t in (m.trees || [])"
                                     :key="t.id"
                                     :tree="t"
                                     @edit="openTreeEditor"
                                 />
+                                <button
+                                    v-if="m.person_id"
+                                    type="button"
+                                    class="inline-flex h-5 w-5 items-center justify-center rounded text-sm font-semibold leading-none text-sepia-500 ring-1 ring-inset ring-dashed ring-sepia-300 transition hover:text-wine-500 hover:ring-wine-500 focus:outline-none focus:ring-2 focus:ring-wine-500"
+                                    :title="`Add ${m.display_label} to a tree`"
+                                    @click="openAddToTree(m)"
+                                >
+                                    +
+                                    <span class="sr-only">Add to tree</span>
+                                </button>
                             </div>
                         </td>
                         <td class="!text-right">
@@ -858,6 +888,14 @@ function closeEdit() {
             :show="!!editingTree"
             :tree="editingTree"
             @close="closeTreeEditor"
+        />
+
+        <AddToTreeDialog
+            :show="!!addingToTree"
+            :person-id="addingToTree?.personId ?? null"
+            :person-label="addingToTree?.label ?? ''"
+            :trees="pageTrees"
+            @close="closeAddToTree"
         />
     </AuthenticatedLayout>
 </template>

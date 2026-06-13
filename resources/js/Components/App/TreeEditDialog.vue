@@ -1,6 +1,7 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import ColourSwatchPicker from '@/Components/App/ColourSwatchPicker.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -9,17 +10,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close']);
-
-// 6 × 4 swatch grid (light → dark per column family, greyscale row).
-// Mirrors the reference palette: yellow / orange / red / pink / purple
-// / blue / teal / green, plus a greyscale bottom row.
-const SWATCHES = [
-    '#fde68a', '#fdba74', '#fca5a5', '#f9a8d4', '#c4b5fd', '#a5b4fc',
-    '#bae6fd', '#a7f3d0', '#facc15', '#fb923c', '#f87171', '#ec4899',
-    '#8b5cf6', '#6366f1', '#0ea5e9', '#34d399', '#ca8a04', '#c2410c',
-    '#b91c1c', '#9d174d', '#6d28d9', '#3730a3', '#0369a1', '#15803d',
-    '#000000', '#404040', '#737373', '#a3a3a3', '#d4d4d4', '#ffffff',
-];
 
 const form = useForm({ name: '', colour: null });
 const nameInput = ref(null);
@@ -40,21 +30,6 @@ watch(
 const letter = computed(() =>
     (form.name || props.tree?.letter || '?').trim().charAt(0).toUpperCase() || '?',
 );
-
-const previewBg = computed(() => form.colour || '#ffffff');
-const previewText = computed(() => {
-    const hex = (form.colour || '#ffffff').replace('#', '');
-    if (hex.length !== 6) return '#1c1917';
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    const luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luma > 0.6 ? '#1c1917' : '#ffffff';
-});
-
-function pick(hex) {
-    form.colour = form.colour === hex ? null : hex;
-}
 
 function submit() {
     if (!props.tree?.id) return;
@@ -130,46 +105,7 @@ function close() {
                         <p v-if="form.errors.name" class="mt-1 text-xs text-red-600">{{ form.errors.name }}</p>
 
                         <label class="mb-2 mt-5 block text-sm font-medium text-ink-600">Assign a colour</label>
-                        <div class="flex items-start gap-4">
-                            <!-- Live preview swatch -->
-                            <div
-                                class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg text-2xl font-bold ring-1 ring-inset ring-black/15"
-                                :style="{ backgroundColor: previewBg, color: previewText }"
-                            >
-                                {{ letter }}
-                            </div>
-                            <div class="border-l border-paper-300 pl-4">
-                                <div class="grid grid-cols-6 gap-2">
-                                    <button
-                                        v-for="hex in SWATCHES"
-                                        :key="hex"
-                                        type="button"
-                                        class="flex h-7 w-7 items-center justify-center rounded ring-1 ring-inset ring-black/15 transition hover:scale-110 focus:outline-none focus:ring-2 focus:ring-wine-500"
-                                        :style="{ backgroundColor: hex }"
-                                        :title="hex"
-                                        @click="pick(hex)"
-                                    >
-                                        <svg
-                                            v-if="form.colour === hex"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 20 20"
-                                            fill="currentColor"
-                                            class="h-4 w-4"
-                                            :style="{ color: hex === '#ffffff' || hex === '#d4d4d4' || hex === '#a3a3a3' ? '#1c1917' : '#ffffff' }"
-                                        >
-                                            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143z" clip-rule="evenodd" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <button
-                                    type="button"
-                                    class="mt-3 text-xs text-sepia-500 underline hover:text-wine-500"
-                                    @click="form.colour = null"
-                                >
-                                    Clear colour (white)
-                                </button>
-                            </div>
-                        </div>
+                        <ColourSwatchPicker v-model="form.colour" :letter="letter" />
                         <p v-if="form.errors.colour" class="mt-1 text-xs text-red-600">{{ form.errors.colour }}</p>
                     </div>
 
