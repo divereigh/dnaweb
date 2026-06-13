@@ -11,7 +11,7 @@ import PersonEditDialog from '@/Components/App/PersonEditDialog.vue';
 import NoteEditDialog from '@/Components/App/NoteEditDialog.vue';
 import TreePill from '@/Components/App/TreePill.vue';
 import TreeEditDialog from '@/Components/App/TreeEditDialog.vue';
-import AddToTreeDialog from '@/Components/App/AddToTreeDialog.vue';
+import PersonTreesDialog from '@/Components/App/PersonTreesDialog.vue';
 
 const props = defineProps({
     sample: { type: Object, required: true },
@@ -62,10 +62,13 @@ function closeTreeEditor() {
     editingTree.value = null;
 }
 
-// "Add to tree" side panel. Distinct set of trees shown anywhere on
-// the current page feeds the panel's searchable picker.
+// Distinct set of trees shown anywhere on the current page — feeds
+// the PersonTreesDialog add-picker suggestions.
 const pageTrees = computed(() => {
     const by = new Map();
+    for (const t of props.title_trees || []) {
+        if (!by.has(t.id)) by.set(t.id, t);
+    }
     for (const m of props.matches) {
         for (const t of m.trees || []) {
             if (!by.has(t.id)) by.set(t.id, t);
@@ -73,13 +76,28 @@ const pageTrees = computed(() => {
     }
     return [...by.values()];
 });
-const addingToTree = ref(null);
-function openAddToTree(m) {
-    addingToTree.value = { personId: m.person_id, label: m.display_label };
+
+// Per-person "Trees" management panel. We track only the personId so
+// the panel's tree list stays live: after an add/remove reloads the
+// page, managedTrees recomputes from the fresh props and the open
+// panel updates in place.
+const managingPersonId = ref(null);
+const managingLabel = ref('');
+function openPersonTrees(personId, label) {
+    if (!personId) return;
+    managingPersonId.value = personId;
+    managingLabel.value = label;
 }
-function closeAddToTree() {
-    addingToTree.value = null;
+function closePersonTrees() {
+    managingPersonId.value = null;
 }
+const managedTrees = computed(() => {
+    const pid = managingPersonId.value;
+    if (!pid) return [];
+    if (Number(props.sample.person_id) === Number(pid)) return props.title_trees || [];
+    const row = props.matches.find((m) => Number(m.person_id) === Number(pid));
+    return row?.trees || [];
+});
 
 // `eye_matches` is fixed per title sample, so it's not in ONLY (no
 // need to refetch on search / eye-change). The others all shift
@@ -398,20 +416,20 @@ function closeEdit() {
                 <template v-if="sample.person_id || (title_trees || []).length" #belowTitle>
                     <div class="flex flex-wrap items-center gap-1">
                         <button
-                            v-if="sample.person_id"
+                            v-if="sample.person_id && !(title_trees || []).length"
                             type="button"
                             class="inline-flex h-5 w-5 items-center justify-center rounded text-sm font-semibold leading-none text-sepia-500 ring-1 ring-inset ring-dashed ring-sepia-300 transition hover:text-wine-500 hover:ring-wine-500 focus:outline-none focus:ring-2 focus:ring-wine-500"
-                            :title="`Add ${sample.display_label} to a tree`"
-                            @click="openAddToTree({ person_id: sample.person_id, display_label: sample.display_label })"
+                            :title="`Trees for ${sample.display_label}`"
+                            @click="openPersonTrees(sample.person_id, sample.display_label)"
                         >
                             +
-                            <span class="sr-only">Add to tree</span>
+                            <span class="sr-only">Manage trees</span>
                         </button>
                         <TreePill
                             v-for="t in title_trees"
                             :key="t.id"
                             :tree="t"
-                            @edit="openTreeEditor"
+                            @edit="openPersonTrees(sample.person_id, sample.display_label)"
                         />
                     </div>
                 </template>
@@ -804,20 +822,20 @@ function closeEdit() {
                         <td>
                             <div class="flex flex-wrap items-center gap-1">
                                 <button
-                                    v-if="m.person_id"
+                                    v-if="m.person_id && !(m.trees || []).length"
                                     type="button"
                                     class="inline-flex h-5 w-5 items-center justify-center rounded text-sm font-semibold leading-none text-sepia-500 ring-1 ring-inset ring-dashed ring-sepia-300 transition hover:text-wine-500 hover:ring-wine-500 focus:outline-none focus:ring-2 focus:ring-wine-500"
-                                    :title="`Add ${m.display_label} to a tree`"
-                                    @click="openAddToTree(m)"
+                                    :title="`Trees for ${m.display_label}`"
+                                    @click="openPersonTrees(m.person_id, m.display_label)"
                                 >
                                     +
-                                    <span class="sr-only">Add to tree</span>
+                                    <span class="sr-only">Manage trees</span>
                                 </button>
                                 <TreePill
                                     v-for="t in (m.trees || [])"
                                     :key="t.id"
                                     :tree="t"
-                                    @edit="openTreeEditor"
+                                    @edit="openPersonTrees(m.person_id, m.display_label)"
                                 />
                             </div>
                         </td>
@@ -911,12 +929,14 @@ function closeEdit() {
             @close="closeTreeEditor"
         />
 
-        <AddToTreeDialog
-            :show="!!addingToTree"
-            :person-id="addingToTree?.personId ?? null"
-            :person-label="addingToTree?.label ?? ''"
-            :trees="pageTrees"
-            @close="closeAddToTree"
+        <PersonTreesDialog
+            :show="!!managingPersonId"
+            :person-id="managingPersonId"
+            :person-label="managingLabel"
+            :trees="managedTrees"
+            :page-trees="pageTrees"
+            @close="closePersonTrees"
+            @edit-tree="(t) => { closePersonTrees(); openTreeEditor(t); }"
         />
     </AuthenticatedLayout>
 </template>

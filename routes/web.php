@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/dna/notes/{sample}/{mgmtsample}', [DnaNoteController::class, 'update'])->name('dna.notes.update');
     Route::put('/dna/trees/{tree}', [TreeController::class, 'update'])->name('dna.trees.update');
     Route::post('/dna/trees/add-person', [TreeController::class, 'addPerson'])->name('dna.trees.add-person');
+    Route::post('/dna/trees/remove-person', [TreeController::class, 'removePerson'])->name('dna.trees.remove-person');
     Route::put('/dna/{sampleId}/person', [PersonController::class, 'upsertForSample'])->name('dna.person.upsert');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
