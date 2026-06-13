@@ -14,7 +14,7 @@ function isActive(...patterns) {
 <template>
     <div class="min-h-screen">
         <header class="border-b border-paper-300 bg-paper-50">
-            <div class="mx-auto flex h-14 max-w-7xl items-center px-6 sm:px-8">
+            <div class="mx-auto flex h-14 max-w-[110rem] items-center px-6 sm:px-8">
                 <Link
                     :href="route('eyes.index')"
                     class="text-[15px] font-semibold tracking-tight text-ink-600"
@@ -125,12 +125,12 @@ function isActive(...patterns) {
         </header>
 
         <header v-if="$slots.header" class="border-b border-paper-300 bg-paper-50">
-            <div class="mx-auto max-w-7xl px-6 py-5 sm:px-8">
+            <div class="mx-auto max-w-[110rem] px-6 py-5 sm:px-8">
                 <slot name="header" />
             </div>
         </header>
 
-        <main class="mx-auto max-w-7xl px-6 py-6 sm:px-8">
+        <main class="mx-auto max-w-[110rem] px-6 py-6 sm:px-8">
             <slot />
         </main>
     </div>
