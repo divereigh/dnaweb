@@ -395,8 +395,18 @@ function closeEdit() {
                         size="md"
                     />
                 </template>
-                <template v-if="(title_trees || []).length" #belowTitle>
+                <template v-if="sample.person_id || (title_trees || []).length" #belowTitle>
                     <div class="flex flex-wrap items-center gap-1">
+                        <button
+                            v-if="sample.person_id"
+                            type="button"
+                            class="inline-flex h-5 w-5 items-center justify-center rounded text-sm font-semibold leading-none text-sepia-500 ring-1 ring-inset ring-dashed ring-sepia-300 transition hover:text-wine-500 hover:ring-wine-500 focus:outline-none focus:ring-2 focus:ring-wine-500"
+                            :title="`Add ${sample.display_label} to a tree`"
+                            @click="openAddToTree({ person_id: sample.person_id, display_label: sample.display_label })"
+                        >
+                            +
+                            <span class="sr-only">Add to tree</span>
+                        </button>
                         <TreePill
                             v-for="t in title_trees"
                             :key="t.id"
