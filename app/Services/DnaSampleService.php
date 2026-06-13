@@ -481,6 +481,7 @@ class DnaSampleService
               m.meiosis,
               ' . $povCols . ',
               m.predictedKinships,
+              m.assignment,
               m.ignored,
               m.dnapath,
               ' . $noteCol . '
