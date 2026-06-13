@@ -810,7 +810,7 @@ function closeEdit() {
                         </td>
                         <td class="text-sm text-sepia-700">
                             {{ (m.kinships || []).join(' / ') }}
-                            <span v-if="m.assignment" class="text-red-600">[{{ m.assignment }}]</span>
+                            <span v-if="m.assignment && m.sharedCentimorgans >= 200" class="text-red-600">[{{ m.assignment }}]</span>
                         </td>
                         <td class="num">{{ m.sharedCentimorgans }}</td>
                         <td>
