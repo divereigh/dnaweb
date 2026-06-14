@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { contrastText as contrast } from '@/lib/colour';
 
 const props = defineProps({
     // v-model: the selected #rrggbb hex, or null for "white / no colour"
@@ -19,16 +20,6 @@ const SWATCHES = [
     '#b91c1c', '#9d174d', '#6d28d9', '#3730a3', '#0369a1', '#15803d',
     '#000000', '#404040', '#737373', '#a3a3a3', '#d4d4d4', '#ffffff',
 ];
-
-// Black or white text for contrast against a given hex (Rec. 601 luma).
-function contrast(hex) {
-    const h = (hex || '#ffffff').replace('#', '');
-    if (h.length !== 6) return '#1c1917';
-    const r = parseInt(h.slice(0, 2), 16);
-    const g = parseInt(h.slice(2, 4), 16);
-    const b = parseInt(h.slice(4, 6), 16);
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? '#1c1917' : '#ffffff';
-}
 
 const previewBg = computed(() => props.modelValue || '#ffffff');
 const previewText = computed(() => contrast(props.modelValue));

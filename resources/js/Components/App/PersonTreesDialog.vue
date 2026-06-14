@@ -2,6 +2,7 @@
 import { computed, nextTick, ref, watch } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import ColourSwatchPicker from '@/Components/App/ColourSwatchPicker.vue';
+import { contrastText } from '@/lib/colour';
 
 const props = defineProps({
     show:        { type: Boolean, default: false },
@@ -181,7 +182,7 @@ function close() {
                         <li v-for="t in trees" :key="t.id" class="flex items-center gap-2 py-2">
                             <span
                                 class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold ring-1 ring-inset ring-black/15"
-                                :style="{ backgroundColor: t.colour || '#ffffff' }"
+                                :style="{ backgroundColor: t.colour || '#ffffff', color: contrastText(t.colour) }"
                             >{{ t.letter }}</span>
                             <span class="min-w-0 flex-1 truncate text-sm text-ink-600">{{ t.name }}</span>
                             <button
@@ -243,7 +244,7 @@ function close() {
                                 >
                                     <span
                                         class="inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-semibold ring-1 ring-inset ring-black/15"
-                                        :style="{ backgroundColor: t.colour || '#ffffff' }"
+                                        :style="{ backgroundColor: t.colour || '#ffffff', color: contrastText(t.colour) }"
                                     >{{ t.letter }}</span>
                                     {{ t.name }}
                                 </button>
