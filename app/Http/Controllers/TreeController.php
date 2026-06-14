@@ -78,9 +78,12 @@ class TreeController extends Controller
             }
         }
 
+        // disable=1 on a fresh add — a hand-added member starts disabled
+        // (per-tree). On a re-add (ON DUPLICATE) leave disable untouched
+        // so we don't re-disable a member that was enabled.
         DB::statement('
-            INSERT INTO tree_people (treeId, peopleId, dna)
-            VALUES (?, ?, 1)
+            INSERT INTO tree_people (treeId, peopleId, dna, disable)
+            VALUES (?, ?, 1, 1)
             ON DUPLICATE KEY UPDATE dna = 1
         ', [$treeId, $data['person_id']]);
 
