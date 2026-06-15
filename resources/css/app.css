@@ -114,6 +114,14 @@
         background-color: theme('colors.paper.100');
         white-space: nowrap;
     }
+    /* Sticky column headers — used inside a scroll container so the
+       body scrolls under a pinned header row. The th already carries an
+       opaque background + bottom border, so they travel with it. */
+    .ref-table--sticky thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
     .ref-table tbody td {
         padding: 0.6rem 0.875rem;
         border-bottom: 1px solid theme('colors.paper.300');
