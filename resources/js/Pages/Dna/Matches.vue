@@ -731,7 +731,7 @@ function closeEdit() {
             <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
         </div>
 
-        <div class="card max-h-[calc(100vh-13rem)] overflow-y-auto overflow-x-hidden">
+        <div class="card">
             <table class="ref-table ref-table--sticky">
                 <thead>
                     <tr>
