@@ -76,6 +76,10 @@ class DnaMatchesController extends Controller
             $side = 'ALL';
         }
 
+        // Trees dropdown: a tree id to restrict matches to that tree's
+        // members, or null for "All".
+        $treeId = (int) $request->input('tree') ?: null;
+
         // Whose notes / ParentSide do we show next to each match row?
         // The selected eye wins — the user is explicitly looking
         // through that eye, so its notes (and ParentSide cluster) are
@@ -134,8 +138,8 @@ class DnaMatchesController extends Controller
         // page-clamp in `matches` would otherwise call countMatches
         // three times.
         $countMemo = null;
-        $count = function () use (&$countMemo, $id, $eyeId, $search, $povEye, $side, $povPaternalCluster) {
-            return $countMemo ??= $this->service->countMatches($id, $eyeId, $search, $povEye, $side, $povPaternalCluster);
+        $count = function () use (&$countMemo, $id, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeId) {
+            return $countMemo ??= $this->service->countMatches($id, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeId);
         };
         $resolvePage = function () use ($count, $page, $pageSize) {
             return min($page, max(1, (int) ceil($count() / $pageSize)));
@@ -183,8 +187,9 @@ class DnaMatchesController extends Controller
             'eye_id'               => $eyeId,
             'selected_eye'         => $selectedEye,
             'per_page'             => $pageSize,
-            'filters'              => ['q' => $search, 'side' => $side],
+            'filters'              => ['q' => $search, 'side' => $side, 'tree' => $treeId],
             'side_enabled'         => (bool) $povEye,
+            'tree_options'         => fn () => $this->service->treeOptionsForSample($id),
             'title_note'           => $titleNote,
             'notes_eye_id'         => $notesEye,
             'notes_eye_label'      => $notesEyeLabel,
@@ -199,7 +204,7 @@ class DnaMatchesController extends Controller
             // a poll for `loading_in_progress` doesn't re-fetch
             // matches / eye_matches / etc.
             'matches'             => fn () => $annotateConnected(
-                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye, $side, $povPaternalCluster)
+                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye, $side, $povPaternalCluster, $treeId)
             ),
             'total'               => fn () => $count(),
             'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),

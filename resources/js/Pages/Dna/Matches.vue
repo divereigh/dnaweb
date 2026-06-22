@@ -33,6 +33,7 @@ const props = defineProps({
     title_pill: { type: Object, default: null },
     title_trees: { type: Array, default: () => [] },
     side_enabled: { type: Boolean, default: false },
+    tree_options: { type: Array, default: () => [] },
 });
 
 // Note-editor side panel state. One panel shared for the title-note
@@ -166,8 +167,9 @@ function matchLink(otherId) {
 // searches happen within whatever common-with view is active.
 const q = ref(props.filters?.q ?? '');
 const side = ref(props.filters?.side ?? 'ALL');
+const tree = ref(props.filters?.tree ?? '');
 
-// Shared reload — both the search box and the ParentSide dropdown
+// Shared reload — the search box and the ParentSide / Trees dropdowns
 // reset to page 1 and preserve every other active filter.
 function reloadFilters() {
     router.reload({
@@ -178,6 +180,7 @@ function reloadFilters() {
         data: {
             q: q.value.trim() || undefined,
             side: side.value !== 'ALL' ? side.value : undefined,
+            tree: tree.value || undefined,
             eye: props.selected_eye?.id || undefined,
             page: 1,
         },
@@ -191,6 +194,7 @@ watch(q, () => {
 });
 
 watch(side, reloadFilters);
+watch(tree, reloadFilters);
 
 // When the POV eye disappears (e.g. switching the eye filter back to
 // "All"), the dropdown is disabled — snap the value back to ALL so a
@@ -277,6 +281,7 @@ watch(selectedEye, (val) => {
             eye: val || undefined,
             q: q.value.trim() || undefined,
             side: side.value !== 'ALL' ? side.value : undefined,
+            tree: tree.value || undefined,
             page: 1,
         },
         onStart: () => { loading.value = true; },
@@ -711,6 +716,17 @@ function closeEdit() {
                     <option value="PATERNAL">Paternal</option>
                     <option value="P1">P1</option>
                     <option value="P2">P2</option>
+                </select>
+            </label>
+            <label v-if="tree_options.length" class="flex items-center gap-1.5 text-xs text-sepia-500">
+                Trees
+                <select
+                    v-model="tree"
+                    class="rounded-md border-paper-300 text-sm focus:border-wine-500 focus:ring-wine-500"
+                    title="Filter to matches in a tree"
+                >
+                    <option value="">All</option>
+                    <option v-for="t in tree_options" :key="t.id" :value="t.id">{{ t.name }}</option>
                 </select>
             </label>
         </form>

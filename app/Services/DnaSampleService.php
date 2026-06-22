@@ -151,7 +151,57 @@ class DnaSampleService
         return ['', []];
     }
 
-    public function countMatches(int $sampleId, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null): int
+    /**
+     * Build the Trees WHERE fragment: restrict to matches whose person
+     * is a member of $treeId. Self-contained EXISTS keyed on m.sample2
+     * so it works in both count and list without needing a people join.
+     *
+     * @return array{0:string,1:array} [sqlFragment, binds]
+     */
+    private function treeFilter(?int $treeId): array
+    {
+        if (! $treeId) {
+            return ['', []];
+        }
+        return [
+            ' AND EXISTS (
+                SELECT 1 FROM people pp
+                JOIN tree_people tpf ON tpf.peopleId = pp.id
+                WHERE pp.dnaSampleId = m.sample2 AND tpf.treeId = ?
+            )',
+            [$treeId],
+        ];
+    }
+
+    /**
+     * Distinct trees across all of this sample's matches — the stable
+     * option list for the Trees filter dropdown. Independent of the
+     * current page / active filters so the dropdown doesn't shrink as
+     * you filter. Returns [{id, name, letter, colour}], priority order.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function treeOptionsForSample(int $sampleId): array
+    {
+        $rows = DB::select('
+            SELECT DISTINCT t.id, t.name, t.colour
+            FROM dna_matches2 m
+            JOIN people pp     ON pp.dnaSampleId = m.sample2
+            JOIN tree_people tp ON tp.peopleId = pp.id
+            JOIN tree t         ON t.id = tp.treeId
+            WHERE m.sample1 = ?
+            ORDER BY t.priority DESC, t.name ASC
+        ', [$sampleId]);
+
+        return array_map(fn ($r) => [
+            'id'     => (int) $r->id,
+            'name'   => $r->name,
+            'letter' => mb_strtoupper(mb_substr((string) $r->name, 0, 1)),
+            'colour' => $r->colour,
+        ], $rows);
+    }
+
+    public function countMatches(int $sampleId, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, ?int $treeId = null): int
     {
         // dna_matches2 is directional: rows where sample1 = X are exactly
         // X's view of its matches. Eye-filter becomes a JOIN to the eye's
@@ -210,11 +260,16 @@ class DnaSampleService
             $bind[] = $b;
         }
 
+        [$treeWhere, $treeBind] = $this->treeFilter($treeId);
+        foreach ($treeBind as $b) {
+            $bind[] = $b;
+        }
+
         $row = DB::selectOne('
             SELECT COUNT(*) AS c
             FROM dna_matches2 m
             ' . $eyeJoin . $povJoin . $searchJoin . '
-            WHERE m.sample1 = ?' . $searchWhere . $sideWhere
+            WHERE m.sample1 = ?' . $searchWhere . $sideWhere . $treeWhere
         , $bind);
         return (int) ($row?->c ?? 0);
     }
@@ -380,7 +435,7 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, ?int $treeId = null): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -456,6 +511,11 @@ class DnaSampleService
             $bind[] = $b;
         }
 
+        [$treeWhere, $treeBind] = $this->treeFilter($treeId);
+        foreach ($treeBind as $b) {
+            $bind[] = $b;
+        }
+
         $bind[] = $pageSize;
         $bind[] = $offset;
 
@@ -491,7 +551,7 @@ class DnaSampleService
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
             ' . $notesJoin . '
-            WHERE m.sample1 = ?' . $searchWhere . $sideWhere . '
+            WHERE m.sample1 = ?' . $searchWhere . $sideWhere . $treeWhere . '
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
             LIMIT ? OFFSET ?
         ', $bind);
