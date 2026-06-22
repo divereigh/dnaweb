@@ -12,6 +12,7 @@ import NoteEditDialog from '@/Components/App/NoteEditDialog.vue';
 import TreePill from '@/Components/App/TreePill.vue';
 import TreeEditDialog from '@/Components/App/TreeEditDialog.vue';
 import PersonTreesDialog from '@/Components/App/PersonTreesDialog.vue';
+import TreeFilterDropdown from '@/Components/App/TreeFilterDropdown.vue';
 
 const props = defineProps({
     sample: { type: Object, required: true },
@@ -720,14 +721,7 @@ function closeEdit() {
             </label>
             <label v-if="tree_options.length" class="flex items-center gap-1.5 text-xs text-sepia-500">
                 Trees
-                <select
-                    v-model="tree"
-                    class="rounded-md border-paper-300 text-sm focus:border-wine-500 focus:ring-wine-500"
-                    title="Filter to matches in a tree"
-                >
-                    <option value="">All</option>
-                    <option v-for="t in tree_options" :key="t.id" :value="t.id">{{ t.name }}</option>
-                </select>
+                <TreeFilterDropdown v-model="tree" :options="tree_options" />
             </label>
         </form>
 
