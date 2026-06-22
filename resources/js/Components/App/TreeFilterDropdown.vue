@@ -12,49 +12,77 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const open = ref(false);
-const root = ref(null);
+const trigger = ref(null);
+const menu = ref(null);
+// Fixed-position coords for the teleported menu, computed from the
+// trigger's rect when opening.
+const pos = ref({ top: 0, left: 0, minWidth: 0 });
 
 const selected = computed(
     () => props.options.find((t) => Number(t.id) === Number(props.modelValue)) || null,
 );
 
+function place() {
+    if (!trigger.value) return;
+    const r = trigger.value.getBoundingClientRect();
+    pos.value = { top: r.bottom + 4, left: r.left, minWidth: r.width };
+}
+
+function toggle() {
+    if (open.value) {
+        open.value = false;
+        return;
+    }
+    place();
+    open.value = true;
+}
+
 function choose(val) {
-    // Close first and let it paint, THEN emit — emitting changes the
-    // filter, which triggers a page reload on the parent. Doing both in
-    // the same tick let some browsers coalesce the close render away
-    // with the reload re-render, leaving the menu stuck open. Deferring
-    // the emit guarantees the close is committed to the DOM first.
+    // Close first; defer the emit (which changes the filter and
+    // triggers a page reload) so the close paints before the reload's
+    // re-render. The menu is teleported to <body>, so it's outside the
+    // matches table that re-renders — its visibility is governed only
+    // by `open`.
     open.value = false;
     nextTick(() => emit('update:modelValue', val));
 }
 
-// Close when a click (or Escape) lands outside the component. A
-// listener on the document is more reliable than a backdrop element,
-// which fought the sticky-header / pill stacking contexts on the page.
 function onDocClick(e) {
-    if (open.value && root.value && !root.value.contains(e.target)) {
-        open.value = false;
-    }
+    if (!open.value) return;
+    if (trigger.value?.contains(e.target)) return; // toggle() handles it
+    if (menu.value?.contains(e.target)) return;     // clicks within the menu
+    open.value = false;
 }
 function onKey(e) {
     if (e.key === 'Escape') open.value = false;
 }
+// A fixed-position menu doesn't follow page scroll, so close on scroll
+// or resize rather than float out of place.
+function onScrollResize() {
+    if (open.value) open.value = false;
+}
+
 onMounted(() => {
     document.addEventListener('click', onDocClick);
     document.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', onScrollResize, true);
+    window.addEventListener('resize', onScrollResize);
 });
 onBeforeUnmount(() => {
     document.removeEventListener('click', onDocClick);
     document.removeEventListener('keydown', onKey);
+    window.removeEventListener('scroll', onScrollResize, true);
+    window.removeEventListener('resize', onScrollResize);
 });
 </script>
 
 <template>
-    <div ref="root" class="relative">
+    <div class="relative">
         <button
+            ref="trigger"
             type="button"
             class="flex items-center gap-1.5 rounded-md border border-paper-300 bg-paper-50 px-2 py-1 text-sm text-ink-500 focus:border-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
-            @click="open = !open"
+            @click="toggle"
         >
             <span
                 v-if="selected"
@@ -67,32 +95,36 @@ onBeforeUnmount(() => {
             </svg>
         </button>
 
-        <ul
-            v-if="open"
-            class="absolute left-0 z-20 mt-1 max-h-64 min-w-[12rem] overflow-auto rounded-md border border-paper-300 bg-paper-50 py-1 shadow-lg"
-        >
-            <li>
-                <button
-                    type="button"
-                    class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
-                    :class="!modelValue ? 'font-medium text-ink-600' : 'text-sepia-700'"
-                    @click="choose('')"
-                >All</button>
-            </li>
-            <li v-for="t in options" :key="t.id">
-                <button
-                    type="button"
-                    class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
-                    :class="Number(modelValue) === Number(t.id) ? 'bg-paper-100 font-medium text-ink-600' : 'text-sepia-700'"
-                    @click="choose(t.id)"
-                >
-                    <span
-                        class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold ring-1 ring-inset ring-black/15"
-                        :style="{ backgroundColor: t.colour || '#ffffff', color: contrastText(t.colour) }"
-                    >{{ t.letter }}</span>
-                    {{ t.name }}
-                </button>
-            </li>
-        </ul>
+        <Teleport to="body">
+            <ul
+                v-if="open"
+                ref="menu"
+                class="fixed z-50 max-h-64 min-w-[12rem] overflow-auto rounded-md border border-paper-300 bg-paper-50 py-1 shadow-lg"
+                :style="{ top: pos.top + 'px', left: pos.left + 'px', minWidth: pos.minWidth + 'px' }"
+            >
+                <li>
+                    <button
+                        type="button"
+                        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
+                        :class="!modelValue ? 'font-medium text-ink-600' : 'text-sepia-700'"
+                        @click="choose('')"
+                    >All</button>
+                </li>
+                <li v-for="t in options" :key="t.id">
+                    <button
+                        type="button"
+                        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
+                        :class="Number(modelValue) === Number(t.id) ? 'bg-paper-100 font-medium text-ink-600' : 'text-sepia-700'"
+                        @click="choose(t.id)"
+                    >
+                        <span
+                            class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold ring-1 ring-inset ring-black/15"
+                            :style="{ backgroundColor: t.colour || '#ffffff', color: contrastText(t.colour) }"
+                        >{{ t.letter }}</span>
+                        {{ t.name }}
+                    </button>
+                </li>
+            </ul>
+        </Teleport>
     </div>
 </template>
