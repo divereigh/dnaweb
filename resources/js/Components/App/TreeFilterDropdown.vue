@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { contrastText } from '@/lib/colour';
 
 const props = defineProps({
@@ -12,6 +12,7 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const open = ref(false);
+const root = ref(null);
 
 const selected = computed(
     () => props.options.find((t) => Number(t.id) === Number(props.modelValue)) || null,
@@ -21,10 +22,30 @@ function choose(val) {
     emit('update:modelValue', val);
     open.value = false;
 }
+
+// Close when a click (or Escape) lands outside the component. A
+// listener on the document is more reliable than a backdrop element,
+// which fought the sticky-header / pill stacking contexts on the page.
+function onDocClick(e) {
+    if (open.value && root.value && !root.value.contains(e.target)) {
+        open.value = false;
+    }
+}
+function onKey(e) {
+    if (e.key === 'Escape') open.value = false;
+}
+onMounted(() => {
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+});
+onBeforeUnmount(() => {
+    document.removeEventListener('click', onDocClick);
+    document.removeEventListener('keydown', onKey);
+});
 </script>
 
 <template>
-    <div class="relative">
+    <div ref="root" class="relative">
         <button
             type="button"
             class="flex items-center gap-1.5 rounded-md border border-paper-300 bg-paper-50 px-2 py-1 text-sm text-ink-500 focus:border-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
@@ -41,32 +62,32 @@ function choose(val) {
             </svg>
         </button>
 
-        <template v-if="open">
-            <div class="fixed inset-0 z-10" @click="open = false" />
-            <ul class="absolute left-0 z-20 mt-1 max-h-64 min-w-[12rem] overflow-auto rounded-md border border-paper-300 bg-paper-50 py-1 shadow-lg">
-                <li>
-                    <button
-                        type="button"
-                        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
-                        :class="!modelValue ? 'font-medium text-ink-600' : 'text-sepia-700'"
-                        @click="choose('')"
-                    >All</button>
-                </li>
-                <li v-for="t in options" :key="t.id">
-                    <button
-                        type="button"
-                        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
-                        :class="Number(modelValue) === Number(t.id) ? 'bg-paper-100 font-medium text-ink-600' : 'text-sepia-700'"
-                        @click="choose(t.id)"
-                    >
-                        <span
-                            class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold ring-1 ring-inset ring-black/15"
-                            :style="{ backgroundColor: t.colour || '#ffffff', color: contrastText(t.colour) }"
-                        >{{ t.letter }}</span>
-                        {{ t.name }}
-                    </button>
-                </li>
-            </ul>
-        </template>
+        <ul
+            v-if="open"
+            class="absolute left-0 z-20 mt-1 max-h-64 min-w-[12rem] overflow-auto rounded-md border border-paper-300 bg-paper-50 py-1 shadow-lg"
+        >
+            <li>
+                <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
+                    :class="!modelValue ? 'font-medium text-ink-600' : 'text-sepia-700'"
+                    @click="choose('')"
+                >All</button>
+            </li>
+            <li v-for="t in options" :key="t.id">
+                <button
+                    type="button"
+                    class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-paper-100"
+                    :class="Number(modelValue) === Number(t.id) ? 'bg-paper-100 font-medium text-ink-600' : 'text-sepia-700'"
+                    @click="choose(t.id)"
+                >
+                    <span
+                        class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold ring-1 ring-inset ring-black/15"
+                        :style="{ backgroundColor: t.colour || '#ffffff', color: contrastText(t.colour) }"
+                    >{{ t.letter }}</span>
+                    {{ t.name }}
+                </button>
+            </li>
+        </ul>
     </div>
 </template>
