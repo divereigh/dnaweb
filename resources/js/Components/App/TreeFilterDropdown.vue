@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { contrastText } from '@/lib/colour';
 
 const props = defineProps({
@@ -19,8 +19,13 @@ const selected = computed(
 );
 
 function choose(val) {
-    emit('update:modelValue', val);
+    // Close first and let it paint, THEN emit — emitting changes the
+    // filter, which triggers a page reload on the parent. Doing both in
+    // the same tick let some browsers coalesce the close render away
+    // with the reload re-render, leaving the menu stuck open. Deferring
+    // the emit guarantees the close is committed to the DOM first.
     open.value = false;
+    nextTick(() => emit('update:modelValue', val));
 }
 
 // Close when a click (or Escape) lands outside the component. A
