@@ -56,10 +56,16 @@ function onDocClick(e) {
 function onKey(e) {
     if (e.key === 'Escape') open.value = false;
 }
-// A fixed-position menu doesn't follow page scroll, so close on scroll
-// or resize rather than float out of place.
-function onScrollResize() {
-    if (open.value) open.value = false;
+// A fixed-position menu doesn't follow page scroll, so close on page
+// scroll or resize rather than float out of place. But the capture
+// listener also sees the menu's OWN scroll (dragging its scrollbar) —
+// don't close in that case.
+function onScrollResize(e) {
+    if (!open.value) return;
+    if (e && e.target && menu.value && (menu.value === e.target || menu.value.contains(e.target))) {
+        return;
+    }
+    open.value = false;
 }
 
 onMounted(() => {
