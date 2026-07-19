@@ -168,7 +168,8 @@ function matchLink(otherId) {
 // searches happen within whatever common-with view is active.
 const q = ref(props.filters?.q ?? '');
 const side = ref(props.filters?.side ?? 'ALL');
-const tree = ref(props.filters?.tree ?? '');
+const treeInclude = ref([...(props.filters?.tin ?? [])]);
+const treeExclude = ref([...(props.filters?.tex ?? [])]);
 
 // Shared reload — the search box and the ParentSide / Trees dropdowns
 // reset to page 1 and preserve every other active filter.
@@ -181,7 +182,8 @@ function reloadFilters() {
         data: {
             q: q.value.trim() || undefined,
             side: side.value !== 'ALL' ? side.value : undefined,
-            tree: tree.value || undefined,
+            tin: treeInclude.value.length ? treeInclude.value : undefined,
+            tex: treeExclude.value.length ? treeExclude.value : undefined,
             eye: props.selected_eye?.id || undefined,
             page: 1,
         },
@@ -195,7 +197,8 @@ watch(q, () => {
 });
 
 watch(side, reloadFilters);
-watch(tree, reloadFilters);
+watch(treeInclude, reloadFilters);
+watch(treeExclude, reloadFilters);
 
 // When the POV eye disappears (e.g. switching the eye filter back to
 // "All"), the dropdown is disabled — snap the value back to ALL so a
@@ -282,7 +285,8 @@ watch(selectedEye, (val) => {
             eye: val || undefined,
             q: q.value.trim() || undefined,
             side: side.value !== 'ALL' ? side.value : undefined,
-            tree: tree.value || undefined,
+            tin: treeInclude.value.length ? treeInclude.value : undefined,
+            tex: treeExclude.value.length ? treeExclude.value : undefined,
             page: 1,
         },
         onStart: () => { loading.value = true; },
@@ -721,7 +725,11 @@ function closeEdit() {
             </label>
             <label v-if="tree_options.length" class="flex items-center gap-1.5 text-xs text-sepia-500">
                 Trees
-                <TreeFilterDropdown v-model="tree" :options="tree_options" />
+                <TreeFilterDropdown
+                    v-model:include="treeInclude"
+                    v-model:exclude="treeExclude"
+                    :options="tree_options"
+                />
             </label>
         </form>
 

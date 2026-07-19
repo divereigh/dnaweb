@@ -152,25 +152,47 @@ class DnaSampleService
     }
 
     /**
-     * Build the Trees WHERE fragment: restrict to matches whose person
-     * is a member of $treeId. Self-contained EXISTS keyed on m.sample2
-     * so it works in both count and list without needing a people join.
+     * Build the Trees WHERE fragment from include / exclude tree lists.
+     * Include = person must be in AT LEAST ONE of the included trees
+     * (OR / union). Exclude = person must be in NONE of the excluded
+     * trees. Both are self-contained EXISTS keyed on m.sample2 so they
+     * work in count and list without a people join.
      *
+     * @param array<int> $includeIds
+     * @param array<int> $excludeIds
      * @return array{0:string,1:array} [sqlFragment, binds]
      */
-    private function treeFilter(?int $treeId): array
+    private function treeFilter(array $includeIds, array $excludeIds): array
     {
-        if (! $treeId) {
-            return ['', []];
-        }
-        return [
-            ' AND EXISTS (
+        $includeIds = array_values(array_unique(array_filter(array_map('intval', $includeIds))));
+        $excludeIds = array_values(array_unique(array_filter(array_map('intval', $excludeIds))));
+
+        $sql = '';
+        $bind = [];
+
+        if ($includeIds) {
+            $ph = implode(',', array_fill(0, count($includeIds), '?'));
+            $sql .= " AND EXISTS (
                 SELECT 1 FROM people pp
                 JOIN tree_people tpf ON tpf.peopleId = pp.id
-                WHERE pp.dnaSampleId = m.sample2 AND tpf.treeId = ?
-            )',
-            [$treeId],
-        ];
+                WHERE pp.dnaSampleId = m.sample2 AND tpf.treeId IN ($ph)
+            )";
+            foreach ($includeIds as $id) {
+                $bind[] = $id;
+            }
+        }
+        if ($excludeIds) {
+            $ph = implode(',', array_fill(0, count($excludeIds), '?'));
+            $sql .= " AND NOT EXISTS (
+                SELECT 1 FROM people pp
+                JOIN tree_people tpf ON tpf.peopleId = pp.id
+                WHERE pp.dnaSampleId = m.sample2 AND tpf.treeId IN ($ph)
+            )";
+            foreach ($excludeIds as $id) {
+                $bind[] = $id;
+            }
+        }
+        return [$sql, $bind];
     }
 
     /**
@@ -201,7 +223,7 @@ class DnaSampleService
         ], $rows);
     }
 
-    public function countMatches(int $sampleId, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, ?int $treeId = null): int
+    public function countMatches(int $sampleId, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, array $treeInclude = [], array $treeExclude = []): int
     {
         // dna_matches2 is directional: rows where sample1 = X are exactly
         // X's view of its matches. Eye-filter becomes a JOIN to the eye's
@@ -260,7 +282,7 @@ class DnaSampleService
             $bind[] = $b;
         }
 
-        [$treeWhere, $treeBind] = $this->treeFilter($treeId);
+        [$treeWhere, $treeBind] = $this->treeFilter($treeInclude, $treeExclude);
         foreach ($treeBind as $b) {
             $bind[] = $b;
         }
@@ -435,7 +457,7 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, ?int $treeId = null): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, array $treeInclude = [], array $treeExclude = []): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -511,7 +533,7 @@ class DnaSampleService
             $bind[] = $b;
         }
 
-        [$treeWhere, $treeBind] = $this->treeFilter($treeId);
+        [$treeWhere, $treeBind] = $this->treeFilter($treeInclude, $treeExclude);
         foreach ($treeBind as $b) {
             $bind[] = $b;
         }
