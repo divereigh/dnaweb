@@ -217,23 +217,25 @@ function recheck() {
 
             <div v-else class="divide-y divide-paper-300">
                 <section v-for="g in groups" :key="g.key" class="px-4 py-3">
-                    <div class="mb-2 flex max-w-2xl items-baseline justify-between gap-3">
+                    <div class="mb-2 flex max-w-3xl items-baseline justify-between gap-3">
                         <h3 class="text-xs font-medium uppercase tracking-eyebrow text-sepia-500">
                             {{ g.name }}
                         </h3>
                         <span class="text-xs tabular-nums text-sepia-500">{{ g.total }}%</span>
                     </div>
 
-                    <!-- Capped width: a bar stranded at the far edge of a wide
+                    <!-- One grid for the whole group, not a grid per row: the
+                         name column then sizes to the longest label in the
+                         group and every bar starts on the same edge. Capped,
+                         because a bar stranded at the far side of a wide
                          screen is unreadable against its own label. -->
-                    <div class="max-w-2xl space-y-1.5">
-                        <div
-                            v-for="r in g.rows"
-                            :key="r.region_key"
-                            class="grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)_2.75rem] items-center gap-3"
-                            :title="`${r.region_name} — ${r.percentage}%`"
-                        >
-                            <span class="truncate text-sm text-ink-500">{{ r.region_name }}</span>
+                    <div
+                        class="grid max-w-3xl grid-cols-[auto_minmax(6rem,1fr)_2.75rem] items-center gap-x-3 gap-y-1.5"
+                    >
+                        <template v-for="r in g.rows" :key="r.region_key">
+                            <span class="truncate text-sm text-ink-500" :title="r.region_name">
+                                {{ r.region_name }}
+                            </span>
                             <span class="h-1.5 overflow-hidden rounded bg-paper-200">
                                 <span
                                     class="block h-full rounded bg-wine-500"
@@ -243,7 +245,7 @@ function recheck() {
                             <span class="text-right text-sm tabular-nums text-ink-400">
                                 {{ r.percentage }}%
                             </span>
-                        </div>
+                        </template>
                     </div>
                 </section>
             </div>
