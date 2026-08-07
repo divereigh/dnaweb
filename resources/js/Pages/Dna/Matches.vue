@@ -381,6 +381,13 @@ function closeEdit() {
                         :label="sample.display_label"
                         :admin-label="sample.display_label"
                     />
+                    <Link
+                        :href="route('dna.origins', sample.id)"
+                        class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                        :title="`Ethnicity estimate for ${sample.display_label}`"
+                    >
+                        Origins
+                    </Link>
                     <button
                         v-if="loading_in_progress"
                         type="button"

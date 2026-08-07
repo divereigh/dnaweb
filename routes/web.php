@@ -6,6 +6,7 @@ use App\Http\Controllers\DnaMatchesController;
 use App\Http\Controllers\DnaNoteController;
 use App\Http\Controllers\EyesController;
 use App\Http\Controllers\EyeMatchesController;
+use App\Http\Controllers\OriginsController;
 use App\Http\Controllers\PeopleController;
 use App\Http\Controllers\PersonController;
 use App\Http\Controllers\PersonTreeController;
@@ -35,6 +36,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/dna/trees/add-person', [TreeController::class, 'addPerson'])->name('dna.trees.add-person');
     Route::post('/dna/trees/remove-person', [TreeController::class, 'removePerson'])->name('dna.trees.remove-person');
     Route::put('/dna/{sampleId}/person', [PersonController::class, 'upsertForSample'])->name('dna.person.upsert');
+    Route::get('/dna/{id}/origins', [OriginsController::class, 'show'])->name('dna.origins');
+    Route::post('/dna/{id}/origins/requeue', [OriginsController::class, 'requeue'])->name('dna.origins.requeue');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
