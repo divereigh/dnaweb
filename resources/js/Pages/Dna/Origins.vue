@@ -217,18 +217,20 @@ function recheck() {
 
             <div v-else class="divide-y divide-paper-300">
                 <section v-for="g in groups" :key="g.key" class="px-4 py-3">
-                    <div class="mb-2 flex items-baseline justify-between gap-3">
+                    <div class="mb-2 flex max-w-2xl items-baseline justify-between gap-3">
                         <h3 class="text-xs font-medium uppercase tracking-eyebrow text-sepia-500">
                             {{ g.name }}
                         </h3>
                         <span class="text-xs tabular-nums text-sepia-500">{{ g.total }}%</span>
                     </div>
 
-                    <div class="space-y-1.5">
+                    <!-- Capped width: a bar stranded at the far edge of a wide
+                         screen is unreadable against its own label. -->
+                    <div class="max-w-2xl space-y-1.5">
                         <div
                             v-for="r in g.rows"
                             :key="r.region_key"
-                            class="grid grid-cols-[minmax(0,1fr)_5rem_2.5rem] items-center gap-3"
+                            class="grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)_2.75rem] items-center gap-3"
                             :title="`${r.region_name} — ${r.percentage}%`"
                         >
                             <span class="truncate text-sm text-ink-500">{{ r.region_name }}</span>
