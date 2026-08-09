@@ -386,6 +386,7 @@ function closeEdit() {
                         class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
                         :title="`Ethnicity estimate for ${sample.display_label}`"
                     >
+                        <img src="/icon-globe.png" alt="" class="h-3.5 w-3.5" />
                         Origins
                     </Link>
                     <button
