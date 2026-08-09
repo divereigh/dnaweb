@@ -13,9 +13,13 @@ use App\Http\Controllers\PersonTreeController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TreeController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::redirect('/', '/eyes')->name('home');
 Route::redirect('/dashboard', '/eyes')->name('dashboard');
+
+// Public — no login. Instructions for sharing an Ancestry DNA test with us.
+Route::get('/dna-share', fn () => Inertia::render('ShareDna'))->name('dna-share');
 
 Route::middleware('auth')->group(function () {
     Route::get('/eyes', [EyesController::class, 'index'])->name('eyes.index');
