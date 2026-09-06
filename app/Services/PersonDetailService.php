@@ -7,7 +7,10 @@ use Illuminate\Support\Facades\DB;
 
 class PersonDetailService
 {
-    public function __construct(private KinshipLabelService $kinship) {}
+    public function __construct(
+        private KinshipLabelService $kinship,
+        private EyeSetService $eyeSet,
+    ) {}
 
     public function get(int $personId): ?array
     {
@@ -20,6 +23,7 @@ class PersonDetailService
               ds.displayName AS dnaName,
               ds.userUUID,
               ds.managed AS is_managed_sample,
+              ' . $this->eyeSet->sqlIn('ds.id') . ' AS is_eye_sample,
               p.minBirth,
               p.maxBirth,
               p.death,
@@ -255,11 +259,12 @@ class PersonDetailService
         if (!$exists) {
             return null;
         }
-        // dna_matches2 is directional. "Managed eyes that match this sample"
-        // = rows where sample1 is a managed eye and sample2 = this sample.
-        // The cM / cluster / kinship are from the eye's perspective, which
-        // is the authoritative side (the one whose Ancestry session loaded
-        // the match).
+        // dna_matches2 is directional. "Eyes that match this sample" = rows
+        // where sample1 is an eye and sample2 = this sample. The cM /
+        // cluster / kinship are from the eye's perspective, which is the
+        // authoritative side (the one whose Ancestry session loaded the
+        // match) — and stays authoritative after that session is lost,
+        // hence EyeSetService rather than a `managed` test.
         $rows = DB::select('
             SELECT
               m.sample1 AS eye_id,
@@ -268,6 +273,7 @@ class PersonDetailService
               ds_eye.gender AS eye_gender,
               ds_eye.paternalCluster AS eye_paternalCluster,
               ds_eye.userUUID AS eye_userUUID,
+              ds_eye.managed AS eye_managed,
               admin.userUUID AS eye_admin_userUUID,
               p_eye.id AS person_id,
               p_eye.fullName AS person_name,
@@ -281,8 +287,7 @@ class PersonDetailService
             FROM dna_matches2 m
             JOIN dna_samples ds_eye
               ON ds_eye.id = m.sample1
-             AND ds_eye.managed IS NOT NULL
-             AND ds_eye.managed > 0
+             AND ' . $this->eyeSet->sqlIn('ds_eye.id') . '
             LEFT JOIN people p_eye ON p_eye.dnaSampleId = ds_eye.id
             LEFT JOIN dna_samples admin ON admin.id = ds_eye.adminid
             LEFT JOIN dna_notes dn ON dn.sample = ? AND dn.mgmtsample = ds_eye.id

@@ -207,11 +207,14 @@ defineProps({
                             </Link>
                         </p>
                         <img
-                            v-if="person.is_managed_sample"
+                            v-if="person.is_eye_sample"
                             src="/icon-eye.png"
                             alt="Eye"
-                            title="Managed eye"
+                            :title="person.is_managed_sample === null
+                                ? 'Eye (no Ancestry session)'
+                                : 'Managed eye'"
                             class="mt-2 h-6 w-6"
+                            :class="{ 'opacity-50': person.is_managed_sample === null }"
                         />
                     </div>
                     <p v-else class="text-sm text-sepia-400">No sample linked.</p>

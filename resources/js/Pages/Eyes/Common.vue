@@ -99,11 +99,14 @@ const ONLY = ['common', 'page', 'pages', 'total', 'per_page'];
                                     {{ m.display_label }}
                                 </span>
                                 <img
-                                    v-if="m.managed"
+                                    v-if="m.is_eye"
                                     src="/icon-eye.png"
                                     alt="Eye"
-                                    title="Managed eye"
+                                    :title="m.managed === null
+                                        ? 'Eye (no Ancestry session)'
+                                        : 'Managed eye'"
                                     class="h-4 w-4"
+                                    :class="{ 'opacity-50': m.managed === null }"
                                 />
                             </div>
                         </td>

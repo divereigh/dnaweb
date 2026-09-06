@@ -18,44 +18,10 @@ class EyeMatchService
         'created' => 'other_createdDate',
     ];
 
-    public function __construct(private KinshipLabelService $kinship) {}
-
-    /** @var array<int>|null memoised for the life of the request */
-    private ?array $eyeIds = null;
-
-    /**
-     * Every kit that is or has been an eye, whether or not it still has a
-     * session — the one definition the eye list, the per-eye pages and the
-     * "only eyes" match filter all answer to.
-     *
-     * "Is an eye" and "has a live Ancestry session" are different questions.
-     * dna_samples.managed answers the second: it points at session.id, and
-     * the loaders NULL it when access to a kit is lost (see load-dna.pl in
-     * ancestry-program, which joins session on it). Keying the UI off
-     * managed alone made a kit vanish the moment its session went away,
-     * taking every match already loaded through it out of reach.
-     *
-     * The marker for the first question is mgmtsample on the two work
-     * queues — the kits the loaders have actually run as. dna_matches2
-     * .sample1 is NOT usable here: match-of-match loading writes ordinary
-     * matches into sample1 too, so ~2.4M of the 2.6M samples appear there.
-     *
-     * @return array<int>
-     */
-    public function eyeIds(): array
-    {
-        return $this->eyeIds ??= array_map(
-            fn ($r) => (int) $r->id,
-            DB::select('
-                SELECT id FROM dna_samples WHERE managed IS NOT NULL
-                UNION
-                SELECT DISTINCT mgmtsample FROM dna_match2match_loaded
-                UNION
-                SELECT DISTINCT mgmtsample FROM dna_origins_loaded
-                 WHERE mgmtsample IS NOT NULL
-            ')
-        );
-    }
+    public function __construct(
+        private KinshipLabelService $kinship,
+        private EyeSetService $eyeSet,
+    ) {}
 
     public function listEyes(): array
     {
@@ -63,7 +29,7 @@ class EyeMatchService
         // key keeps this at the ~114 rows it should be; the same rule
         // written as an OR in the WHERE clause makes the optimiser scan
         // all 2.6M rows of dna_samples.
-        $ids = $this->eyeIds();
+        $ids = $this->eyeSet->ids();
         if (!$ids) {
             return [];
         }
@@ -118,7 +84,7 @@ class EyeMatchService
 
     public function getEye(int $eyeId): ?array
     {
-        if (!in_array($eyeId, $this->eyeIds(), true)) {
+        if (!$this->eyeSet->contains($eyeId)) {
             return null;
         }
 
@@ -255,15 +221,8 @@ class EyeMatchService
         // sample2 = the other party. No UNION/CASE acrobatics needed.
         // The per-direction matchClusterCode + predictedKinships on m
         // are this eye's view.
-        // "Is an eye" is the union set, not just a live session — the same
-        // question the Eyes list answers. Inlined as an IN list of ~114 ids
-        // rather than a correlated subquery, because this runs per row of a
-        // match list that can be tens of thousands long. PeopleSearchService
-        // pre-fetches the ids in PHP for the same reason.
-        $ids = $this->eyeIds();
-        $eyeFlag = $ids
-            ? 's.id IN (' . implode(',', $ids) . ')'
-            : '0';
+        // "Is an eye" is the union set, not just a live session.
+        $eyeFlag = $this->eyeSet->sqlIn('s.id');
 
         $cols = $withCols
             ? "

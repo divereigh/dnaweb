@@ -8,7 +8,10 @@ use Illuminate\Support\Facades\DB;
 
 class DnaSampleService
 {
-    public function __construct(private KinshipLabelService $kinship) {}
+    public function __construct(
+        private KinshipLabelService $kinship,
+        private EyeSetService $eyeSet,
+    ) {}
 
     public function search(string $q, int $limit, int $offset): array
     {
@@ -36,6 +39,7 @@ class DnaSampleService
               admin.userUUID AS admin_userUUID,
               s.createdDate,
               s.managed,
+              ' . $this->eyeSet->sqlIn('s.id') . ' AS is_eye,
               p.id AS person_id,
               p.fullName AS person_name,
               p.gender AS person_gender,
@@ -73,6 +77,7 @@ class DnaSampleService
         $row = DB::selectOne('
             SELECT
               s.id, s.dnaUUID, s.displayName, s.gender, s.createdDate, s.managed, s.disabled,
+              ' . $this->eyeSet->sqlIn('s.id') . ' AS is_eye,
               s.photoUrl,
               s.paternalCluster,
               s.userUUID,
@@ -93,6 +98,7 @@ class DnaSampleService
             return null;
         }
         $r = (array) $row;
+        $r['has_session'] = $r['managed'] !== null;
         $r['display_label'] = Format::displayLabel($r['person_name'] ?? null, $r['displayName'] ?? null);
         $r['created_fmt'] = Format::createdDate($r['createdDate'] ?? null);
         $r['effective_gender'] = Format::effectiveGender($r['person_gender'] ?? null, $r['gender'] ?? null);
@@ -335,6 +341,11 @@ class DnaSampleService
         // RELOAD button can revive rows for eyes that have since been
         // un-managed, and they sit pending forever (workers reject
         // them on the same predicate).
+        //
+        // Deliberately NOT EyeSetService: this asks whether a fetch can
+        // still happen, which is the session question. An eye that has
+        // lost its session stays visible in the UI but must not have
+        // work queued against it.
         return DB::update("
             UPDATE dna_match2match_loaded l
               JOIN dna_samples m ON m.id = l.mgmtsample
@@ -399,9 +410,13 @@ class DnaSampleService
     }
 
     /**
-     * Every match of this sample that is itself a managed eye, in the
-     * same row shape as listMatches() — no pagination. Used to render
-     * the "matching eyes" picker at the top of the matches page.
+     * Every match of this sample that is itself an eye, in the same row
+     * shape as listMatches() — no pagination. Used to render the "matching
+     * eyes" picker at the top of the matches page.
+     *
+     * Eye-ness here is EyeSetService, not `managed`: a kit whose session has
+     * gone still has all its loaded matches, and dropping it from the picker
+     * made those unreachable from this page.
      */
     public function listEyeMatches(int $sampleId): array
     {
@@ -417,6 +432,7 @@ class DnaSampleService
               s.dnaUUID AS other_uuid,
               s.displayName AS other_name,
               s.managed AS other_managed,
+              ' . $this->eyeSet->sqlIn('s.id') . ' AS other_is_eye,
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
@@ -434,7 +450,7 @@ class DnaSampleService
               m.ignored
             FROM dna_matches2 m
             JOIN dna_samples s ON s.id = m.sample2
-              AND s.managed IS NOT NULL
+              AND ' . $this->eyeSet->sqlIn('s.id') . '
               AND s.disabled = 0
             LEFT JOIN dna_matches2 pov ON pov.sample1 = m.sample2 AND pov.sample2 = ?
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
@@ -547,6 +563,7 @@ class DnaSampleService
               s.dnaUUID AS other_uuid,
               s.displayName AS other_name,
               s.managed AS other_managed,
+              ' . $this->eyeSet->sqlIn('s.id') . ' AS other_is_eye,
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,

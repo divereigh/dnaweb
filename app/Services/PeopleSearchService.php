@@ -8,20 +8,7 @@ use Illuminate\Support\Facades\DB;
 
 class PeopleSearchService
 {
-    /** @var array<int>|null cached for the lifetime of the request */
-    private ?array $eyeIds = null;
-
-    /** @return array<int> ids of all currently-managed eyes */
-    private function managedEyeIds(): array
-    {
-        if ($this->eyeIds === null) {
-            $this->eyeIds = array_map(
-                fn ($r) => (int) $r->id,
-                DB::select('SELECT id FROM dna_samples WHERE managed IS NOT NULL AND managed > 0 AND disabled = 0')
-            );
-        }
-        return $this->eyeIds;
-    }
+    public function __construct(private EyeSetService $eyeSet) {}
 
     public function count(string $q, int $linked, int $hasMatches): int
     {
@@ -61,7 +48,8 @@ class PeopleSearchService
         $sampleIds = array_values(array_filter(array_map(fn ($r) => $r['dnaSampleId'] ?? null, $rows)));
         if ($sampleIds) {
             $placeholders = implode(',', array_fill(0, count($sampleIds), '?'));
-            // dna_matches2 is directional. Managed-eye matches are stored
+            $eyePred = $this->eyeSet->sqlIn('eye.id');
+            // dna_matches2 is directional. Eye matches are stored
             // as rows where sample1 = the eye and sample2 = the matched
             // sample, so this collapses to a single SELECT.
             $stats = DB::select("
@@ -72,8 +60,7 @@ class PeopleSearchService
                 FROM dna_matches2 dm
                 JOIN dna_samples eye
                   ON eye.id = dm.sample1
-                 AND eye.managed IS NOT NULL
-                 AND eye.managed > 0
+                 AND {$eyePred}
                 WHERE dm.sample2 IN ({$placeholders})
                 GROUP BY dm.sample2
             ", $sampleIds);
@@ -155,15 +142,14 @@ class PeopleSearchService
         ";
 
         if ($hasMatches) {
-            // EXISTS against dna_matches2 with an inline IN-list of
-            // managed-eye ids. We pre-fetch the eye ids in PHP because
-            // putting them as a subquery triggers semi-join materialisation
-            // (the optimiser scans 3M rows before the LIKE can narrow the
-            // people set).
-            $eyeIds = $this->managedEyeIds();
+            // EXISTS against dna_matches2 with an inline IN-list of eye
+            // ids. We pre-fetch the eye ids in PHP because putting them as
+            // a subquery triggers semi-join materialisation (the optimiser
+            // scans 3M rows before the LIKE can narrow the people set).
+            $eyeIds = $this->eyeSet->ids();
             $where[] = 'p.dnaSampleId IS NOT NULL';
             if (! $eyeIds) {
-                $where[] = '1=0'; // no managed eyes → no matches
+                $where[] = '1=0'; // no eyes → no matches
             } else {
                 $eyePlaceholders = implode(',', array_fill(0, count($eyeIds), '?'));
                 $where[] = "EXISTS (

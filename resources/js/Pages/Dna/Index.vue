@@ -124,11 +124,14 @@ function go(page) {
                         <td class="ident">{{ s.created_fmt }}</td>
                         <td>
                             <img
-                                v-if="s.managed"
+                                v-if="s.is_eye"
                                 src="/icon-eye.png"
                                 alt="Eye"
-                                title="Managed eye"
+                                :title="s.managed === null
+                                    ? 'Eye (no Ancestry session)'
+                                    : 'Managed eye'"
                                 class="h-6 w-6"
+                                :class="{ 'opacity-50': s.managed === null }"
                             />
                             <span v-else class="text-xs text-sepia-400">—</span>
                         </td>

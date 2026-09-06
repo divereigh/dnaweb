@@ -9,7 +9,10 @@ class CommonMatchService
 {
     public const ALLOWED_PER_PAGE = [25, 50, 100, 200];
 
-    public function __construct(private KinshipLabelService $kinship) {}
+    public function __construct(
+        private KinshipLabelService $kinship,
+        private EyeSetService $eyeSet,
+    ) {}
 
     public function count(int $eyeId, int $otherId): int
     {
@@ -41,6 +44,7 @@ class CommonMatchService
               admin.userUUID AS admin_userUUID,
               sx.createdDate,
               sx.managed,
+              ' . $this->eyeSet->sqlIn('sx.id') . ' AS is_eye,
               p.id AS person_id,
               p.fullName AS person_name,
               p.gender AS person_gender,

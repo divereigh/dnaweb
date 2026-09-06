@@ -137,7 +137,13 @@ function rowEyeCompareUrl(otherUuid) {
     return `https://www.ancestry.com.au/discoveryui-matches/compare/${eye}/with/${sample}/matchesofmatches`;
 }
 
-const sampleIsEye = computed(() => !!props.sample?.managed);
+// Eye-ness for navigation: a kit whose session has gone is still an eye you
+// can browse through, because its matches are already loaded.
+const sampleIsEye = computed(() => !!props.sample?.is_eye);
+// Whether Ancestry itself can still be reached through this kit. The compare
+// links below need this, not sampleIsEye — without a session the kit is gone
+// from the Ancestry account too, so the URL would 404 for the user.
+const sampleHasSession = computed(() => !!props.sample?.has_session);
 const selectedEyeIsSample = computed(
     () => !!props.selected_eye && Number(props.selected_eye.id) === Number(props.sample.id),
 );
@@ -159,7 +165,7 @@ const selectedEyeRow = computed(() => {
 function matchLink(otherId) {
     const base = route('dna.matches', otherId);
     if (props.selected_eye) return `${base}?eye=${props.selected_eye.id}`;
-    if (props.sample?.managed) return `${base}?eye=${props.sample.id}`;
+    if (props.sample?.is_eye) return `${base}?eye=${props.sample.id}`;
     return base;
 }
 
@@ -475,7 +481,10 @@ function closeEdit() {
                         v-if="sampleIsEye"
                         src="/icon-eye.png"
                         alt="Eye"
-                        title="Managed eye"
+                        :title="sampleHasSession
+                            ? 'Managed eye'
+                            : 'Eye (no Ancestry session)'"
+                        :class="{ 'opacity-50': !sampleHasSession }"
                         class="h-6 w-6"
                     />
                     <ClusterPill
@@ -636,7 +645,7 @@ function closeEdit() {
                                     <span class="sr-only">Open person</span>
                                 </Link>
                                 <a
-                                    v-if="!sampleIsEye && e.other_uuid"
+                                    v-if="!sampleHasSession && e.other_uuid"
                                     :href="rowEyeCompareUrl(e.other_uuid)"
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -647,7 +656,7 @@ function closeEdit() {
                                     DNA
                                 </a>
                                 <a
-                                    v-if="sampleIsEye && e.other_uuid"
+                                    v-if="sampleHasSession && e.other_uuid"
                                     :href="sampleCompareUrl(e.other_uuid)"
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -813,11 +822,14 @@ function closeEdit() {
                                     :title="`Connected to ${sample.display_label} via the family tree`"
                                 />
                                 <img
-                                    v-if="m.other_managed"
+                                    v-if="m.other_is_eye"
                                     src="/icon-eye.png"
                                     alt="Eye"
-                                    title="Managed eye"
+                                    :title="m.other_managed === null
+                                        ? 'Eye (no Ancestry session)'
+                                        : 'Managed eye'"
                                     class="ms-2 h-6 w-6"
+                                    :class="{ 'opacity-50': m.other_managed === null }"
                                 />
                             </div>
                             <div
@@ -878,7 +890,7 @@ function closeEdit() {
                                     <span class="sr-only">Open person</span>
                                 </Link>
                                 <a
-                                    v-if="sampleIsEye && m.other_uuid && !selectedEyeIsSample"
+                                    v-if="sampleHasSession && m.other_uuid && !selectedEyeIsSample"
                                     :href="sampleCompareUrl(m.other_uuid)"
                                     target="_blank"
                                     rel="noopener noreferrer"
@@ -889,7 +901,7 @@ function closeEdit() {
                                     DNA
                                 </a>
                                 <a
-                                    v-if="!sampleIsEye && m.other_managed && m.other_uuid"
+                                    v-if="!sampleHasSession && m.other_managed !== null && m.other_uuid"
                                     :href="rowEyeCompareUrl(m.other_uuid)"
                                     target="_blank"
                                     rel="noopener noreferrer"
