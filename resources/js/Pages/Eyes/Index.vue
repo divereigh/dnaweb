@@ -2,11 +2,23 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
 import { Head, Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
 
-defineProps({
+const props = defineProps({
     eyes: { type: Array, required: true },
+});
+
+// Eyes we can no longer fetch through: the kit's Ancestry access is gone,
+// so the loaders have nothing to run as. Everything already loaded through
+// it stays browsable, which is why it is still listed.
+const noSession = computed(() => props.eyes.filter((e) => !e.has_session).length);
+
+const subtitle = computed(() => {
+    if (!props.eyes.length) return 'No kits';
+    const kits = `${props.eyes.length} DNA test ${props.eyes.length === 1 ? 'kit' : 'kits'}`;
+    return noSession.value ? `${kits}, ${noSession.value} without a session` : kits;
 });
 </script>
 
@@ -16,11 +28,7 @@ defineProps({
         <template #header>
             <PageHeader
                 title="Eyes"
-                :subtitle="
-                    eyes.length
-                        ? `${eyes.length} managed DNA test ${eyes.length === 1 ? 'kit' : 'kits'}`
-                        : 'No managed kits'
-                "
+                :subtitle="subtitle"
             />
         </template>
 
@@ -48,6 +56,13 @@ defineProps({
                                     {{ e.displayName || `Eye #${e.id}` }}
                                 </Link>
                                 <span class="font-mono text-[11px] text-sepia-400">#{{ e.id }}</span>
+                                <span
+                                    v-if="!e.has_session"
+                                    class="rounded border border-sepia-300 px-1 text-[10px] uppercase tracking-wide text-sepia-500"
+                                    title="No Ancestry session for this kit — existing data is browsable, but nothing new can be loaded through it"
+                                >
+                                    no session
+                                </span>
                             </div>
                         </td>
                         <td>

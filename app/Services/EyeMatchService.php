@@ -20,9 +20,53 @@ class EyeMatchService
 
     public function __construct(private KinshipLabelService $kinship) {}
 
+    /** @var array<int>|null memoised for the life of the request */
+    private ?array $eyeIds = null;
+
+    /**
+     * Every kit that is or has been an eye, whether or not it still has a
+     * session — the one definition the eye list, the per-eye pages and the
+     * "only eyes" match filter all answer to.
+     *
+     * "Is an eye" and "has a live Ancestry session" are different questions.
+     * dna_samples.managed answers the second: it points at session.id, and
+     * the loaders NULL it when access to a kit is lost (see load-dna.pl in
+     * ancestry-program, which joins session on it). Keying the UI off
+     * managed alone made a kit vanish the moment its session went away,
+     * taking every match already loaded through it out of reach.
+     *
+     * The marker for the first question is mgmtsample on the two work
+     * queues — the kits the loaders have actually run as. dna_matches2
+     * .sample1 is NOT usable here: match-of-match loading writes ordinary
+     * matches into sample1 too, so ~2.4M of the 2.6M samples appear there.
+     *
+     * @return array<int>
+     */
+    public function eyeIds(): array
+    {
+        return $this->eyeIds ??= array_map(
+            fn ($r) => (int) $r->id,
+            DB::select('
+                SELECT id FROM dna_samples WHERE managed IS NOT NULL
+                UNION
+                SELECT DISTINCT mgmtsample FROM dna_match2match_loaded
+                UNION
+                SELECT DISTINCT mgmtsample FROM dna_origins_loaded
+                 WHERE mgmtsample IS NOT NULL
+            ')
+        );
+    }
+
     public function listEyes(): array
     {
-        // Step 1: managed kits only (small set, fast).
+        // Step 1: the eye set (small, fast). Looking the ids up by primary
+        // key keeps this at the ~114 rows it should be; the same rule
+        // written as an OR in the WHERE clause makes the optimiser scan
+        // all 2.6M rows of dna_samples.
+        $ids = $this->eyeIds();
+        if (!$ids) {
+            return [];
+        }
         $eyes = DB::select('
             SELECT
               s.id,
@@ -40,7 +84,7 @@ class EyeMatchService
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
-            WHERE s.managed IS NOT NULL
+            WHERE s.id IN (' . implode(',', $ids) . ')
               AND s.disabled = 0
             ORDER BY s.displayName, s.id
         ');
@@ -74,6 +118,10 @@ class EyeMatchService
 
     public function getEye(int $eyeId): ?array
     {
+        if (!in_array($eyeId, $this->eyeIds(), true)) {
+            return null;
+        }
+
         $rows = DB::select('
             SELECT
               s.id,
@@ -96,7 +144,6 @@ class EyeMatchService
             LEFT JOIN people p ON p.dnaSampleId = s.id
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
             WHERE s.id = ?
-              AND s.managed IS NOT NULL
               AND s.disabled = 0
         ', [$eyeId]);
 
@@ -107,6 +154,7 @@ class EyeMatchService
         $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
         $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
         $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
+        $row['has_session'] = $row['managed'] !== null;
         return $row;
     }
 
@@ -207,12 +255,23 @@ class EyeMatchService
         // sample2 = the other party. No UNION/CASE acrobatics needed.
         // The per-direction matchClusterCode + predictedKinships on m
         // are this eye's view.
+        // "Is an eye" is the union set, not just a live session — the same
+        // question the Eyes list answers. Inlined as an IN list of ~114 ids
+        // rather than a correlated subquery, because this runs per row of a
+        // match list that can be tens of thousands long. PeopleSearchService
+        // pre-fetches the ids in PHP for the same reason.
+        $ids = $this->eyeIds();
+        $eyeFlag = $ids
+            ? 's.id IN (' . implode(',', $ids) . ')'
+            : '0';
+
         $cols = $withCols
-            ? '
+            ? "
               m.sample2 AS other_id,
               s.dnaUUID AS other_uuid,
               s.displayName AS other_name,
               s.managed AS other_managed,
+              $eyeFlag AS other_is_eye,
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
@@ -232,14 +291,15 @@ class EyeMatchService
               m.ignored,
               n.notes,
               n.loaded AS note_loaded
-            '
-            : '
+            "
+            : "
               s.displayName AS other_name,
               s.managed AS other_managed,
+              $eyeFlag AS other_is_eye,
               m.matchClusterCode,
               m.ignored,
               n.notes
-            ';
+            ";
 
         $peopleJoin = $withCols
             ? 'LEFT JOIN people p ON p.dnaSampleId = m.sample2'
@@ -274,7 +334,7 @@ class EyeMatchService
             $sql .= ' AND q.ignored = 0';
         }
         if ($onlyEyes) {
-            $sql .= ' AND q.other_managed IS NOT NULL';
+            $sql .= ' AND q.other_is_eye = 1';
         }
         if ($cluster !== '') {
             $sql .= ' AND q.matchClusterCode = ?';
@@ -292,6 +352,10 @@ class EyeMatchService
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
             $row['match_count'] = (int) ($row['match_count'] ?? 0);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
+            // Distinguishes a live eye from one we can still browse but no
+            // longer fetch through. Nothing can be loaded for the latter
+            // until its Ancestry access is restored and managed is reset.
+            $row['has_session'] = $row['managed'] !== null;
             return $row;
         }, $rows);
     }

@@ -218,7 +218,7 @@ function ancestryCompareUrl(otherUuid) {
             </label>
             <label>
                 <input v-model="onlyEyes" type="checkbox" />
-                Only managed
+                Only eyes
             </label>
         </div>
 
@@ -321,11 +321,14 @@ function ancestryCompareUrl(otherUuid) {
                                 <span class="sr-only">{{ m.person_id ? 'Edit' : 'Create' }}</span>
                             </button>
                             <img
-                                v-if="m.other_managed"
+                                v-if="m.other_is_eye"
                                 src="/icon-eye.png"
                                 alt="Eye"
-                                title="Managed eye"
+                                :title="m.other_managed === null
+                                    ? 'Eye (no Ancestry session)'
+                                    : 'Managed eye'"
                                 class="ms-2 h-4 w-4"
+                                :class="{ 'opacity-50': m.other_managed === null }"
                             />
                             </div>
                         </td>
