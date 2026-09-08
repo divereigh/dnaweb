@@ -35,65 +35,7 @@ const props = defineProps({
     title_trees: { type: Array, default: () => [] },
     side_enabled: { type: Boolean, default: false },
     tree_options: { type: Array, default: () => [] },
-    origin_options: { type: Array, default: () => [] },
 });
-
-// Origins highlight. Purely client-side: every row already carries the
-// macro regions its sample holds a non-zero share of, so switching the
-// picker recolours in place with no round trip. Survives paging and
-// filtering because those are preserveState reloads.
-//
-// An unhighlighted row means "doesn't have this origin OR has no origins
-// loaded at all" — the two are not distinguishable here. Origins are
-// loaded lazily per sample by the Perl side, so on a kit whose matches
-// have never been walked, nothing will light up.
-//
-// The choice is remembered across visits and across samples — it's a
-// lens you're looking through rather than a filter on one page, so it
-// stays until it's set back to None. localStorage rather than the
-// Laravel session because nothing server-side needs to know, and a
-// round trip per change would cost more than the recolour it buys;
-// the trade is that it's per-browser and outlives a logout. Every
-// access is guarded: storage throws outright in a private window.
-const ORIGIN_STORAGE_KEY = 'dnaweb.matches.origin';
-
-function readStoredOrigin() {
-    try {
-        return window.localStorage.getItem(ORIGIN_STORAGE_KEY) || '';
-    } catch {
-        return '';
-    }
-}
-
-// Only adopt a remembered key the current option list still knows
-// about — a region retired between visits would otherwise leave the
-// select blank with nothing highlighted and no obvious way back.
-const storedOrigin = readStoredOrigin();
-const originKey = ref(
-    props.origin_options.some((o) => o.key === storedOrigin) ? storedOrigin : '',
-);
-
-watch(originKey, (key) => {
-    try {
-        if (key) {
-            window.localStorage.setItem(ORIGIN_STORAGE_KEY, key);
-        } else {
-            window.localStorage.removeItem(ORIGIN_STORAGE_KEY);
-        }
-    } catch {
-        // Storage unavailable — the highlight still works, it just
-        // won't be there next time.
-    }
-});
-
-const originLabel = computed(
-    () => props.origin_options.find((o) => o.key === originKey.value)?.name || '',
-);
-
-function hasOrigin(row) {
-    if (!originKey.value) return false;
-    return (row.origin_keys || []).includes(originKey.value);
-}
 
 // Note-editor side panel state. One panel shared for the title-note
 // click and every row-note click; openNoteEditor sets which (sample,
@@ -417,34 +359,7 @@ function closeEdit() {
                 compact
                 :title="sample.display_label"
                 :eyebrow="`Sample #${sample.id}`"
-                :title-class="hasOrigin(sample) ? 'text-red-600' : ''"
             >
-                <template #aboveTitle>
-                    <div class="inline-flex items-center gap-2 text-sm text-sepia-500">
-                        <label class="inline-flex items-center gap-2">
-                            <span>Origin</span>
-                            <select
-                                v-model="originKey"
-                                class="max-w-[16rem] rounded-md border-paper-300 py-1 text-sm focus:border-wine-500 focus:ring-wine-500"
-                                title="Highlight the matches below that have any share of this origin"
-                            >
-                                <option value="">None</option>
-                                <option v-for="o in origin_options" :key="o.key" :value="o.key">
-                                    {{ o.name }}
-                                </option>
-                            </select>
-                        </label>
-                        <button
-                            v-if="originKey"
-                            type="button"
-                            class="text-xs underline hover:text-ink-500"
-                            @click="originKey = ''"
-                        >
-                            clear
-                        </button>
-                    </div>
-                </template>
-
                 <template #subtitle>
                     <Link
                         v-if="sample.person_id"
@@ -621,11 +536,7 @@ function closeEdit() {
                         :alt="selectedEyeRow.display_label"
                         :gender="selectedEyeRow.effective_gender || ''"
                     />
-                    <span
-                        class="font-medium"
-                        :class="hasOrigin(selectedEyeRow) ? 'text-red-600' : 'text-ink-500'"
-                        :title="hasOrigin(selectedEyeRow) ? `Has ${originLabel} origins` : null"
-                    >
+                    <span class="font-medium text-ink-500">
                         {{ selectedEyeRow.display_label }}
                     </span>
                     <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="h-6 w-6" />
@@ -697,11 +608,7 @@ function closeEdit() {
                                 <Link
                                     :href="matchLink(e.other_id)"
                                     class="ref-link"
-                                    :class="[
-                                        e.ignored ? 'line-through decoration-sepia-400/60' : '',
-                                        hasOrigin(e) ? 'text-red-600 hover:text-red-700' : '',
-                                    ]"
-                                    :title="hasOrigin(e) ? `Has ${originLabel} origins` : null"
+                                    :class="e.ignored ? 'line-through decoration-sepia-400/60' : ''"
                                 >
                                     {{ e.display_label }}
                                 </Link>
@@ -884,11 +791,7 @@ function closeEdit() {
                                 <Link
                                     :href="matchLink(m.other_id)"
                                     class="ref-link"
-                                    :class="[
-                                        m.ignored ? 'line-through decoration-sepia-400/60' : '',
-                                        hasOrigin(m) ? 'text-red-600 hover:text-red-700' : '',
-                                    ]"
-                                    :title="hasOrigin(m) ? `Has ${originLabel} origins` : null"
+                                    :class="m.ignored ? 'line-through decoration-sepia-400/60' : ''"
                                 >
                                     {{ m.display_label }}
                                 </Link>

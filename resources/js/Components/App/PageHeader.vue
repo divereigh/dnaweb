@@ -6,17 +6,12 @@ const props = defineProps({
     subtitle: { type: String, default: '' },
     eyebrow: { type: String, default: '' },
     compact: { type: Boolean, default: false },
-    // Replaces the title's default colour rather than adding to it —
-    // two competing Tailwind text-* utilities would be decided by
-    // stylesheet order, not by the order they're listed here.
-    titleClass: { type: String, default: '' },
 });
 
 const slots = useSlots();
 
 const titleClasses = computed(() => [
-    'font-semibold tracking-tight',
-    props.titleClass || 'text-ink-600',
+    'font-semibold tracking-tight text-ink-600',
     props.compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl',
     // When a custom #title slot is used (multiple inline children),
     // switch to flex-wrap so nothing gets ellipsis-clipped.
@@ -27,13 +22,7 @@ const titleClasses = computed(() => [
 <template>
     <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div class="min-w-0">
-            <div
-                v-if="eyebrow || $slots.aboveTitle"
-                class="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1"
-            >
-                <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
-                <slot name="aboveTitle" />
-            </div>
+            <p v-if="eyebrow" class="eyebrow mb-1">{{ eyebrow }}</p>
             <div class="flex min-w-0 items-center gap-2">
                 <slot name="titleBefore" />
                 <h1 :class="titleClasses">

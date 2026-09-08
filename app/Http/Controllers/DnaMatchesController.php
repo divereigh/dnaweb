@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Services\DnaSampleService;
 use App\Services\EyeMatchService;
-use App\Services\OriginsService;
 use App\Services\PersonDetailService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,7 +14,6 @@ class DnaMatchesController extends Controller
         private DnaSampleService $service,
         private EyeMatchService $eyes,
         private PersonDetailService $persons,
-        private OriginsService $origins,
     ) {}
 
     /**
@@ -37,16 +35,6 @@ class DnaMatchesController extends Controller
     {
         $sample = $this->service->get($id);
         abort_unless($sample, 404, 'DNA sample not found');
-
-        // Give the title sample the same origin_keys the match rows
-        // get, so the origins picker can redden its name too. Done
-        // here rather than in DnaSampleService::get() because every
-        // other caller of get() — including this controller's own
-        // requeue() — only wants the existence check, and this is a
-        // whole extra query.
-        $sampleRows = [$sample];
-        $this->origins->decorate($sampleRows, 'id');
-        $sample = $sampleRows[0];
 
         // Skip the enqueue + every expensive query on partial reloads
         // (loading-poll, search-debounce, etc). The Vue side already
@@ -203,12 +191,6 @@ class DnaMatchesController extends Controller
             'filters'              => ['q' => $search, 'side' => $side, 'tin' => $treeInclude, 'tex' => $treeExclude],
             'side_enabled'         => (bool) $povEye,
             'tree_options'         => fn () => $this->service->treeOptionsForSample($id),
-
-            // The 27 macro regions, for the origins highlight picker.
-            // Every known heading, not just the ones this sample's
-            // matches have — picking one that highlights nobody is
-            // itself an answer.
-            'origin_options'       => fn () => $this->origins->macroRegions(),
             'title_note'           => $titleNote,
             'notes_eye_id'         => $notesEye,
             'notes_eye_label'      => $notesEyeLabel,
