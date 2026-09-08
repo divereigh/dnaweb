@@ -38,6 +38,16 @@ class DnaMatchesController extends Controller
         $sample = $this->service->get($id);
         abort_unless($sample, 404, 'DNA sample not found');
 
+        // Give the title sample the same origin_keys the match rows
+        // get, so the origins picker can redden its name too. Done
+        // here rather than in DnaSampleService::get() because every
+        // other caller of get() — including this controller's own
+        // requeue() — only wants the existence check, and this is a
+        // whole extra query.
+        $sampleRows = [$sample];
+        $this->origins->decorate($sampleRows, 'id');
+        $sample = $sampleRows[0];
+
         // Skip the enqueue + every expensive query on partial reloads
         // (loading-poll, search-debounce, etc). The Vue side already
         // tells Inertia which props it wants via `only:`; closures

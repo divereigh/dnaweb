@@ -6,12 +6,17 @@ const props = defineProps({
     subtitle: { type: String, default: '' },
     eyebrow: { type: String, default: '' },
     compact: { type: Boolean, default: false },
+    // Replaces the title's default colour rather than adding to it —
+    // two competing Tailwind text-* utilities would be decided by
+    // stylesheet order, not by the order they're listed here.
+    titleClass: { type: String, default: '' },
 });
 
 const slots = useSlots();
 
 const titleClasses = computed(() => [
-    'font-semibold tracking-tight text-ink-600',
+    'font-semibold tracking-tight',
+    props.titleClass || 'text-ink-600',
     props.compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl',
     // When a custom #title slot is used (multiple inline children),
     // switch to flex-wrap so nothing gets ellipsis-clipped.

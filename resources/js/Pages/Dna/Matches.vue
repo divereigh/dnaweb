@@ -417,6 +417,7 @@ function closeEdit() {
                 compact
                 :title="sample.display_label"
                 :eyebrow="`Sample #${sample.id}`"
+                :title-class="hasOrigin(sample) ? 'text-red-600' : ''"
             >
                 <template #aboveTitle>
                     <div class="inline-flex items-center gap-2 text-sm text-sepia-500">
@@ -620,7 +621,11 @@ function closeEdit() {
                         :alt="selectedEyeRow.display_label"
                         :gender="selectedEyeRow.effective_gender || ''"
                     />
-                    <span class="font-medium text-ink-500">
+                    <span
+                        class="font-medium"
+                        :class="hasOrigin(selectedEyeRow) ? 'text-red-600' : 'text-ink-500'"
+                        :title="hasOrigin(selectedEyeRow) ? `Has ${originLabel} origins` : null"
+                    >
                         {{ selectedEyeRow.display_label }}
                     </span>
                     <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="h-6 w-6" />
