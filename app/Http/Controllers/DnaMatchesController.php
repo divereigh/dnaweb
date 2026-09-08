@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\DnaSampleService;
 use App\Services\EyeMatchService;
+use App\Services\OriginsService;
 use App\Services\PersonDetailService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,6 +15,7 @@ class DnaMatchesController extends Controller
         private DnaSampleService $service,
         private EyeMatchService $eyes,
         private PersonDetailService $persons,
+        private OriginsService $origins,
     ) {}
 
     /**
@@ -191,6 +193,12 @@ class DnaMatchesController extends Controller
             'filters'              => ['q' => $search, 'side' => $side, 'tin' => $treeInclude, 'tex' => $treeExclude],
             'side_enabled'         => (bool) $povEye,
             'tree_options'         => fn () => $this->service->treeOptionsForSample($id),
+
+            // The 27 macro regions, for the origins highlight picker.
+            // Every known heading, not just the ones this sample's
+            // matches have — picking one that highlights nobody is
+            // itself an answer.
+            'origin_options'       => fn () => $this->origins->macroRegions(),
             'title_note'           => $titleNote,
             'notes_eye_id'         => $notesEye,
             'notes_eye_label'      => $notesEyeLabel,

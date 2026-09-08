@@ -104,6 +104,82 @@ class OriginsService
     }
 
     /**
+     * Every macro region Ancestry knows about, as {key, name} ordered by
+     * name — the 27 headings the region list on the Origins page groups
+     * under. Feeds the origins highlight dropdown on the matches page,
+     * which lists all of them rather than only the ones the current
+     * sample's matches happen to have.
+     *
+     * Grouped rather than DISTINCT so a future second `version` of the
+     * estimate can rename a macro region without doubling the list.
+     *
+     * @return array<int, array{key:string, name:string}>
+     */
+    public function macroRegions(): array
+    {
+        $rows = DB::select('
+            SELECT macroRegionKey, MIN(macroRegionName) AS macroRegionName
+            FROM dna_region
+            GROUP BY macroRegionKey
+            ORDER BY macroRegionName
+        ');
+
+        return array_map(fn ($r) => [
+            'key'  => $r->macroRegionKey,
+            'name' => $r->macroRegionName,
+        ], $rows);
+    }
+
+    /**
+     * Decorate match rows with `origin_keys` — the macro regions each
+     * row's sample holds a non-zero share of. One query for the whole
+     * page, same shape as DnaSampleService::attachTrees().
+     *
+     * Macro keys rather than region keys because the dropdown that
+     * consumes this lists headings only; a sample with 2% Munster and
+     * 5% Ulster is one "Celtic & Gaelic" row here. Samples whose
+     * origins have never been loaded get [], which is indistinguishable
+     * on the page from "loaded, and doesn't have this origin" — worth
+     * remembering before reading anything into an unhighlighted row.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     */
+    public function decorate(array &$rows, string $idKey): void
+    {
+        $ids = [];
+        foreach ($rows as $row) {
+            $id = (int) ($row[$idKey] ?? 0);
+            if ($id > 0) {
+                $ids[$id] = true;
+            }
+        }
+        $ids = array_keys($ids);
+
+        $bySample = [];
+        if ($ids) {
+            $in = implode(',', array_fill(0, count($ids), '?'));
+            $found = DB::select('
+                SELECT DISTINCT o.sample, r.macroRegionKey
+                FROM dna_origins o
+                JOIN dna_region r ON r.regionKey = o.regionKey
+                                 AND r.version   = o.version
+                WHERE o.percentage > 0
+                  AND o.sample IN (' . $in . ')
+            ', $ids);
+
+            foreach ($found as $f) {
+                $bySample[(int) $f->sample][] = $f->macroRegionKey;
+            }
+        }
+
+        foreach ($rows as &$row) {
+            $id = (int) ($row[$idKey] ?? 0);
+            $row['origin_keys'] = $bySample[$id] ?? [];
+        }
+        unset($row);
+    }
+
+    /**
      * Ask for this sample's origins to be loaded, or for its eye walk to
      * be carried further.
      *

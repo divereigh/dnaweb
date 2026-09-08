@@ -22,7 +22,13 @@ const titleClasses = computed(() => [
 <template>
     <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div class="min-w-0">
-            <p v-if="eyebrow" class="eyebrow mb-1">{{ eyebrow }}</p>
+            <div
+                v-if="eyebrow || $slots.aboveTitle"
+                class="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1"
+            >
+                <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
+                <slot name="aboveTitle" />
+            </div>
             <div class="flex min-w-0 items-center gap-2">
                 <slot name="titleBefore" />
                 <h1 :class="titleClasses">
