@@ -11,6 +11,7 @@ class DnaSampleService
     public function __construct(
         private KinshipLabelService $kinship,
         private EyeSetService $eyeSet,
+        private OriginsService $origins,
     ) {}
 
     public function search(string $q, int $limit, int $offset): array
@@ -470,6 +471,7 @@ class DnaSampleService
         }, $rows);
 
         $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+        $this->origins->decorateIcons($rows, 'other_id');
         return $rows;
     }
 
@@ -607,6 +609,7 @@ class DnaSampleService
 
         $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
         $this->attachTrees($rows);
+        $this->origins->decorateIcons($rows, 'other_id');
         return $rows;
     }
 

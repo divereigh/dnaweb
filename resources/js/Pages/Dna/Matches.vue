@@ -13,6 +13,7 @@ import TreePill from '@/Components/App/TreePill.vue';
 import TreeEditDialog from '@/Components/App/TreeEditDialog.vue';
 import PersonTreesDialog from '@/Components/App/PersonTreesDialog.vue';
 import TreeFilterDropdown from '@/Components/App/TreeFilterDropdown.vue';
+import OriginIcons from '@/Components/App/OriginIcons.vue';
 
 const props = defineProps({
     sample: { type: Object, required: true },
@@ -477,6 +478,7 @@ function closeEdit() {
                         <img src="/icon-note.png" alt="" class="h-6 w-6" />
                         <span class="sr-only">{{ title_note ? 'Edit notes' : 'Add notes' }}</span>
                     </button>
+                    <OriginIcons :icons="sample.origin_icons || []" />
                     <img
                         v-if="sampleIsEye"
                         src="/icon-eye.png"
@@ -539,6 +541,7 @@ function closeEdit() {
                     <span class="font-medium text-ink-500">
                         {{ selectedEyeRow.display_label }}
                     </span>
+                    <OriginIcons :icons="selectedEyeRow.origin_icons || []" />
                     <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="h-6 w-6" />
                     <span class="font-mono text-xs text-sepia-500">
                         {{ selectedEyeRow.sharedCentimorgans }} cM
@@ -612,6 +615,7 @@ function closeEdit() {
                                 >
                                     {{ e.display_label }}
                                 </Link>
+                                <OriginIcons :icons="e.origin_icons || []" />
                                 <img
                                     v-if="e.connected_via_tree"
                                     src="/icon-link.png"
@@ -814,6 +818,7 @@ function closeEdit() {
                                     <img src="/icon-note.png" alt="" class="h-6 w-6" />
                                     <span class="sr-only">{{ m.note ? 'Edit notes' : 'Add notes' }}</span>
                                 </button>
+                                <OriginIcons :icons="m.origin_icons || []" />
                                 <img
                                     v-if="m.connected_via_tree"
                                     src="/icon-link.png"
