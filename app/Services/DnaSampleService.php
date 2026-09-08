@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Support\Format;
 use App\Support\PhoneticEncoder;
+use App\Support\Sql;
 use Illuminate\Support\Facades\DB;
 
 class DnaSampleService
@@ -80,7 +81,7 @@ class DnaSampleService
               s.id, s.dnaUUID, s.displayName, s.gender, s.createdDate, s.managed, s.disabled,
               ' . $this->eyeSet->sqlIn('s.id') . ' AS is_eye,
               s.photoUrl,
-              s.paternalCluster,
+              ' . Sql::effectivePaternalCluster('s') . ',
               s.userUUID,
               admin.userUUID AS admin_userUUID,
               p.id AS person_id,
@@ -438,7 +439,7 @@ class DnaSampleService
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
               s.userUUID AS other_userUUID,
-              s.paternalCluster AS paternalCluster,
+              ' . Sql::effectivePaternalCluster('s') . ',
               admin.userUUID AS other_admin_userUUID,
               p.id AS person_id,
               p.fullName AS person_name,

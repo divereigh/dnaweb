@@ -56,6 +56,9 @@ touch:
 - `dna_notes.notes` (full CRUD; deleting the row is how "no notes" is stored, and every write
   sets `pushreq=1` so the loader pushes it back to Ancestry)
 - `dna_matches2.ignored`, `dna_matches2.matchClusterCode` — user curation
+- `dna_samples.paternalClusterOverride` — our own p1/p2 → paternal mapping, which wins over
+  Ancestry's `paternalCluster` (never written here). Edited on `/eyes`; resolved by
+  `App\Support\Sql::effectivePaternalCluster()`, see `deploy/paternal-cluster-override.sql`
 - `people` rows via `Person::$fillable` — loader-managed columns (`treetop`, `ddna`, `nogedcom`,
   `father`, `mother`, `alt`) are excluded
 - tree membership (`tree_people`) and `tree` colour/label

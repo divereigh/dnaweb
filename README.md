@@ -219,6 +219,7 @@ NOT overwrite:
 | `gedcom_people.peopleid` | `PersonController` | Links a tree node to a person; clears any other node in the same tree first. |
 | `tree` (find-or-create by name, `colour`) and `tree_people` membership | `TreeController` | Trees are never deleted here, even when emptied — the loaders own tree lifecycle. |
 | `dna_samples.displayName_phonetic`, `people.fullName_phonetic` | Eloquent setters + `dna:backfill-phonetic` | App-owned, mirrored by the Perl encoder. |
+| `dna_samples.paternalClusterOverride` | `EyesController::updateParentSide` | App-owned; our own answer to which cluster is paternal. Ancestry's `paternalCluster` is never written. |
 | `dna_match2match_loaded` queue state | `DnaSampleService` | Enqueue on page view (priority 10) and the RELOAD button. |
 | `dna_origins_loaded` (via `sp_origins_enqueue`), `dna_matches2.originsLoaded` | `OriginsService` | Enqueue on page view; RELOAD resets the eye walk. |
 
@@ -228,6 +229,32 @@ beyond the `peopleid` link above, or create/delete `dna_samples` rows.
 Note `dna_matches2` is the current matches table — directional, two rows per pair, where
 `sample1` is the viewer and carries that viewer's `matchClusterCode` / `predictedKinships`. The
 older `dna_matches` is legacy and unused by this app.
+
+### ParentSide, and the p1 / p2 override
+
+A match's ParentSide pill is not a stored label — it is derived. `dna_matches2.matchClusterCode`
+puts each match in one of the viewer's two parent clusters (`p1` / `p2`), and
+`dna_samples.paternalCluster` names which of those two is the paternal one. Only together do they
+make a side.
+
+Ancestry fills `paternalCluster` from `discoveryui-matches/cluster/api/paternalCluster/<uuid>`,
+and `load-dna.pl` writes it only when that call returns something — which it does not until the
+kit's owner has labelled their own sides in Ancestry. 24 of our eyes have never had it set, so
+their pills fall back to showing the raw cluster code, `P1` / `P2`. (Ancestry is consistent about
+this: for those kits it also puts the literal strings `P1` / `P2` into `dna_matches2.parentSide`
+where a labelled kit gets `PATERNAL` / `MATERNAL`, and both readers treat those two as
+non-authoritative and fall through to the cluster code.)
+
+`dna_samples.paternalClusterOverride` (`deploy/paternal-cluster-override.sql`) is our own answer
+to the same question, and it **wins** over Ancestry's — it covers both "the owner never said" and
+"the owner said, and got it backwards". It is edited on `/eyes`, in the ParentSide mapping column;
+the editor shows the strongest matches in each cluster alongside their predicted kinships, since
+recognising a close relative is how you actually decide which side is which.
+
+Readers never touch either column directly. `App\Support\Sql::effectivePaternalCluster()` resolves
+the pair and aliases the result back to `paternalCluster`, so the two places that turn a cluster
+code into a side — `ClusterPill.vue` and `DnaSampleService::parentSideFilter()` — need no
+knowledge of the override, and the pills and the ParentSide filter dropdown cannot disagree.
 
 ## Status
 

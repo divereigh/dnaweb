@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\Format;
+use App\Support\Sql;
 use Illuminate\Support\Facades\DB;
 
 class PersonDetailService
@@ -271,7 +272,7 @@ class PersonDetailService
               ds_eye.displayName AS eye_name,
               ds_eye.photoUrl AS eye_photoUrl,
               ds_eye.gender AS eye_gender,
-              ds_eye.paternalCluster AS eye_paternalCluster,
+              ' . Sql::effectivePaternalCluster('ds_eye', 'eye_paternalCluster') . ',
               ds_eye.userUUID AS eye_userUUID,
               ds_eye.managed AS eye_managed,
               admin.userUUID AS eye_admin_userUUID,

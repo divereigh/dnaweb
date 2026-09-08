@@ -23,6 +23,7 @@ Route::get('/dna-share', fn () => Inertia::render('ShareDna'))->name('dna-share'
 
 Route::middleware('auth')->group(function () {
     Route::get('/eyes', [EyesController::class, 'index'])->name('eyes.index');
+    Route::put('/eyes/{id}/parent-side', [EyesController::class, 'updateParentSide'])->name('eyes.parent-side.update');
     // Soft-deleted 2026-05-22: superseded by /dna/{id}/matches (which handles both eyes and non-eyes).
     // Controllers, services and Vue pages retained in case we need to revive these.
     // Route::get('/eye/{id}/matches', [EyeMatchesController::class, 'index'])->name('eyes.matches');

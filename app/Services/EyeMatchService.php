@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Support\Format;
+use App\Support\Sql;
 use Illuminate\Support\Facades\DB;
 
 class EyeMatchService
@@ -44,6 +45,9 @@ class EyeMatchService
               admin.userUUID AS admin_userUUID,
               s.createdDate,
               s.managed,
+              s.paternalCluster AS paternalCluster_ancestry,
+              s.paternalClusterOverride,
+              ' . Sql::effectivePaternalCluster('s') . ',
               p.id AS person_id,
               p.fullName AS person_name,
               p.gender AS person_gender
@@ -58,28 +62,96 @@ class EyeMatchService
         // Step 2: bulk aggregate match counts for those eyes only.
         // dna_matches2 is directional — each eye's matches sit in rows
         // where sample1 = eye, so a single GROUP BY does the count.
+        //
+        // The two cluster tallies ride along on the same scan and measured
+        // free next to the COUNT(*): the ParentSide-mapping column on /eyes
+        // is only meaningful for an eye that actually has clustered
+        // matches, and an eye with clusters but no mapping is exactly the
+        // row worth flagging. Asking idx_sample1_cluster for them in a
+        // second query instead costs another ~2.8s.
         $ids = array_map(fn ($r) => $r->id, $eyes);
         $countsBySample = [];
         if ($ids) {
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
             $rows = DB::select("
-                SELECT sample1 AS sample_id, COUNT(*) AS c
+                SELECT sample1 AS sample_id,
+                       COUNT(*) AS c,
+                       SUM(matchClusterCode = 'p1') AS p1,
+                       SUM(matchClusterCode = 'p2') AS p2
                 FROM dna_matches2
                 WHERE sample1 IN ($placeholders)
                 GROUP BY sample1
             ", $ids);
             foreach ($rows as $r) {
-                $countsBySample[$r->sample_id] = (int) $r->c;
+                $countsBySample[$r->sample_id] = $r;
             }
         }
 
         $eyes = array_map(function ($r) use ($countsBySample) {
             $row = (array) $r;
-            $row['match_count'] = $countsBySample[$row['id']] ?? 0;
+            $agg = $countsBySample[$row['id']] ?? null;
+            $row['match_count'] = $agg ? (int) $agg->c : 0;
+            $row['cluster_p1_count'] = $agg ? (int) $agg->p1 : 0;
+            $row['cluster_p2_count'] = $agg ? (int) $agg->p2 : 0;
             return $row;
         }, $eyes);
 
         return $this->decorateEyeRows($eyes);
+    }
+
+    /**
+     * The strongest matches on each side of an eye's p1 / p2 split, so the
+     * ParentSide-mapping editor on /eyes can be answered rather than
+     * guessed at. Ancestry never told us which cluster is the paternal one
+     * for these kits — that is the whole reason the override exists — but
+     * the top of each cluster is usually a recognisable close relative, and
+     * "which of these two lists is Dad's side?" is a question a human can
+     * answer in a second.
+     *
+     * Two queries rather than one windowed pass: idx_sample1_cm is
+     * (sample1, sharedCentimorgans), so each one walks a handful of index
+     * entries backwards and stops at the LIMIT.
+     *
+     * @return array{p1: array<array<string, mixed>>, p2: array<array<string, mixed>>}
+     */
+    public function clusterEvidence(int $eyeId, int $perCluster = 8): array
+    {
+        $out = [];
+        foreach (['p1', 'p2'] as $code) {
+            $rows = array_map(fn ($r) => (array) $r, DB::select('
+                SELECT
+                  m.sample1,
+                  m.sample2 AS other_id,
+                  m.sharedCentimorgans,
+                  m.parentSide,
+                  s.displayName AS other_name,
+                  s.gender AS other_gender,
+                  s.photoUrl AS other_photoUrl,
+                  ' . $this->eyeSet->sqlIn('s.id') . ' AS other_is_eye,
+                  p.id AS person_id,
+                  p.fullName AS person_name,
+                  p.gender AS person_gender
+                FROM dna_matches2 m
+                JOIN dna_samples s ON s.id = m.sample2 AND s.disabled = 0
+                LEFT JOIN people p ON p.dnaSampleId = m.sample2
+                WHERE m.sample1 = ?
+                  AND m.matchClusterCode = ?
+                ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
+                LIMIT ' . (int) $perCluster . '
+            ', [$eyeId, $code]));
+
+            foreach ($rows as &$row) {
+                $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
+                $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
+                $row['other_is_eye'] = (bool) $row['other_is_eye'];
+            }
+            unset($row);
+
+            $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+            $out[$code] = $rows;
+        }
+
+        return $out;
     }
 
     public function getEye(int $eyeId): ?array
@@ -96,7 +168,7 @@ class EyeMatchService
               s.photoUrl,
               s.managed,
               s.gender,
-              s.paternalCluster,
+              ' . Sql::effectivePaternalCluster('s') . ',
               s.userUUID,
               admin.userUUID AS admin_userUUID,
               s.createdDate,
