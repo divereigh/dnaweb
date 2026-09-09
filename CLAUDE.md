@@ -53,8 +53,9 @@ reload php8.4-fpm). Run it as a sudo-capable user, not as `dnaweb`.
 The Perl loaders continuously overwrite most columns. This app only writes columns they never
 touch:
 
-- `dna_notes.notes` (full CRUD; deleting the row is how "no notes" is stored, and every write
-  sets `pushreq=1` so the loader pushes it back to Ancestry)
+- `dna_notes.notes` (full CRUD; deleting the row is how "no notes" is stored. Writes set
+  `pushreq=0`: the Ancestry push-back was retired 2026-09-09, so notes written here are
+  local-only. `ancestry-worker.service` / `worker-ancestry.pl` are disabled but kept)
 - `dna_matches2.ignored`, `dna_matches2.matchClusterCode` — user curation
 - `dna_samples.paternalClusterOverride` — our own p1/p2 → paternal mapping, which wins over
   Ancestry's `paternalCluster` (never written here). Edited on `/eyes`; resolved by

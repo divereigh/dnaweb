@@ -160,7 +160,7 @@ Each has a documented header in its unit file — read that before installing.
 | Unit | What it does |
 |------|--------------|
 | `match2match-worker@.service` | Template unit; run N instances to drain the match-of-match queue |
-| `ancestry-worker.service` | Pushes `dna_notes` rows with `pushreq=1` back to Ancestry |
+| `ancestry-worker.service` | **Retired 2026-09-09** — pushed `dna_notes` rows with `pushreq=1` back to Ancestry. Notes are local-only now; see below |
 | `dnaweb-perl-api.service` | The Mojolicious API on `127.0.0.1:8082` (+ `perl-api-nginx.conf`) |
 | `fetch-tree-names.service` | Fills `gedcom_tree` names |
 | `phonetic-sweep.service` / `.timer` | `dna:backfill-phonetic --where-null` every 5 minutes |
@@ -214,7 +214,7 @@ NOT overwrite:
 
 | Target | Written by | Notes |
 |--------|-----------|-------|
-| `dna_notes` (insert/update/delete) | `DnaNoteController` | Always sets `pushreq=1` so `ancestry-worker` pushes the note back to Ancestry. An empty note deletes the row. |
+| `dna_notes` (insert/update/delete) | `DnaNoteController` | Local-only since 2026-09-09 — writes `pushreq=0`; the push-back worker is retired. An empty note deletes the row. |
 | `people` — `fullName`, `dnaSampleId`, `gender`, `minBirth`, `maxBirth`, `death`, `notes` | `PersonController` | The allow-list is `Person::$fillable`; loader columns (`treetop`, `ddna`, `nogedcom`, `father`, `mother`, `alt`) are excluded. |
 | `gedcom_people.peopleid` | `PersonController` | Links a tree node to a person; clears any other node in the same tree first. |
 | `tree` (find-or-create by name, `colour`) and `tree_people` membership | `TreeController` | Trees are never deleted here, even when emptied — the loaders own tree lifecycle. |
@@ -229,6 +229,24 @@ beyond the `peopleid` link above, or create/delete `dna_samples` rows.
 Note `dna_matches2` is the current matches table — directional, two rows per pair, where
 `sample1` is the viewer and carries that viewer's `matchClusterCode` / `predictedKinships`. The
 older `dna_matches` is legacy and unused by this app.
+
+### Notes are local-only (the retired `pushreq` push-back)
+
+`dna_notes.pushreq` used to mean "this note has not been written back to Ancestry yet".
+`worker-ancestry.pl` (`ancestry-worker.service`) drained those rows, POSTing each note to
+`discoveryui-matches/parents/list/api/tags/<eye>/match/<match>/tag/3` and clearing the flag on
+`updateWasSuccessful`. It was the only reader of the column, and the only place this system ever
+wrote to Ancestry.
+
+Retired 2026-09-09: several kits were never set up to receive notes, so the round trip only ever
+worked for some of them, and it is no longer wanted. `DnaNoteController` writes `pushreq=0`, the
+unit is disabled (`sudo systemctl disable --now ancestry-worker.service` on the loader host), and
+the unit file and worker script are kept with a dated header rather than deleted — they are the
+only worked example of an authenticated write to Ancestry, and re-enabling means restoring
+`pushreq=1` in `DnaNoteController`.
+
+Notes written here are therefore visible in this app only. Ancestry-side notes still arrive in the
+other direction: `load-dna.pl` fills `dna_notes` from the match list as before.
 
 ### Kits disabled in Ancestry (`dna_samples.disabled = 1`)
 
@@ -284,7 +302,8 @@ knowledge of the override, and the pills and the ParentSide filter dropdown cann
 
 - **Phase 0** (done) — Laravel scaffold, Breeze auth, MariaDB connection
 - **Phase 1** (done) — read-only feature parity with the Django pages, redesigned UI
-- **Phase 2** (done) — `dna_notes` CRUD with `pushreq` push-back. The originally planned
+- **Phase 2** (done) — `dna_notes` CRUD. The `pushreq` push-back it shipped with was retired on
+  2026-09-09 (notes are local-only now). The originally planned
   `dna_matches2.ignored` toggle and `matchClusterCode` editing are **not** implemented; the
   columns are read-only in the UI today.
 - **Phase 3** (done) — tree visualisation (`/person/{id}/tree`, `family-chart`), with ancestor /

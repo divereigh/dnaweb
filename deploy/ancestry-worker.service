@@ -1,3 +1,20 @@
+# RETIRED 2026-09-09 — the dna_notes → Ancestry push-back is no longer
+# used. Several kits were never set up to receive notes, so the push
+# only ever worked for some of them, and we no longer need notes to
+# round-trip at all: they are local to this app now. DnaNoteController
+# writes pushreq=0 as of the same date, so this worker would find
+# nothing to do even if it were running.
+#
+# Turn it off on the box that runs it (the loader host, not the VPS):
+#   sudo systemctl disable --now ancestry-worker.service
+#
+# The unit and worker-ancestry.pl are kept rather than deleted: the
+# Ancestry endpoint and the session handling in it are the only worked
+# example of writing back to Ancestry, and re-enabling is a matter of
+# restoring pushreq=1 in DnaNoteController.
+#
+# --- Original header ---
+#
 # systemd unit for the dna_notes → Ancestry push worker.
 #
 # Installed at /etc/systemd/system/ancestry-worker.service.
