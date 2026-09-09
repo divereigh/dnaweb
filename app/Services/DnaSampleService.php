@@ -305,25 +305,229 @@ class DnaSampleService
     }
 
     /**
-     * Are the Perl loaders still actively loading match-of-match data
-     * for this sample? Used to decide whether to show a "loading…"
-     * indicator below the eye picker. True when, for at least one
-     * managed eye that matches this sample, dna_match2match_loaded
-     * either has no row, has no totalPages yet, or is partway through
-     * pagination, AND hasn't failed.
+     * What is happening to this sample's match-of-match data, and is
+     * anything actually working on it?
+     *
+     * This replaces a boolean loadingInProgress() that asked the wrong
+     * question. It read v_pending_match2match, where a *missing* queue
+     * row COALESCEs to 'pending' — so it answered "does this sample
+     * have any pair that has not been loaded?", which is true of
+     * essentially every sample in the database (2.39M of them at the
+     * time of writing, against zero actual queue rows). The spinner it
+     * drove could therefore never distinguish a queue being drained
+     * from one nobody was draining, and sat on "Loading…" forever
+     * whenever the workers were stopped.
+     *
+     * Two changes fix that:
+     *
+     *   * Read the REAL queue row (LEFT JOIN, l.status IS NULL means
+     *     "never queued"), not the view's COALESCEd phantom.
+     *   * Ask v_worker_status whether a match2match worker has actually
+     *     checked in recently. Outstanding work with no worker is not
+     *     loading, it is stuck, and only the heartbeat can tell them
+     *     apart — a pending row looks identical either way.
+     *
+     * Returns a state the page can render directly:
+     *
+     *   loading    something is running, or queued with a live worker
+     *   queued     work outstanding but not progressing — no worker, or
+     *              sitting out a retry backoff. `message` says which.
+     *   partial    everything settled, but some eyes failed permanently
+     *   complete   every eye loaded
+     *   unloadable no eye with a live session can see this sample
      */
-    public function loadingInProgress(int $sampleId): bool
+    public function loadingStatus(int $sampleId): array
     {
-        // Any non-terminal queue row for this sample means the worker
-        // either hasn't picked it up yet or is currently loading it.
-        $row = DB::selectOne('
-            SELECT 1 AS x
-            FROM v_pending_match2match
-            WHERE othsample = ?
-              AND status IN (\'pending\', \'running\')
-            LIMIT 1
+        // Every eye that could fetch this sample, with whatever queue
+        // row it actually has. Same managed/enabled/session predicate
+        // the workers claim on, so "eyes_total" counts only eyes a
+        // fetch could really happen through.
+        $t = DB::selectOne('
+            SELECT COUNT(*)                                          AS eyes_total,
+                   SUM(l.status = \'done\')                           AS done,
+                   SUM(l.status = \'running\')                        AS running,
+                   SUM(l.status = \'pending\')                        AS pending,
+                   SUM(l.status = \'abandoned\')                      AS abandoned,
+                   SUM(l.status IS NULL)                             AS unqueued,
+                   MIN(CASE WHEN l.status = \'pending\'
+                             AND l.next_retry_at > NOW()
+                            THEN l.next_retry_at END)                AS next_retry_at,
+                   SUM(l.status = \'pending\'
+                       AND (l.next_retry_at IS NULL
+                            OR l.next_retry_at <= NOW()))            AS due_now
+            FROM dna_matches2 m
+            JOIN dna_samples e ON e.id = m.sample1
+                              AND e.disabled = 0
+                              AND e.managed IS NOT NULL
+            JOIN session s ON s.id = e.managed
+            LEFT JOIN dna_match2match_loaded l
+                   ON l.mgmtsample = m.sample1 AND l.othsample = m.sample2
+            WHERE m.sample2 = ?
         ', [$sampleId]);
-        return $row !== null;
+
+        $eyesTotal = (int) ($t?->eyes_total ?? 0);
+        $done      = (int) ($t?->done ?? 0);
+        $running   = (int) ($t?->running ?? 0);
+        $pending   = (int) ($t?->pending ?? 0);
+        $abandoned = (int) ($t?->abandoned ?? 0);
+        $unqueued  = (int) ($t?->unqueued ?? 0);
+        $dueNow    = (int) ($t?->due_now ?? 0);
+        $outstanding = $pending + $unqueued;
+
+        $worker      = $this->workerStatus('match2match');
+        $workerAlive = $worker['alive'];
+
+        // Why the permanent failures failed. load-dna.pl classifies at
+        // the point of failure and the workers store it on the row, so
+        // this is the real reason rather than an inference.
+        $reasons = [];
+        if ($abandoned > 0) {
+            foreach (DB::select('
+                SELECT COALESCE(last_error_class, \'unknown\') AS class, COUNT(*) AS n
+                FROM dna_match2match_loaded
+                WHERE othsample = ? AND status = \'abandoned\'
+                GROUP BY class
+            ', [$sampleId]) as $r) {
+                $reasons[(string) $r->class] = (int) $r->n;
+            }
+        }
+
+        $retryIn = null;
+        if ($t?->next_retry_at) {
+            $retryIn = max(0, strtotime((string) $t->next_retry_at) - time());
+        }
+
+        [$state, $message] = $this->loadingState(
+            $eyesTotal, $running, $outstanding, $dueNow, $abandoned,
+            $workerAlive, $worker['seconds_ago'], $retryIn, $reasons
+        );
+
+        return [
+            'state'        => $state,
+            'message'      => $message,
+            'eyes_total'   => $eyesTotal,
+            'eyes_done'    => $done,
+            'eyes_failed'  => $abandoned,
+            'outstanding'  => $outstanding,
+            'running'      => $running,
+            'worker_alive' => $workerAlive,
+            'worker_seconds_ago' => $worker['seconds_ago'],
+            'retry_in'     => $retryIn,
+            'reasons'      => $reasons,
+        ];
+    }
+
+    /**
+     * Precedence between the five states, kept in one place so the
+     * template never re-derives it. Order matters: "running" beats
+     * everything (work is demonstrably happening), and a dead worker
+     * beats a retry backoff (the backoff will not be honoured by
+     * anything if nothing is looking at the queue).
+     */
+    private function loadingState(
+        int $eyesTotal, int $running, int $outstanding, int $dueNow,
+        int $abandoned, bool $workerAlive, ?int $workerSeconds,
+        ?int $retryIn, array $reasons
+    ): array {
+        if ($eyesTotal === 0) {
+            return ['unloadable',
+                'No managed kit with an active Ancestry session matches this sample, '
+                . 'so its shared matches cannot be fetched.'];
+        }
+
+        if ($running > 0) {
+            return ['loading', 'Loading shared matches…'];
+        }
+
+        if ($outstanding > 0) {
+            if (! $workerAlive) {
+                return ['queued', $workerSeconds === null
+                    ? 'Queued, but no match2match worker has ever checked in — the loader is not running.'
+                    : sprintf('Queued, but no match2match worker has checked in for %s — the loader looks stopped.',
+                        self::humanSeconds($workerSeconds))];
+            }
+            if ($dueNow === 0 && $retryIn !== null) {
+                return ['queued', sprintf('Waiting to retry after a failure — next attempt in %s.',
+                    self::humanSeconds($retryIn))];
+            }
+            return ['loading', 'Loading shared matches…'];
+        }
+
+        if ($abandoned > 0) {
+            return ['partial', self::failureMessage($abandoned, $reasons)];
+        }
+
+        return ['complete', ''];
+    }
+
+    /**
+     * Wording for the permanent failures, from the classes the loader
+     * recorded. `gone` is by far the common one and deserves saying
+     * plainly: nothing is broken, Ancestry no longer has the data.
+     */
+    private static function failureMessage(int $abandoned, array $reasons): string
+    {
+        $eyes = $abandoned === 1 ? '1 eye' : "$abandoned eyes";
+        $why = [
+            'gone'      => 'the match is no longer available on Ancestry (kit deleted or made private)',
+            'nosession' => 'that kit\'s Ancestry session has expired',
+            'noaccess'  => 'that kit cannot see this sample',
+            'skip'      => 'there was nothing to load',
+            'transient' => 'the request kept failing',
+        ];
+
+        // One reason is the overwhelmingly common case and reads much
+        // better named than enumerated.
+        if (count($reasons) === 1) {
+            $class = array_key_first($reasons);
+            return sprintf('Shared matches could not be loaded through %s: %s.',
+                $eyes, $why[$class] ?? 'the load failed');
+        }
+
+        $parts = [];
+        foreach ($reasons as $class => $n) {
+            $parts[] = $n . ' — ' . ($why[$class] ?? 'the load failed');
+        }
+        return sprintf('Shared matches could not be loaded through %s (%s).',
+            $eyes, implode('; ', $parts));
+    }
+
+    private static function humanSeconds(int $s): string
+    {
+        if ($s < 60) {
+            return $s . ' second' . ($s === 1 ? '' : 's');
+        }
+        $m = (int) round($s / 60);
+        return $m . ' minute' . ($m === 1 ? '' : 's');
+    }
+
+    /**
+     * Worker liveness, from the heartbeat the Perl workers write on
+     * every loop turn including the idle poll (worker_heartbeat /
+     * v_worker_status, see heartbeat-schema.sql in the loader repo).
+     *
+     * The heartbeat is the only thing in the database that can say a
+     * worker exists: a queue row being drained and a queue row nobody
+     * is draining are otherwise identical. Missing table or missing
+     * row is reported as not-alive rather than throwing — the answer
+     * "we cannot tell, assume stopped" is the safe direction, and it
+     * keeps the page working on a database where the DDL has not been
+     * applied yet.
+     */
+    private function workerStatus(string $worker): array
+    {
+        try {
+            $row = DB::selectOne('
+                SELECT alive, seconds_ago FROM v_worker_status WHERE worker = ?
+            ', [$worker]);
+        } catch (\Throwable $e) {
+            return ['alive' => false, 'seconds_ago' => null];
+        }
+
+        return [
+            'alive'       => (int) ($row?->alive ?? 0) > 0,
+            'seconds_ago' => $row?->seconds_ago === null ? null : (int) $row->seconds_ago,
+        ];
     }
 
     /**

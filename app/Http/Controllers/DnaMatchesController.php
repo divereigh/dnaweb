@@ -22,7 +22,7 @@ class DnaMatchesController extends Controller
      * Force a full reload: flip every queue row for this sample back
      * to pending with progress cleared, plus enqueue any pending
      * pairs that don't have a row yet. The page polling picks up the
-     * fresh `loading_in_progress=true` state and the spinner takes
+     * fresh `loading_status` state and the spinner takes
      * over until the workers drain.
      */
     public function requeue(int $id)
@@ -51,7 +51,7 @@ class DnaMatchesController extends Controller
         // (loading-poll, search-debounce, etc). The Vue side already
         // tells Inertia which props it wants via `only:`; closures
         // below are evaluated lazily, so a poll that asks only for
-        // `loading_in_progress` doesn't re-fetch matches/eye_matches.
+        // `loading_status` doesn't re-fetch matches/eye_matches.
         $isPartial = $request->header('X-Inertia-Partial-Data') !== null;
 
         if (!$isPartial) {
@@ -213,7 +213,7 @@ class DnaMatchesController extends Controller
 
             // Heavy props as closures — Inertia only invokes them
             // when the response includes the corresponding key, so
-            // a poll for `loading_in_progress` doesn't re-fetch
+            // a poll for `loading_status` doesn't re-fetch
             // matches / eye_matches / etc.
             'matches'             => fn () => $annotateConnected(
                 $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude)
@@ -222,7 +222,7 @@ class DnaMatchesController extends Controller
             'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),
             'page'                => fn () => $resolvePage(),
             'eye_matches'         => fn () => $annotateConnected($this->service->listEyeMatches($id)),
-            'loading_in_progress' => fn () => $this->service->loadingInProgress($id),
+            'loading_status'      => fn () => $this->service->loadingStatus($id),
             'ancestry_trees'      => fn () => $sample['person_id']
                 ? $this->persons->ancestryTrees((int) $sample['person_id'])
                 : [],

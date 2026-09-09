@@ -25,7 +25,11 @@ const props = defineProps({
     eye_matches: { type: Array, required: true },
     eye_id: { type: Number, default: null },
     selected_eye: { type: Object, default: null },
-    loading_in_progress: { type: Boolean, default: false },
+    loading_status: {
+        type: Object,
+        default: () => ({ state: 'complete', message: '', eyes_total: 0, eyes_done: 0,
+                          eyes_failed: 0, worker_alive: true, reasons: {} }),
+    },
     ancestry_trees: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({ q: '' }) },
     title_note: { type: String, default: null },
@@ -219,7 +223,7 @@ function reloadPage() {
 }
 
 // Force a full requeue of every (eye, this-sample) pair, then nudge
-// Inertia so loading_in_progress flips to true and the spinner takes
+// Inertia so loading_status flips to loading and the spinner takes
 // over. The polling watcher then takes care of refreshing the page
 // when the workers drain.
 const requeuing = ref(false);
@@ -234,7 +238,7 @@ function forceReload() {
             preserveScroll: true,
             onFinish: () => { requeuing.value = false; },
             onSuccess: () => router.reload({
-                only: ['loading_in_progress'],
+                only: ['loading_status'],
                 preserveScroll: true,
                 preserveState: true,
             }),
@@ -242,16 +246,26 @@ function forceReload() {
     );
 }
 
-// While the queue is still draining, poll only the loading_in_progress
-// prop every 10s. When it flips false, do one full reload to pull the
-// freshly-loaded matches in. Click-to-refresh button still works for
-// impatient users.
+// The five states the page can be in, straight from the server so the
+// precedence between them lives in one place (DnaSampleService).
+//   loading    — something is running, or queued with a live worker
+//   queued     — outstanding, but nothing is moving it: no worker
+//                running, or sitting out a retry backoff
+//   partial    — settled, but some eyes failed permanently
+//   complete   — every eye loaded
+//   unloadable — no eye with a live session can see this sample
+const loadState = computed(() => props.loading_status?.state ?? 'complete');
+
+// Poll while there is outstanding work, whether or not a worker is
+// picking it up — `queued` is the case where someone restarts the
+// worker and we want the page to notice. Only the loading_status prop
+// is fetched; the heavy props stay untouched until it settles.
 let loadingPollTimer = null;
 function startLoadingPoll() {
     if (loadingPollTimer) return;
     loadingPollTimer = setInterval(() => {
         router.reload({
-            only: ['loading_in_progress'],
+            only: ['loading_status'],
             preserveScroll: true,
             preserveState: true,
         });
@@ -265,13 +279,17 @@ function stopLoadingPoll() {
 }
 
 watch(
-    () => props.loading_in_progress,
+    loadState,
     (current, previous) => {
-        if (current) {
+        const busy = current === 'loading' || current === 'queued';
+        if (busy) {
             startLoadingPoll();
         } else {
             stopLoadingPoll();
-            if (previous === true) {
+            // Only pull the heavy props when we were actually waiting on
+            // something — otherwise every first render would fire a
+            // second full request for no reason.
+            if (previous === 'loading' || previous === 'queued') {
                 router.reload({ preserveScroll: true });
             }
         }
@@ -396,12 +414,13 @@ function closeEdit() {
                         <img src="/icon-globe.png" alt="" class="h-3.5 w-3.5" />
                         Origins
                     </Link>
+                    <!-- Something is genuinely being worked on. -->
                     <button
-                        v-if="loading_in_progress"
+                        v-if="loadState === 'loading'"
                         type="button"
                         @click="reloadPage"
                         class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 hover:bg-amber-100"
-                        title="Match-of-match data is still loading — auto-refreshes every 10 s; click to refresh now"
+                        :title="`${loading_status.message} Auto-refreshes every 10 s; click to refresh now.`"
                     >
                         <svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
@@ -409,8 +428,51 @@ function closeEdit() {
                         </svg>
                         Loading…
                     </button>
+                    <!--
+                      Outstanding work that nothing is moving: the loader
+                      is stopped, or the pair is sitting out a retry
+                      backoff. Deliberately NOT a spinner — an animation
+                      here is a lie, and this state is the whole reason
+                      the worker heartbeat exists.
+                    -->
+                    <span
+                        v-if="loadState === 'queued'"
+                        class="inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900"
+                        :title="loading_status.message"
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm.75-12a.75.75 0 0 0-1.5 0v4c0 .28.16.54.4.67l2.5 1.5a.75.75 0 1 0 .77-1.29l-2.17-1.3V6z" clip-rule="evenodd" />
+                        </svg>
+                        {{ loading_status.worker_alive ? 'Waiting' : 'Loader stopped' }}
+                    </span>
+                    <!--
+                      Settled, but incomplete. This used to show nothing
+                      at all: the spinner correctly stopped and the page
+                      simply omitted the data with no explanation.
+                    -->
+                    <span
+                        v-if="loadState === 'partial'"
+                        class="inline-flex items-center gap-1 rounded border border-rose-300 bg-rose-50 px-1.5 py-0.5 text-[11px] font-medium text-rose-800"
+                        :title="loading_status.message"
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.63-1.516 2.63H3.72c-1.347 0-2.19-1.463-1.516-2.63L8.485 2.495zM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd" />
+                        </svg>
+                        {{ loading_status.eyes_failed }} of {{ loading_status.eyes_total }} unavailable
+                    </span>
+                    <!-- No eye with a live session can fetch this kit at all. -->
+                    <span
+                        v-if="loadState === 'unloadable'"
+                        class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-100 px-1.5 py-0.5 text-[11px] font-medium text-ink-300"
+                        :title="loading_status.message"
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM6.28 6.28a.75.75 0 0 0-1.06 1.06L8.94 11l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 12.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 11l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 9.94 6.28 6.28z" clip-rule="evenodd" />
+                        </svg>
+                        Not loadable
+                    </span>
                     <button
-                        v-else
+                        v-if="loadState !== 'loading'"
                         type="button"
                         :disabled="requeuing"
                         @click="forceReload"
