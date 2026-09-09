@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
@@ -321,6 +321,87 @@ function fanOutProgenyLinks(container) {
     }
 }
 
+/**
+ * Square off the corners of the links.
+ *
+ * f3 runs every link's corner points through a B-spline (`d3.curveBasis`),
+ * which rounds the corners and — because a basis spline doesn't pass through
+ * its control points — pulls the line slightly off them. Two runs that should
+ * sit exactly on top of each other end up not quite doing so. Right angles are
+ * both tidier and honest about where the line actually goes.
+ *
+ * The corner points are on the link datum, so the sharp path is just those
+ * points as a polyline; f3 lists each corner twice to feed the spline, hence
+ * the de-duplication.
+ */
+function squarePath(points) {
+    const corners = [];
+    for (const [x, y] of points) {
+        const last = corners[corners.length - 1];
+        if (!last || last[0] !== x || last[1] !== y) {
+            corners.push([x, y]);
+        }
+    }
+
+    return corners.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join('');
+}
+
+// Squaring has to wait for f3's transition on the path to finish, because a
+// transition interpolates from whatever the attribute says when it starts:
+// hand it a four-point polyline to morph into a spline and it garbles the
+// shape for the length of the animation. So we wait for the transition to end
+// and swap the corners then — a change of a few pixels, at the point where
+// everything has just come to rest — and put the spline back before the next
+// render so f3 has the shape it expects to animate from.
+//
+// `__transition` is where d3 keeps a node's running transitions; it deletes
+// the property when the last one ends, which is the signal we poll for. Same
+// class of thing as the `__data__` the fan-out reads.
+const LINK_SETTLE_POLL = 80;
+const LINK_SETTLE_LIMIT = 10000;
+
+let squareTimer = null;
+
+function unsquareLinks(container) {
+    clearTimeout(squareTimer);
+    squareTimer = null;
+    for (const el of container.querySelectorAll('.links_view path.link')) {
+        if (el._curvedD) {
+            el.setAttribute('d', el._curvedD);
+            el._curvedD = null;
+        }
+    }
+}
+
+function squareLinks(container, deadline) {
+    clearTimeout(squareTimer); // no-op when this *is* the scheduled run
+    let animating = false;
+    for (const el of container.querySelectorAll('.links_view path.link')) {
+        const link = el.__data__;
+        if (!link || !link.curve || !Array.isArray(link.d)) {
+            continue; // spouse links are already straight
+        }
+        if (el.__transition) {
+            animating = true;
+
+            continue;
+        }
+        const squared = squarePath(link.d);
+        const current = el.getAttribute('d');
+        if (current === squared) {
+            continue;
+        }
+        el._curvedD = current;
+        el.setAttribute('d', squared);
+    }
+    // A background tab stops painting, so d3's transitions stop too and would
+    // never clear. Stand down rather than poll a tab nobody is looking at; the
+    // visibilitychange listener picks it back up.
+    squareTimer = animating && !document.hidden && Date.now() < deadline
+        ? setTimeout(() => squareLinks(container, deadline), LINK_SETTLE_POLL)
+        : null;
+}
+
 // f3 calls this per hierarchy side with the d3 root node for that side. On
 // both sides `.children` is the next rank away from the main person — the
 // parents going up, the children going down — so deleting it is how a branch
@@ -561,10 +642,15 @@ onMounted(() => {
         .setOnCardClick(handleCardClick)
         .setOnCardUpdate(handleCardUpdate);
 
-    // Runs after each render, once the links exist and f3 has set their
-    // transitions going. It only touches `transform`, which f3 never sets on a
-    // link, so there is nothing to fight over.
-    chart.setAfterUpdate(() => fanOutProgenyLinks(chartContainer.value));
+    // The fan-out only touches `transform`, which f3 never sets on a link, so
+    // there is nothing to fight over there; squaring the corners rewrites `d`,
+    // which f3 does animate, hence the restore on the way in.
+    chart.setBeforeUpdate(() => unsquareLinks(chartContainer.value));
+    chart.setAfterUpdate(() => {
+        fanOutProgenyLinks(chartContainer.value);
+        squareLinks(chartContainer.value, Date.now() + LINK_SETTLE_LIMIT);
+    });
+    document.addEventListener('visibilitychange', resumeSquaring);
 
     chart.updateMainId(props.tree.focus_id);
     for (const id of ancestorsWithin(props.tree.focus_id, INITIAL_ANCESTOR_LEVELS)) {
@@ -576,6 +662,17 @@ onMounted(() => {
 
     stepAncestors = applyAncestorLevels;
     resetView = () => resetAround(mainId());
+});
+
+function resumeSquaring() {
+    if (!document.hidden && chartContainer.value) {
+        squareLinks(chartContainer.value, Date.now() + LINK_SETTLE_LIMIT);
+    }
+}
+
+onUnmounted(() => {
+    document.removeEventListener('visibilitychange', resumeSquaring);
+    clearTimeout(squareTimer);
 });
 </script>
 
