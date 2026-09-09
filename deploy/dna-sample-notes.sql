@@ -31,7 +31,7 @@
 --
 --   * whitespace-normalised comparison; a note whose text is wholly
 --     contained in a longer note for the same sample is dropped as a
---     duplicate (this alone reduces 264 of them to a single note)
+--     duplicate (this alone reduces 265 of them to a single note)
 --   * what survives is concatenated oldest first, each block headed by
 --     the eye that wrote it in [square brackets], blank line between.
 --     Notes are multi-line (16,774 of them, up to 39 lines), so the
@@ -114,18 +114,18 @@ SELECT sample,
   FROM labelled
  GROUP BY sample;
 
--- Expected on a first run against the database as it stood 2026-09-09:
+-- Measured on the first run, 2026-09-09:
 --   21353 rows — 19,711 samples with a single eye's note, 1,643 with
---   notes from several (264 of those collapsing to one note, 1,379
+--   notes from several (265 of those collapsing to one note, 1,378
 --   keeping attributed blocks), longest result 3,354 chars.
 --
---   `missed` should be 1: one sample's only note is a bare newline,
---   which normalises to empty and is correctly not carried over.
+--   `missed` is 1: one sample's only note is a bare newline, which
+--   normalises to empty and is correctly not carried over.
 --
---   `multi_eye_merged` counts notes starting with "[", so it reads
---   1,380 rather than 1,379 — one collapsed single note happens to
---   begin with a bracketed surname group. It is an indicator, not an
---   assertion.
+--   `multi_eye_merged` reads 1379, one more than the 1,378 attributed
+--   notes: it counts every note starting with "[", and one single-eye
+--   note happens to open with a bracketed surname group. An indicator,
+--   not an assertion.
 SELECT COUNT(*) AS sample_notes_rows FROM dna_sample_notes;
 SELECT COUNT(*) AS multi_eye_merged FROM dna_sample_notes WHERE notes LIKE '[%';
 SELECT COUNT(*) AS missed

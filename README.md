@@ -243,9 +243,10 @@ were invisible on a non-eye sample with no eye selected.
 
 Since 2026-09-09 the app owns `dna_sample_notes` — `sample` PK, `notes` TEXT — one row per DNA
 sample, no eye anywhere. `deploy/dna-sample-notes.sql` creates it and merges the old rows: notes
-whose text is contained in a longer note for the same sample are dropped as duplicates, and what
-survives is concatenated oldest first, each block headed by the eye that wrote it. Its header
-comment carries the exact rule and the expected counts.
+whose text is contained in a longer note for the same sample are dropped as duplicates (which
+resolves 265 of the 1,643 on its own), and what survives is concatenated oldest first, each block
+headed by the eye that wrote it — 1,378 ended up that way. Run 2026-09-09: 21,353 rows, longest
+3,354 chars. Its header comment carries the exact rule and the measured counts.
 
 `dna_notes` is left in place, frozen — `load-dna.pl` no longer fills it, the push-back worker
 that drained `pushreq` is retired, and it stays as the record of what came from Ancestry and the
