@@ -60,7 +60,7 @@ class CommonMatchService
             JOIN dna_samples sx ON sx.id = ex.sample2
             LEFT JOIN people p ON p.dnaSampleId = sx.id
             LEFT JOIN dna_samples admin ON admin.id = sx.adminid
-            LEFT JOIN dna_notes n ON n.sample = sx.id AND n.mgmtsample = ?
+            LEFT JOIN dna_sample_notes n ON n.sample = sx.id
             WHERE ex.sample1 = ?
               AND ex.sample2 <> ?
               AND ex.sample2 <> ?

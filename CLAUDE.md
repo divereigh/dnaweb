@@ -53,9 +53,10 @@ reload php8.4-fpm). Run it as a sudo-capable user, not as `dnaweb`.
 The Perl loaders continuously overwrite most columns. This app only writes columns they never
 touch:
 
-- `dna_notes.notes` (full CRUD; deleting the row is how "no notes" is stored. Writes set
-  `pushreq=0`: the Ancestry push-back was retired 2026-09-09, so notes written here are
-  local-only. `ancestry-worker.service` / `worker-ancestry.pl` are disabled but kept)
+- `dna_sample_notes` (full CRUD, app-owned outright; deleting the row is how "no notes" is
+  stored). One note per sample, created 2026-09-09 by `deploy/dna-sample-notes.sql`, which also
+  merged the old per-eye `dna_notes` rows into it. `dna_notes` is frozen — neither `load-dna.pl`
+  nor the retired `ancestry-worker` writes it any more — and nothing in the app reads it
 - `dna_matches2.ignored`, `dna_matches2.matchClusterCode` — user curation
 - `dna_samples.paternalClusterOverride` — our own p1/p2 → paternal mapping, which wins over
   Ancestry's `paternalCluster` (never written here). Edited on `/eyes`; resolved by

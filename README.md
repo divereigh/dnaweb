@@ -149,6 +149,9 @@ mariadb dnaweb < deploy/fulltext-name-search.sql      # *_phonetic columns + FUL
 mariadb dnaweb < deploy/tree-colour.sql               # app-owned tree.colour column
 ```
 
+`dna-sample-notes.sql` creates `dna_sample_notes` and folds the old per-eye `dna_notes` rows
+into it — see "Notes are one per sample" below. Run it before deploying the code that reads it.
+
 `fulltext-name-search.sql` documents `my.cnf` prerequisites (`innodb_ft_min_token_size=2`,
 `innodb_ft_enable_stopword=OFF`) that require a MariaDB restart, and must be followed by
 `php artisan dna:backfill-phonetic`.
@@ -214,7 +217,7 @@ NOT overwrite:
 
 | Target | Written by | Notes |
 |--------|-----------|-------|
-| `dna_notes` (insert/update/delete) | `DnaNoteController` | Local-only since 2026-09-09 — writes `pushreq=0`; the push-back worker is retired. An empty note deletes the row. |
+| `dna_sample_notes` (insert/update/delete) | `DnaNoteController` | One note per sample, local-only, app-owned outright. An empty note deletes the row. `dna_notes` is frozen. |
 | `people` — `fullName`, `dnaSampleId`, `gender`, `minBirth`, `maxBirth`, `death`, `notes` | `PersonController` | The allow-list is `Person::$fillable`; loader columns (`treetop`, `ddna`, `nogedcom`, `father`, `mother`, `alt`) are excluded. |
 | `gedcom_people.peopleid` | `PersonController` | Links a tree node to a person; clears any other node in the same tree first. |
 | `tree` (find-or-create by name, `colour`) and `tree_people` membership | `TreeController` | Trees are never deleted here, even when emptied — the loaders own tree lifecycle. |
@@ -229,6 +232,28 @@ beyond the `peopleid` link above, or create/delete `dna_samples` rows.
 Note `dna_matches2` is the current matches table — directional, two rows per pair, where
 `sample1` is the viewer and carries that viewer's `matchClusterCode` / `predictedKinships`. The
 older `dna_matches` is legacy and unused by this app.
+
+### Notes are one per sample (`dna_sample_notes`)
+
+`dna_notes` is keyed `(sample, mgmtsample)` because that is how Ancestry stores tag 3: a note
+belongs to the *eye* that wrote it, so the same person can carry a different note through every
+kit you look from. 1,643 of the 21,354 noted samples had notes from more than one eye, up to 10.
+The app had to choose a "notes eye" before it could show or edit anything, which is why notes
+were invisible on a non-eye sample with no eye selected.
+
+Since 2026-09-09 the app owns `dna_sample_notes` — `sample` PK, `notes` TEXT — one row per DNA
+sample, no eye anywhere. `deploy/dna-sample-notes.sql` creates it and merges the old rows: notes
+whose text is contained in a longer note for the same sample are dropped as duplicates, and what
+survives is concatenated oldest first, each block headed by the eye that wrote it. Its header
+comment carries the exact rule and the expected counts.
+
+`dna_notes` is left in place, frozen — `load-dna.pl` no longer fills it, the push-back worker
+that drained `pushreq` is retired, and it stays as the record of what came from Ancestry and the
+rollback path for the merge. `App\Models\DnaNote` is kept for the same reason; nothing reads it.
+
+The note editor is a plain per-sample panel now, always available (it used to be hidden without
+an eye), and accepts 10,000 characters against the old 1,000 — the longest merged note is 3,354,
+which the old `varchar(1000)` would have truncated on its first edit.
 
 ### Notes are local-only (the retired `pushreq` push-back)
 
@@ -245,8 +270,9 @@ the unit file and worker script are kept with a dated header rather than deleted
 only worked example of an authenticated write to Ancestry, and re-enabling means restoring
 `pushreq=1` in `DnaNoteController`.
 
-Notes written here are therefore visible in this app only. Ancestry-side notes still arrive in the
-other direction: `load-dna.pl` fills `dna_notes` from the match list as before.
+Notes written here are therefore visible in this app only, and since the move to
+`dna_sample_notes` above, Ancestry-side notes no longer arrive in the other direction either —
+`load-dna.pl` has stopped filling `dna_notes` from the match list. Notes are entirely ours now.
 
 ### Kits disabled in Ancestry (`dna_samples.disabled = 1`)
 

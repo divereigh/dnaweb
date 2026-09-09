@@ -748,7 +748,7 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $notesEye = null, ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, array $treeInclude = [], array $treeExclude = []): array
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, array $treeInclude = [], array $treeExclude = []): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -783,20 +783,14 @@ class DnaSampleService
             ? $this->parentSideFilter($parentSide, 'pov', $povPaternalCluster)
             : ['', []];
 
-        // dna_notes is keyed by (sample = the "other" party,
-        // mgmtsample = the eye doing the noting). $notesEye picks
-        // which eye's notes to surface: the title sample if it is
-        // itself an eye (the controller's call sets this) — else
-        // the eye selected via the filter.
-        $notesJoin = '';
-        $noteCol = 'NULL AS note';
-        if ($notesEye) {
-            $notesJoin = '
-                LEFT JOIN dna_notes n ON n.sample = m.sample2 AND n.mgmtsample = ?
+        // One note per sample since 2026-09-09 (dna_sample_notes), so
+        // this no longer depends on which eye is selected — notes used
+        // to vanish entirely when the title was not an eye and no eye
+        // was picked, because dna_notes had nothing to key on.
+        $notesJoin = '
+                LEFT JOIN dna_sample_notes n ON n.sample = m.sample2
             ';
-            $noteCol = 'n.notes AS note';
-            $bind[] = $notesEye;
-        }
+        $noteCol = 'n.notes AS note';
 
         $bind[] = $sampleId;        // m.sample1 = ?
 

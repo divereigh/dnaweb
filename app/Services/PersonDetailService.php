@@ -253,6 +253,24 @@ class PersonDetailService
     }
 
     /**
+     * The note held against one DNA sample. Used to be a column on every
+     * row of eyeMatches() — dna_notes was keyed (sample, eye), so each
+     * eye had its own note about the same person. dna_sample_notes holds
+     * one per sample, so it is a property of the page instead.
+     */
+    public function sampleNote(?int $dnaSampleId): ?string
+    {
+        if (! $dnaSampleId) {
+            return null;
+        }
+
+        return optional(DB::selectOne(
+            'SELECT notes FROM dna_sample_notes WHERE sample = ?',
+            [$dnaSampleId]
+        ))->notes;
+    }
+
+    /**
      * @return array|null null when the dna_sample id is missing from the table
      */
     public function eyeMatches(?int $dnaSampleId): ?array
@@ -287,18 +305,16 @@ class PersonDetailService
               m.numSharedSegments,
               m.matchClusterCode,
               m.predictedKinships,
-              m.ignored,
-              dn.notes
+              m.ignored
             FROM dna_matches2 m
             JOIN dna_samples ds_eye
               ON ds_eye.id = m.sample1
              AND '.$this->eyeSet->sqlIn('ds_eye.id').'
             LEFT JOIN people p_eye ON p_eye.dnaSampleId = ds_eye.id
             LEFT JOIN dna_samples admin ON admin.id = ds_eye.adminid
-            LEFT JOIN dna_notes dn ON dn.sample = ? AND dn.mgmtsample = ds_eye.id
             WHERE m.sample2 = ?
             ORDER BY m.sharedCentimorgans DESC, ds_eye.displayName ASC
-        ', [$dnaSampleId, $dnaSampleId]);
+        ', [$dnaSampleId]);
 
         // The focus person's effective gender drives the kinship label
         // (sample2 in the kinship row is the focus's dna sample).

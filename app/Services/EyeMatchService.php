@@ -270,7 +270,7 @@ class EyeMatchService
             JOIN dna_samples other ON other.id = m.sample2
             LEFT JOIN people peye   ON peye.dnaSampleId   = eye.id
             LEFT JOIN people pother ON pother.dnaSampleId = other.id
-            LEFT JOIN dna_notes n   ON n.sample = other.id AND n.mgmtsample = eye.id
+            LEFT JOIN dna_sample_notes n ON n.sample = other.id
             WHERE m.sample1 = ? AND m.sample2 = ?
         ';
 
@@ -351,13 +351,13 @@ class EyeMatchService
               JOIN dna_samples s ON s.id = m.sample2
               $peopleJoin
               $adminJoin
-              LEFT JOIN dna_notes n ON n.sample = m.sample2 AND n.mgmtsample = ?
+              LEFT JOIN dna_sample_notes n ON n.sample = m.sample2
               WHERE m.sample1 = ?
             ) q
             WHERE 1=1
         ";
 
-        $bind = [$eyeId, $eyeId]; // dna_notes mgmtsample, m.sample1
+        $bind = [$eyeId]; // m.sample1
 
         if ($search !== '') {
             $sql .= ' AND q.other_name LIKE ?';

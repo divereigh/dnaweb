@@ -36,7 +36,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/dna', [DnaController::class, 'index'])->name('dna.index');
     Route::get('/dna/{id}/matches', [DnaMatchesController::class, 'index'])->name('dna.matches');
     Route::post('/dna/{id}/matches/requeue', [DnaMatchesController::class, 'requeue'])->name('dna.matches.requeue');
-    Route::put('/dna/notes/{sample}/{mgmtsample}', [DnaNoteController::class, 'update'])->name('dna.notes.update');
+    // Soft-deleted 2026-09-09: notes moved from dna_notes (keyed per eye)
+    // to dna_sample_notes (one per sample), so the eye is no longer part
+    // of the address. See deploy/dna-sample-notes.sql.
+    // Route::put('/dna/notes/{sample}/{mgmtsample}', [DnaNoteController::class, 'update'])->name('dna.notes.update');
+    Route::put('/dna/notes/{sample}', [DnaNoteController::class, 'update'])->name('dna.notes.update');
     Route::put('/dna/trees/{tree}', [TreeController::class, 'update'])->name('dna.trees.update');
     Route::post('/dna/trees/add-person', [TreeController::class, 'addPerson'])->name('dna.trees.add-person');
     Route::post('/dna/trees/remove-person', [TreeController::class, 'removePerson'])->name('dna.trees.remove-person');

@@ -33,8 +33,6 @@ const props = defineProps({
     ancestry_trees: { type: Array, default: () => [] },
     filters: { type: Object, default: () => ({ q: '' }) },
     title_note: { type: String, default: null },
-    notes_eye_id: { type: Number, default: null },
-    notes_eye_label: { type: String, default: null },
     pov_paternal_cluster: { type: String, default: null },
     title_pill: { type: Object, default: null },
     title_trees: { type: Array, default: () => [] },
@@ -45,9 +43,12 @@ const props = defineProps({
 // Note-editor side panel state. One panel shared for the title-note
 // click and every row-note click; openNoteEditor sets which (sample,
 // label, initial-text) we're editing.
+//
+// No eye involved since 2026-09-09: notes are one per sample
+// (dna_sample_notes), where they used to be keyed (sample, eye) and so
+// could only be shown or edited once an eye was in play.
 const editingNote = ref(null);
 function openNoteEditor(sampleId, sampleLabel, initial) {
-    if (!props.notes_eye_id) return;
     editingNote.value = {
         sampleId,
         sampleLabel,
@@ -109,7 +110,7 @@ const managedTrees = computed(() => {
 // `eye_matches` is fixed per title sample, so it's not in ONLY (no
 // need to refetch on search / eye-change). The others all shift
 // when the eye selection changes.
-const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters', 'pov_paternal_cluster', 'title_pill', 'notes_eye_id', 'notes_eye_label', 'title_note', 'side_enabled'];
+const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters', 'pov_paternal_cluster', 'title_pill', 'title_note', 'side_enabled'];
 
 function ancestryCompareUrl(otherUuid) {
     if (!props.selected_eye?.dnaUUID || !otherUuid) return null;
@@ -559,7 +560,6 @@ function closeEdit() {
                         <span class="sr-only">{{ sample.person_id ? 'Edit person' : 'Create person' }}</span>
                     </button>
                     <button
-                        v-if="notes_eye_id"
                         type="button"
                         class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
                         :title="title_note ? `Edit notes for ${sample.display_label}` : `Add notes for ${sample.display_label}`"
@@ -919,7 +919,6 @@ function closeEdit() {
                                     <span class="sr-only">{{ m.person_id ? 'Edit' : 'Create' }}</span>
                                 </button>
                                 <button
-                                    v-if="notes_eye_id"
                                     type="button"
                                     class="ms-1 inline-flex items-center rounded p-0.5 align-middle text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
                                     :title="m.note ? `Edit notes for ${m.display_label}` : `Add notes for ${m.display_label}`"
@@ -1071,8 +1070,6 @@ function closeEdit() {
             :show="!!editingNote"
             :sample-id="editingNote?.sampleId ?? 0"
             :sample-label="editingNote?.sampleLabel ?? ''"
-            :eye-id="notes_eye_id ?? 0"
-            :eye-label="notes_eye_label ?? ''"
             :initial="editingNote?.initial ?? ''"
             @close="closeNoteEditor"
         />

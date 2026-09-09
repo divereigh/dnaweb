@@ -104,29 +104,23 @@ class DnaMatchesController extends Controller
         $treeInclude = array_values(array_filter(array_map('intval', (array) $request->input('tin', []))));
         $treeExclude = array_values(array_filter(array_map('intval', (array) $request->input('tex', []))));
 
-        // Whose notes / ParentSide do we show next to each match row?
-        // The selected eye wins — the user is explicitly looking
-        // through that eye, so its notes (and ParentSide cluster) are
-        // the relevant ones. If no eye is selected but the title is
-        // itself a managed eye, fall back to the title's own. Else
-        // no notes / cluster. Notes and ParentSide use the same
-        // POV eye (one is a row-level note, the other a row-level
-        // cluster, both keyed off the same "who's looking" question).
-        $notesEye = $eyeId ?: (! empty($sample['managed']) ? $id : null);
-        $povEye = $notesEye;
+        // Whose ParentSide do we show next to each match row? The
+        // selected eye wins — the user is explicitly looking through
+        // that eye, so its cluster is the relevant one. If no eye is
+        // selected but the title is itself a managed eye, fall back to
+        // the title's own. Else no cluster.
+        //
+        // Notes used to hang off this same choice, which is why they
+        // disappeared entirely on a non-eye sample with no eye picked.
+        // Since 2026-09-09 there is one note per sample
+        // (dna_sample_notes) and no eye is involved.
+        $povEye = $eyeId ?: (! empty($sample['managed']) ? $id : null);
         // No POV eye → no per-row side data → the dropdown is disabled
         // client-side; mirror that here so a stale ?side= in the URL
         // can't silently filter to an empty list.
         if (! $povEye) {
             $side = 'ALL';
         }
-        $notesEyeLabel = null;
-        if ($notesEye === $id) {
-            $notesEyeLabel = $sample['display_label'];
-        } elseif ($notesEye && $selectedEye) {
-            $notesEyeLabel = $selectedEye['display_label'];
-        }
-
         // ParentSide pill data. Per-row cluster needs the POV eye's
         // paternalCluster to flip p1/p2 into PATERNAL/MATERNAL (only
         // used when the row's `parentSide` enum is NULL — non-null
@@ -194,19 +188,12 @@ class DnaMatchesController extends Controller
             return $rows;
         };
 
-        // The title sample's own note, viewed through whichever eye
-        // we're using for the rest of the notes ($notesEye). When
-        // $notesEye is null (no managed-eye context at all) there's
-        // no place for a note to live, so skip the lookup. When the
-        // title is itself an eye with no selected filter, $notesEye
-        // === $id, and the lookup just finds nothing in normal use
-        // (notes about oneself aren't usually written) — harmless.
-        $titleNote = fn () => $notesEye
-            ? optional(DB::selectOne(
-                'SELECT notes FROM dna_notes WHERE sample = ? AND mgmtsample = ?',
-                [$id, $notesEye]
-            ))->notes
-            : null;
+        // The title sample's own note. One row per sample, so this is
+        // the same note every other page shows for it.
+        $titleNote = fn () => optional(DB::selectOne(
+            'SELECT notes FROM dna_sample_notes WHERE sample = ?',
+            [$id]
+        ))->notes;
 
         return Inertia::render('Dna/Matches', [
             'sample' => $sample,
@@ -217,8 +204,6 @@ class DnaMatchesController extends Controller
             'side_enabled' => (bool) $povEye,
             'tree_options' => fn () => $this->service->treeOptionsForSample($id),
             'title_note' => $titleNote,
-            'notes_eye_id' => $notesEye,
-            'notes_eye_label' => $notesEyeLabel,
             'pov_paternal_cluster' => $povPaternalCluster,
             'title_pill' => $titlePill,
             'title_trees' => fn () => $this->service->treesForPerson(
@@ -230,7 +215,7 @@ class DnaMatchesController extends Controller
             // a poll for `loading_status` doesn't re-fetch
             // matches / eye_matches / etc.
             'matches' => fn () => $annotateConnected(
-                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude)
+                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude)
             ),
             'total' => fn () => $count(),
             'pages' => fn () => max(1, (int) ceil($count() / $pageSize)),

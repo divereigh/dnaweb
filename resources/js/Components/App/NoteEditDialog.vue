@@ -6,19 +6,20 @@ const props = defineProps({
     show:        { type: Boolean, default: false },
     sampleId:    { type: Number, required: true },
     sampleLabel: { type: String, default: '' },
-    eyeId:       { type: Number, required: true },
-    eyeLabel:    { type: String, default: '' },
     initial:     { type: String, default: '' },
 });
 
 const emit = defineEmits(['close']);
 
-const MAX = 1000;
+// dna_sample_notes.notes is TEXT. The old dna_notes column was
+// varchar(1000), which would have truncated the merged multi-eye notes
+// (longest 3,354 chars) the first time one was edited.
+const MAX = 10000;
 const form = useForm({ notes: props.initial || '' });
 const textarea = ref(null);
 
 watch(
-    () => [props.show, props.sampleId, props.eyeId, props.initial],
+    () => [props.show, props.sampleId, props.initial],
     () => {
         if (props.show) {
             form.clearErrors();
@@ -31,8 +32,8 @@ watch(
 const remaining = computed(() => MAX - (form.notes?.length || 0));
 
 function submit() {
-    if (!props.sampleId || !props.eyeId) return;
-    form.put(route('dna.notes.update', [props.sampleId, props.eyeId]), {
+    if (!props.sampleId) return;
+    form.put(route('dna.notes.update', props.sampleId), {
         preserveScroll: true,
         preserveState:  true,
         onSuccess: () => emit('close'),
@@ -82,9 +83,6 @@ function close() {
                         <h2 class="truncate text-base font-semibold text-ink-600">
                             Update Notes {{ sampleLabel }}
                         </h2>
-                        <p class="mt-0.5 truncate text-xs text-sepia-500">
-                            via Eye {{ eyeLabel }}
-                        </p>
                     </div>
                     <button
                         type="button"

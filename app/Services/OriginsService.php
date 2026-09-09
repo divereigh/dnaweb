@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
  *
  * The data is loaded by the Perl side (worker-origins.pl draining the
  * dna_origins_loaded queue, shelling out to load-dna.pl loadorigin).
- * This app only reads the results and asks for a load, the same
- * division of labour as dna_notes/pushreq.
+ * This app only reads the results and asks for a load — the loaders
+ * fill the data tables, the web only ever queues work.
  *
  * The one thing worth understanding before reading the rest: Ancestry
  * lets people restrict their ethnicity to "shared only", and such a kit
