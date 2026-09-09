@@ -69,9 +69,9 @@ class FamilyTreeService
         return [
             'focus_id' => (string) $focusId,
             'focus' => $this->focusPayload($focus),
+            // The depths are deliberately not reported: they used to cap the
+            // page's generation stepper, and since expand() they cap nothing.
             'people' => $this->payloadFor(array_keys($ids)),
-            'ancestor_depth' => self::ANCESTOR_DEPTH,
-            'descendant_depth' => self::DESCENDANT_DEPTH,
         ];
     }
 

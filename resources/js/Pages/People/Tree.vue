@@ -238,6 +238,89 @@ function siblingIdsOf(id) {
     return out;
 }
 
+/**
+ * Fan out the child links of a person who had children by more than one
+ * partner, so you can tell which child came from which.
+ *
+ * f3 draws every child link as: straight up from the child, along a
+ * horizontal run at the midpoint between the two rows, then up to the point
+ * between that child's two parents. The run is at the *same* height for every
+ * child of the person, whichever partner they came from, so where one partner's
+ * children sit out beyond another's the two runs lie on top of each other for
+ * most of their length and there is no way to read which is which. (Dalrymple
+ * Briggs: one child by Baker out on the far left, eight by Johnson to the
+ * right of it, and two indistinguishable lines running the width of the tree.)
+ *
+ * Each partner's links get their own height instead. The whole path is nudged
+ * with a transform rather than redrawn, which works because both its endpoints
+ * sit at card *centres* — a shift of a few pixels moves the visible middle of
+ * the link and leaves the ends buried under the cards where they already were.
+ *
+ * Which partner goes where is not arbitrary. An upright crosses a foreign run
+ * only when that run is *below* it, so the run that passes over other
+ * partners' children is put nearest the parents and the ones it passes over
+ * sit under it — their uprights then stop short of it rather than cutting
+ * through. Ordering by how many foreign children each run passes over (rather
+ * than by how wide it is) is what gets that right: at Dalrymple Briggs the
+ * Johnson run is the wider of the two, but it is Baker's single child out on
+ * the far left whose run crosses the whole Johnson brood.
+ */
+const LINK_FAN_STEP = 22;
+const LINK_FAN_SPREAD = 60;
+
+function fanOutProgenyLinks(container) {
+    const bundles = new Map();
+
+    for (const el of container.querySelectorAll('.links_view path.link')) {
+        el.removeAttribute('transform');
+        const link = el.__data__; // where d3 keeps the datum it bound
+        if (!link || link.spouse || link.is_ancestry || !Array.isArray(link.source)) {
+            continue;
+        }
+        const [parent, otherParent] = link.source;
+        if (!otherParent || otherParent === parent || (parent.spouses || []).length < 2) {
+            continue;
+        }
+        const key = `${parent.tid}|${otherParent.tid}`;
+        let bundle = bundles.get(key);
+        if (!bundle) {
+            bundle = { parent, els: [], childX: [], min: Infinity, max: -Infinity };
+            bundles.set(key, bundle);
+        }
+        bundle.els.push(el);
+        bundle.childX.push(link.target.x);
+        for (const [x] of link.d) {
+            bundle.min = Math.min(bundle.min, x);
+            bundle.max = Math.max(bundle.max, x);
+        }
+    }
+
+    const byParent = new Map();
+    for (const bundle of bundles.values()) {
+        const siblings = byParent.get(bundle.parent) ?? [];
+        siblings.push(bundle);
+        byParent.set(bundle.parent, siblings);
+    }
+
+    for (const siblings of byParent.values()) {
+        if (siblings.length < 2) {
+            continue; // one partner in play — nothing to tell apart
+        }
+        const passesOver = (b) => siblings.reduce((n, other) => (
+            other === b ? n : n + other.childX.filter((x) => x > b.min && x < b.max).length
+        ), 0);
+        const rank = new Map(siblings.map((b) => [b, passesOver(b)]));
+        siblings.sort((a, b) => (rank.get(b) - rank.get(a)) || ((b.max - b.min) - (a.max - a.min)));
+        const step = Math.min(LINK_FAN_STEP, LINK_FAN_SPREAD / (siblings.length - 1));
+        siblings.forEach((bundle, i) => {
+            const dy = (i - (siblings.length - 1) / 2) * step;
+            for (const el of bundle.els) {
+                el.setAttribute('transform', `translate(0,${dy.toFixed(1)})`);
+            }
+        });
+    }
+}
+
 // f3 calls this per hierarchy side with the d3 root node for that side. On
 // both sides `.children` is the next rank away from the main person — the
 // parents going up, the children going down — so deleting it is how a branch
@@ -477,6 +560,11 @@ onMounted(() => {
         .setStyle('rect')
         .setOnCardClick(handleCardClick)
         .setOnCardUpdate(handleCardUpdate);
+
+    // Runs after each render, once the links exist and f3 has set their
+    // transitions going. It only touches `transform`, which f3 never sets on a
+    // link, so there is nothing to fight over.
+    chart.setAfterUpdate(() => fanOutProgenyLinks(chartContainer.value));
 
     chart.updateMainId(props.tree.focus_id);
     for (const id of ancestorsWithin(props.tree.focus_id, INITIAL_ANCESTOR_LEVELS)) {
