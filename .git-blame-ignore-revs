@@ -1,0 +1,8 @@
+# Revisions to skip when running `git blame`, so a whole-file reformat isn't
+# credited as the last toucher of every line it moved.
+#
+# Enable locally (per clone, git does not pick this up automatically):
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Format the whole repo with Pint (2026-09-09)
+44673780a4bddc7639861580833ff34a505f34c5
