@@ -12,10 +12,16 @@ class FamilyTreeService
      * opens on the focus and one generation of parents, so this is a
      * read-ahead buffer rather than a limit — anything past it is fetched by
      * expand() when a card's arrow is clicked. See resources/js/Pages/People/Tree.vue.
+     *
+     * One generation more than the opening view in each direction, which is
+     * enough for the arrows on the cards you can see to know what they hide
+     * and to open without a round trip. Sized down from 6/4 once expand()
+     * existed: on a well-researched line that was 271 people fetched to draw
+     * five cards.
      */
-    public const ANCESTOR_DEPTH = 6;
+    public const ANCESTOR_DEPTH = 2;
 
-    public const DESCENDANT_DEPTH = 4;
+    public const DESCENDANT_DEPTH = 2;
 
     /** Guard on expand(), so a request can't ask for a runaway recursive CTE. */
     public const MAX_EXPAND_LEVELS = 12;
