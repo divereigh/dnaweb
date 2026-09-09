@@ -13,15 +13,10 @@ const props = defineProps({
 
 const chartContainer = ref(null);
 
-// The server hands us a whole neighbourhood (6 generations up, 4 down, plus
-// siblings and spouses) — several hundred people for a well-researched line.
-// Drawing all of it at once is unreadable, so the page opens on the Ancestry
-// "family view" shape: the focus, their spouses, and one generation of
-// parents. Everything else is behind a per-card arrow, and nothing is fetched
-// again when one is clicked — the data is already here, we only decide what
-// the layout is allowed to see.
+// The page opens on the Ancestry "family view" shape — the focus, their
+// spouses, and one generation of parents — and grows only where asked, from
+// three arrows on the cards:
 //
-// Three sets/flags below are the whole of that state:
 //   expandedParentIds   — people whose parents are drawn (▴ above the card)
 //   expandedChildrenIds — people whose children are drawn (▾ below the card)
 //   showSiblings        — siblings of the *main* person (▸ beside the card)
@@ -29,30 +24,130 @@ const chartContainer = ref(null);
 // Parents and children are per-person because fan-out is per-person: opening
 // one branch must never widen the rest of the tree. Siblings are a single
 // flag because family-chart only ever renders siblings of the main card.
+//
+// The controller hands us a read-ahead buffer (six generations up, four down)
+// rather than a limit: an arrow whose relatives aren't in it fetches them from
+// people.tree.expand and merges them in, so the tree has no fixed depth and
+// walking up past the sixth generation is just more clicking.
 const INITIAL_ANCESTOR_LEVELS = 1;
 
 const expandedParentIds = new Set();
 const expandedChildrenIds = new Set();
 let showSiblings = false;
 
-// The header's generation counter mirrors expandedParentIds, which is a plain
-// Set because the d3 callbacks that read it don't want reactivity.
-const ancestorLevels = ref(INITIAL_ANCESTOR_LEVELS);
+// Header state. The three above are plain Sets/flags because the d3 callbacks
+// that read them don't want reactivity; these are the read-outs.
+const ancestorLevels = ref(0);
+const canDeepen = ref(true);
+const peopleHeld = ref(0);
+const loading = ref(false);
+const loadError = ref('');
 
-const byId = new Map(props.tree.people.map((p) => [p.id, p]));
-const relsOf = (id) => byId.get(id)?.rels ?? { parents: [], children: [], spouses: [] };
+// f3's own data array. We push into it as more of the tree arrives, so the
+// chart keeps drawing from the same array it was created with.
+const data = [];
+const byId = new Map();
+
+// The server sends each person's *complete* relations. What f3 is allowed to
+// see is the subset naming people we actually hold (`datum.rels`, rewritten in
+// ingest); this map keeps the full lists, which is what the arrows count and
+// what tells us whether clicking one needs a fetch first.
+const rawRels = new Map();
+
+const held = (id) => byId.has(id);
+const relsOf = (id) => rawRels.get(id) ?? { parents: [], children: [], spouses: [] };
 
 let chart = null;
 
-// The header lives outside the chart; onMounted fills these in once the two
+// The header lives outside the chart; onMounted fills these in once the
 // bulk controls have a chart to act on.
 let stepAncestors = () => {};
 let resetView = () => {};
 
 /**
+ * Merge a batch of people into the chart's data. Returns how many were new;
+ * people we already hold are left as the same object, since f3's tree nodes
+ * point at them, and only their relations are refreshed.
+ */
+function ingest(datums) {
+    let added = 0;
+    for (const d of datums) {
+        rawRels.set(d.id, {
+            parents: d.rels?.parents ?? [],
+            children: d.rels?.children ?? [],
+            spouses: d.rels?.spouses ?? [],
+        });
+        if (!byId.has(d.id)) {
+            byId.set(d.id, d);
+            data.push(d);
+            added++;
+        }
+    }
+    // Re-narrow everyone's rels to people we hold. f3 dereferences a spouse id
+    // without checking it resolves (setupSpouses), so a dangling one is a
+    // crash rather than a gap — and a dangling parent or child would quietly
+    // distort the layout.
+    for (const d of data) {
+        const raw = rawRels.get(d.id);
+        d.rels = {
+            parents: raw.parents.filter(held),
+            children: raw.children.filter(held),
+            spouses: raw.spouses.filter(held),
+        };
+    }
+    peopleHeld.value = data.length;
+
+    return added;
+}
+
+async function fetchExpand(id, rel, levels = 1) {
+    loading.value = true;
+    loadError.value = '';
+    try {
+        const url = new URL(route('people.tree.expand', id), window.location.origin);
+        url.searchParams.set('rel', rel);
+        if (levels > 1) {
+            url.searchParams.set('levels', String(levels));
+        }
+        const res = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+
+        return ingest((await res.json()).people ?? []);
+    } catch (e) {
+        loadError.value = 'Could not load more of the tree';
+
+        return 0;
+    } finally {
+        loading.value = false;
+    }
+}
+
+/** Fetch whatever `rel` needs, if we don't already hold all of it. */
+async function ensureLoaded(rel, id) {
+    if (rel === 'siblings') {
+        // Siblings are found through the parents, so they have to come first.
+        await ensureLoaded('parents', id);
+        if ([...siblingIdsOf(id)].every(held)) {
+            return;
+        }
+        await fetchExpand(id, 'siblings');
+
+        return;
+    }
+    if (relsOf(id)[rel].every(held)) {
+        return;
+    }
+    await fetchExpand(id, rel);
+}
+
+/**
  * Ids of everyone whose parents must be open for `levels` generations of
- * ancestors to be visible above `id`. Walks the payload rather than the
- * rendered tree so it works before the first draw.
+ * ancestors to be visible above `id`.
  */
 function ancestorsWithin(id, levels) {
     const out = new Set();
@@ -83,25 +178,50 @@ function openAncestorLevels(id) {
     let levels = 0;
     const seen = new Set();
     let frontier = [id];
-    for (let gen = 0; gen < props.tree.ancestor_depth && frontier.length; gen++) {
+    while (frontier.length) {
         const next = [];
-        let anyOpen = false;
         for (const pid of frontier) {
             if (seen.has(pid) || !expandedParentIds.has(pid)) {
                 continue;
             }
             seen.add(pid);
-            anyOpen = true;
             next.push(...relsOf(pid).parents);
         }
-        if (!anyOpen) {
+        if (!next.length) {
             break;
         }
-        levels = gen + 1;
+        levels++;
         frontier = next;
     }
 
     return levels;
+}
+
+/** True while some card above `id` still has parents left to open. */
+function canDeepenAncestors(id) {
+    const seen = new Set();
+    let frontier = [id];
+    while (frontier.length) {
+        const next = [];
+        for (const pid of frontier) {
+            if (seen.has(pid)) {
+                continue;
+            }
+            seen.add(pid);
+            const parents = relsOf(pid).parents;
+            if (!expandedParentIds.has(pid)) {
+                if (parents.length) {
+                    return true;
+                }
+
+                continue;
+            }
+            next.push(...parents);
+        }
+        frontier = next;
+    }
+
+    return false;
 }
 
 /** Everyone sharing at least one parent with `id`, half-siblings included. */
@@ -136,6 +256,7 @@ function pruneCollapsed(node, expanded) {
 
 onMounted(() => {
     const mainId = () => chart.store.getMainId();
+    let busy = false;
 
     // family-chart hangs siblings off the main person's parent row and throws
     // outright if that row isn't drawn, so the two are coupled: asking for
@@ -148,34 +269,54 @@ onMounted(() => {
         chart.setShowSiblingsOfMain(showSiblings);
     }
 
-    function redraw() {
+    // 'inherit' leaves the viewport exactly where it was, which is what an
+    // expand arrow wants — refitting on every click makes a branch hard to
+    // follow, since the thing you just opened jumps somewhere else. The bulk
+    // controls and re-centring do refit, because there the whole picture
+    // changed and there is nothing to keep your place in.
+    function redraw(tree_position = 'fit') {
         syncSiblings();
         ancestorLevels.value = openAncestorLevels(mainId());
-        chart.store.updateTree({});
+        canDeepen.value = canDeepenAncestors(mainId());
+        chart.store.updateTree({ tree_position });
     }
 
-    function applyAncestorLevels(n) {
-        const levels = Math.max(0, Math.min(props.tree.ancestor_depth, n));
-        expandedParentIds.clear();
-        for (const id of ancestorsWithin(mainId(), levels)) {
-            expandedParentIds.add(id);
+    async function applyAncestorLevels(n) {
+        if (busy) {
+            return;
         }
-        redraw();
+        busy = true;
+        try {
+            const levels = Math.max(0, n);
+            if (levels > 0) {
+                await fetchExpand(mainId(), 'parents', levels);
+            }
+            expandedParentIds.clear();
+            for (const id of ancestorsWithin(mainId(), levels)) {
+                expandedParentIds.add(id);
+            }
+            redraw('fit');
+        } finally {
+            busy = false;
+        }
     }
 
     /** Back to the shape the page opened with, around whoever is main now. */
-    function resetAround(id) {
+    async function resetAround(id) {
         expandedChildrenIds.clear();
-        showSiblings = false;
         expandedParentIds.clear();
+        showSiblings = false;
+        await ensureLoaded('parents', id);
         for (const pid of ancestorsWithin(id, INITIAL_ANCESTOR_LEVELS)) {
             expandedParentIds.add(pid);
         }
-        redraw();
+        redraw('fit');
     }
 
+    ingest(props.tree.people);
+
     chart = f3
-        .createChart(chartContainer.value, props.tree.people)
+        .createChart(chartContainer.value, data)
         .setTransitionTime(300)
         .setCardXSpacing(260)
         .setCardYSpacing(150)
@@ -183,28 +324,38 @@ onMounted(() => {
         .setShowSiblingsOfMain(false)
         .setDuplicateBranchToggle(true)
         .setSingleParentEmptyCard(false, { label: '' })
-        // Depth is enforced by the pruning below, not by f3 — leave its own
-        // limit at the full extent of what the server sent.
-        .setAncestryDepth(props.tree.ancestor_depth)
+        // No setAncestryDepth/setProgenyDepth: with data arriving on demand
+        // there is no ceiling to enforce, and the pruning below already
+        // decides what the layout may see.
         .setModifyTreeHierarchy((root, is_ancestry) => {
             pruneCollapsed(root, is_ancestry ? expandedParentIds : expandedChildrenIds);
         });
 
-    function toggle(set, id) {
-        if (set.has(id)) {
-            set.delete(id);
-        } else {
-            set.add(id);
+    async function toggleRel(rel, id) {
+        if (busy) {
+            return;
         }
-        redraw();
-    }
-
-    function toggleSiblings() {
-        showSiblings = !showSiblings;
-        if (showSiblings) {
-            expandedParentIds.add(mainId()); // siblings need the parent row
+        busy = true;
+        try {
+            if (rel === 'siblings') {
+                if (!showSiblings) {
+                    await ensureLoaded('siblings', id);
+                    expandedParentIds.add(id); // siblings need the parent row
+                }
+                showSiblings = !showSiblings;
+            } else {
+                const set = rel === 'parents' ? expandedParentIds : expandedChildrenIds;
+                if (set.has(id)) {
+                    set.delete(id);
+                } else {
+                    await ensureLoaded(rel, id);
+                    set.add(id);
+                }
+            }
+            redraw('inherit');
+        } finally {
+            busy = false;
         }
-        redraw();
     }
 
     function handleCardClick(e, d) {
@@ -212,14 +363,7 @@ onMounted(() => {
         if (toggleEl) {
             e.preventDefault();
             e.stopPropagation();
-            const id = toggleEl.dataset.relId;
-            if (toggleEl.dataset.rel === 'parents') {
-                toggle(expandedParentIds, id);
-            } else if (toggleEl.dataset.rel === 'children') {
-                toggle(expandedChildrenIds, id);
-            } else {
-                toggleSiblings();
-            }
+            toggleRel(toggleEl.dataset.rel, toggleEl.dataset.relId);
 
             return;
         }
@@ -231,12 +375,18 @@ onMounted(() => {
 
             return;
         }
+        if (busy) {
+            return;
+        }
         // Re-centring lands on the same shape the page opened with, so moving
         // around the tree doesn't drag whatever was expanded on the way there
         // along with it — a branch opened four generations up is rarely what
         // you want hanging off the person you just clicked.
+        busy = true;
         chart.store.updateMainId(d.data.id);
-        resetAround(d.data.id);
+        resetAround(d.data.id).finally(() => {
+            busy = false;
+        });
     }
 
     // Runs after f3 renders each card's default HTML; we append arrows rather
@@ -254,11 +404,11 @@ onMounted(() => {
             return;
         }
         const id = d.data.id;
-        const rels = d.data.rels || {};
+        const raw = relsOf(id);
         const isMain = !!d.data.main;
 
         // Parents hang off the ancestry side, which the main card roots.
-        if ((d.is_ancestry || isMain) && (rels.parents || []).length) {
+        if ((d.is_ancestry || isMain) && raw.parents.length) {
             const open = expandedParentIds.has(id);
             cardEl.appendChild(relToggle({
                 rel: 'parents',
@@ -266,12 +416,12 @@ onMounted(() => {
                 side: 'up',
                 open,
                 glyph: open ? '▾' : '▴',
-                title: open ? 'Hide parents' : `Show parents (${rels.parents.length})`,
+                title: open ? 'Hide parents' : `Show parents (${raw.parents.length})`,
             }));
         }
 
         // ...and children off the progeny side, which it also roots.
-        if (!d.is_ancestry && (rels.children || []).length) {
+        if (!d.is_ancestry && raw.children.length) {
             const open = expandedChildrenIds.has(id);
             cardEl.appendChild(relToggle({
                 rel: 'children',
@@ -279,21 +429,23 @@ onMounted(() => {
                 side: 'down',
                 open,
                 glyph: open ? '▴' : '▾',
-                title: open ? 'Hide children' : `Show children (${rels.children.length})`,
+                title: open ? 'Hide children' : `Show children (${raw.children.length})`,
             }));
         }
 
-        // Siblings are only ever drawn for the main person.
-        if (isMain) {
-            const count = siblingIdsOf(id).size;
-            if (count) {
+        // Siblings are only ever drawn for the main person. Their number is
+        // only known once we hold the parents — until then the arrow says
+        // there may be some rather than pretending to a count.
+        if (isMain && raw.parents.length) {
+            const count = raw.parents.every(held) ? siblingIdsOf(id).size : null;
+            if (count === null || count > 0) {
                 cardEl.appendChild(relToggle({
                     rel: 'siblings',
                     id,
                     side: 'side',
                     open: showSiblings,
                     glyph: showSiblings ? '◂' : '▸',
-                    title: showSiblings ? 'Hide siblings' : `Show siblings (${count})`,
+                    title: showSiblings ? 'Hide siblings' : (count === null ? 'Show siblings' : `Show siblings (${count})`),
                 }));
             }
         }
@@ -331,6 +483,7 @@ onMounted(() => {
         expandedParentIds.add(id);
     }
     ancestorLevels.value = openAncestorLevels(props.tree.focus_id);
+    canDeepen.value = canDeepenAncestors(props.tree.focus_id);
     chart.updateTree({ initial: true });
 
     stepAncestors = applyAncestorLevels;
@@ -346,22 +499,24 @@ onMounted(() => {
                 compact
                 :title="person.display_label"
                 :eyebrow="`Person #${person.id} · family tree`"
-                :subtitle="`${tree.people.length} people available · ▴ parents · ▾ children · ▸ siblings · click a card to re-centre · ctrl-click for details`"
+                :subtitle="`${peopleHeld} people loaded · ▴ parents · ▾ children · ▸ siblings · click a card to re-centre · ctrl-click for details`"
             >
                 <template #actions>
+                    <span v-if="loadError" class="text-xs text-wine-600">{{ loadError }}</span>
+                    <span v-else-if="loading" class="text-xs text-sepia-500">Loading…</span>
                     <div class="flex items-center gap-1 rounded-md border border-paper-300 bg-paper-50 px-2 py-1 text-xs text-sepia-500">
                         <span>Ancestors</span>
                         <button
                             type="button"
                             class="flex h-5 w-5 items-center justify-center rounded text-ink-400 transition-colors hover:bg-paper-200 hover:text-ink-600 disabled:opacity-35 disabled:hover:bg-transparent"
-                            :disabled="ancestorLevels <= 0"
+                            :disabled="ancestorLevels <= 0 || loading"
                             @click="stepAncestors(ancestorLevels - 1)"
                         >−</button>
-                        <span class="w-8 text-center tabular-nums text-ink-500">{{ ancestorLevels }}/{{ tree.ancestor_depth }}</span>
+                        <span class="w-6 text-center tabular-nums text-ink-500">{{ ancestorLevels }}</span>
                         <button
                             type="button"
                             class="flex h-5 w-5 items-center justify-center rounded text-ink-400 transition-colors hover:bg-paper-200 hover:text-ink-600 disabled:opacity-35 disabled:hover:bg-transparent"
-                            :disabled="ancestorLevels >= tree.ancestor_depth"
+                            :disabled="!canDeepen || loading"
                             @click="stepAncestors(ancestorLevels + 1)"
                         >+</button>
                     </div>

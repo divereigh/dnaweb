@@ -32,6 +32,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/people', [PeopleController::class, 'index'])->name('people.index');
     Route::get('/person/{id}', [PersonController::class, 'show'])->name('people.show');
     Route::get('/person/{id}/tree', [PersonTreeController::class, 'show'])->name('people.tree');
+    Route::get('/person/{id}/tree/expand', [PersonTreeController::class, 'expand'])->name('people.tree.expand');
 
     Route::get('/dna', [DnaController::class, 'index'])->name('dna.index');
     Route::get('/dna/{id}/matches', [DnaMatchesController::class, 'index'])->name('dna.matches');

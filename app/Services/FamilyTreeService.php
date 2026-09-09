@@ -7,9 +7,18 @@ use Illuminate\Support\Facades\DB;
 
 class FamilyTreeService
 {
+    /**
+     * How much of the neighbourhood the page is handed up front. The tree
+     * opens on the focus and one generation of parents, so this is a
+     * read-ahead buffer rather than a limit — anything past it is fetched by
+     * expand() when a card's arrow is clicked. See resources/js/Pages/People/Tree.vue.
+     */
     public const ANCESTOR_DEPTH = 6;
 
     public const DESCENDANT_DEPTH = 4;
+
+    /** Guard on expand(), so a request can't ask for a runaway recursive CTE. */
+    public const MAX_EXPAND_LEVELS = 12;
 
     /**
      * Build an Ancestry-style "Family View" neighbourhood around a focus:
@@ -51,65 +60,123 @@ class FamilyTreeService
             $ids[$id] = true;
         }
 
-        $rows = $this->fetchPeople(array_keys($ids));
-        $byId = [];
-        foreach ($rows as $r) {
-            $byId[(int) $r->id] = $r;
-        }
-
-        $scope = array_flip(array_keys($byId));
-        $rels = []; // id => [parents, children, spouses]
-        foreach ($byId as $id => $r) {
-            $rels[$id] = [
-                'parents' => [],
-                'children' => [],
-                'spouses' => [],
-            ];
-        }
-
-        // parents (filtered to scope)
-        foreach ($byId as $id => $r) {
-            $f = $r->father ? (int) $r->father : null;
-            $m = $r->mother ? (int) $r->mother : null;
-            if ($f && isset($scope[$f])) {
-                $rels[$id]['parents'][] = $f;
-                $rels[$f]['children'][] = $id;
-            }
-            if ($m && isset($scope[$m])) {
-                $rels[$id]['parents'][] = $m;
-                $rels[$m]['children'][] = $id;
-            }
-        }
-
-        // spouses: for each person, the other parent of each of their children
-        foreach ($rels as $pid => &$r) {
-            $seen = [];
-            foreach ($r['children'] as $cid) {
-                foreach ($rels[$cid]['parents'] as $parentId) {
-                    if ($parentId === $pid) {
-                        continue;
-                    }
-                    if (! isset($seen[$parentId])) {
-                        $seen[$parentId] = true;
-                        $r['spouses'][] = $parentId;
-                    }
-                }
-            }
-        }
-        unset($r);
-
-        $people = [];
-        foreach ($byId as $id => $row) {
-            $people[] = $this->datumPayload($id, $row, $rels[$id]);
-        }
-
         return [
             'focus_id' => (string) $focusId,
             'focus' => $this->focusPayload($focus),
-            'people' => $people,
+            'people' => $this->payloadFor(array_keys($ids)),
             'ancestor_depth' => self::ANCESTOR_DEPTH,
             'descendant_depth' => self::DESCENDANT_DEPTH,
         ];
+    }
+
+    /**
+     * The people one step beyond what the page already holds, in the given
+     * direction from $personId. The client merges these into its own copy of
+     * the data; it knows what it has, so we don't try to work that out here
+     * and simply return the whole step, already-held people included.
+     *
+     * Spouses of the new people come along, because f3 dereferences a spouse
+     * id without checking it resolves — a rels entry naming someone the client
+     * doesn't hold is a crash, not a gap.
+     *
+     * @return array{people: array<int, array>}
+     */
+    public function expand(int $personId, string $rel, int $levels = 1): array
+    {
+        $levels = max(1, min(self::MAX_EXPAND_LEVELS, $levels));
+
+        $newIds = match ($rel) {
+            'parents' => $this->ancestorIds($personId, $levels),
+            'children' => $this->descendantIds($personId, $levels),
+            'siblings' => $this->siblingIdsOf($personId),
+            default => [],
+        };
+        if (! $newIds) {
+            return ['people' => []];
+        }
+
+        return ['people' => $this->payloadFor([...$newIds, ...$this->coParentIds($newIds)])];
+    }
+
+    /**
+     * f3 datums for exactly these people, each carrying its *complete*
+     * relations — including relatives outside the set. That is deliberate:
+     * the counts on the expand arrows come from these lists, so a card can
+     * say "4 children" before any of the four have been fetched. The client
+     * filters them down to what it holds before handing them to f3.
+     *
+     * @param  int[]  $ids
+     */
+    private function payloadFor(array $ids): array
+    {
+        if (! $ids) {
+            return [];
+        }
+        $rows = $this->fetchPeople($ids);
+        $ids = array_map(fn ($r) => (int) $r->id, $rows);
+        $descending = $this->childrenAndSpouses($ids);
+
+        $people = [];
+        foreach ($rows as $row) {
+            $id = (int) $row->id;
+            $parents = [];
+            if ($row->father) {
+                $parents[] = (int) $row->father;
+            }
+            if ($row->mother) {
+                $parents[] = (int) $row->mother;
+            }
+            $people[] = $this->datumPayload($id, $row, [
+                'parents' => $parents,
+                'children' => $descending[$id]['children'] ?? [],
+                'spouses' => $descending[$id]['spouses'] ?? [],
+            ]);
+        }
+
+        return $people;
+    }
+
+    /**
+     * Everyone's children, and the co-parent of each of those children — one
+     * pass over the rows that name any of $ids as a parent. Both lists are
+     * unrestricted: a child or spouse outside $ids is still reported.
+     *
+     * @param  int[]  $ids
+     * @return array<int, array{children: int[], spouses: int[]}>
+     */
+    private function childrenAndSpouses(array $ids): array
+    {
+        $ids = array_values(array_unique($ids));
+        if (! $ids) {
+            return [];
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $rows = DB::select("
+            SELECT id, father, mother FROM people
+            WHERE father IN ($placeholders) OR mother IN ($placeholders)
+        ", [...$ids, ...$ids]);
+
+        $wanted = array_flip($ids);
+        $out = [];
+        foreach ($rows as $r) {
+            $child = (int) $r->id;
+            $f = $r->father ? (int) $r->father : 0;
+            $m = $r->mother ? (int) $r->mother : 0;
+            foreach ([[$f, $m], [$m, $f]] as [$parent, $other]) {
+                if (! $parent || ! isset($wanted[$parent])) {
+                    continue;
+                }
+                $out[$parent]['children'][$child] = true;
+                if ($other) {
+                    $out[$parent]['spouses'][$other] = true;
+                }
+            }
+        }
+
+        return array_map(fn ($r) => [
+            'children' => array_keys($r['children'] ?? []),
+            'spouses' => array_keys($r['spouses'] ?? []),
+        ], $out);
     }
 
     /** @return int[] */
@@ -128,6 +195,17 @@ class FamilyTreeService
         ', [$focusId, $fatherId, $fatherId, $motherId, $motherId]);
 
         return array_map(fn ($r) => (int) $r->id, $rows);
+    }
+
+    /** siblingIds() for someone whose parents we haven't already looked up. */
+    private function siblingIdsOf(int $personId): array
+    {
+        $row = DB::selectOne('SELECT father, mother FROM people WHERE id = ?', [$personId]);
+        if (! $row) {
+            return [];
+        }
+
+        return $this->siblingIds($personId, (int) ($row->father ?? 0), (int) ($row->mother ?? 0));
     }
 
     /** @return int[] — focus's lineage only (no aunts/uncles). */
@@ -179,6 +257,7 @@ class FamilyTreeService
      */
     private function coParentIds(array $ids): array
     {
+        $ids = array_values(array_unique($ids));
         if (! $ids) {
             return [];
         }
@@ -192,9 +271,15 @@ class FamilyTreeService
         return array_map(fn ($r) => (int) $r->id, $rows);
     }
 
-    /** @param int[] $ids */
+    /**
+     * @param  int[]  $ids  — normalised to a list here, and in the other two
+     *                      helpers that inline an IN clause: PDO binds
+     *                      positionally, so the gappy array array_unique()
+     *                      leaves behind is an "Invalid parameter number".
+     */
     private function fetchPeople(array $ids): array
     {
+        $ids = array_values(array_unique($ids));
         if (! $ids) {
             return [];
         }
