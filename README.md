@@ -230,6 +230,30 @@ Note `dna_matches2` is the current matches table — directional, two rows per p
 `sample1` is the viewer and carries that viewer's `matchClusterCode` / `predictedKinships`. The
 older `dna_matches` is legacy and unused by this app.
 
+### Kits disabled in Ancestry (`dna_samples.disabled = 1`)
+
+`disabled` means Ancestry has taken the kit away: it can no longer be queried and no more data
+will ever arrive for it. It does **not** mean the kit is gone from here. Everything already
+loaded about it stays valid, stays listed on every other sample's match page, and its own
+`/dna/{id}/matches` and `/dna/{id}/origins` pages render normally.
+
+What changes is only the "ask Ancestry for more" half:
+
+- `DnaSampleService::get()` returns the row (it used to filter `disabled = 0`, which 404'd the
+  page while the same sample stayed listed everywhere else) and sets `disabled` plus
+  `has_session = false` — a disabled kit can never be a compare from-side, whatever `managed`
+  still says.
+- `loadingStatus()` short-circuits to state `disabled`. Without it the page spins forever: the
+  eyes that matched the kit are still live, so their never-queued pairs read as outstanding work
+  that `v_pending_match2match` (which joins `disabled = 0` at *both* ends) will never surface.
+- Both matches and origins skip the on-view enqueue, hide the RELOAD / Re-check button, and
+  refuse the requeue POST with a 403. `requeueAll()` also joins the target on `disabled = 0` as
+  a backstop.
+- The page carries a banner saying the data may be incomplete; search results badge the row.
+
+App-owned edits — notes, person records, tree membership — stay available, since none of them
+talk to Ancestry at read time.
+
 ### ParentSide, and the p1 / p2 override
 
 A match's ParentSide pill is not a stored label — it is derived. `dna_matches2.matchClusterCode`

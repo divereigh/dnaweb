@@ -34,7 +34,10 @@ class OriginsController extends Controller
         // Same reasoning as DnaMatchesController::index.
         $isPartial = $request->header('X-Inertia-Partial-Data') !== null;
 
-        if (! $isPartial) {
+        // Nothing is ever fetched for a kit Ancestry has disabled —
+        // v_origins_eye drops it, so status()['loadable'] is false and
+        // the page renders whatever was stored before it went away.
+        if (! $isPartial && ! $sample['disabled']) {
             $this->origins->enqueue($id);
         }
 
@@ -56,7 +59,12 @@ class OriginsController extends Controller
      */
     public function requeue(int $id)
     {
-        abort_unless($this->samples->get($id), 404, 'DNA sample not found');
+        $sample = $this->samples->get($id);
+        abort_unless($sample, 404, 'DNA sample not found');
+        // Same rule as the matches page: a disabled kit cannot be asked
+        // again, so clearing originsLoaded would only throw away the
+        // record of which eyes had been tried.
+        abort_if($sample['disabled'], 403, 'This kit is disabled in Ancestry; nothing more can be loaded.');
         $this->origins->requeueAll($id);
 
         return back();

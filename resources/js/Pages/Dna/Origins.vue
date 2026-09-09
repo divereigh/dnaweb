@@ -38,9 +38,17 @@ const maxPercent = computed(() =>
 
 const hiddenPercent = computed(() => Math.max(0, 100 - props.status.stored_percent));
 
-// The four states the page can be in. Kept as one computed so the
+// Disabled in Ancestry: the kit is gone as a source, so whatever was
+// stored before that is all there will ever be. v_origins_eye already
+// drops it, which is why `loadable` is false and the Re-check button
+// below never renders — but "disabled" and "nobody matches it" want
+// different words, so it gets its own state.
+const sampleDisabled = computed(() => !!props.sample?.disabled);
+
+// The states the page can be in. Kept as one computed so the
 // template never has to re-derive the precedence between them.
 const state = computed(() => {
+    if (sampleDisabled.value) return 'disabled';
     if (!props.status.loadable) return 'unloadable';
     if (props.status.queued) return 'loading';
     if (props.status.stored_percent >= 100) return 'complete';
@@ -169,7 +177,12 @@ function recheck() {
             </div>
 
             <p class="mt-2.5 text-sm text-sepia-500">
-                <template v-if="state === 'unloadable'">
+                <template v-if="state === 'disabled'">
+                    This kit has been disabled in Ancestry. What is shown is whatever had
+                    already been loaded before that happened, and it may be incomplete —
+                    nothing more can be fetched.
+                </template>
+                <template v-else-if="state === 'unloadable'">
                     None of your kits match this sample, so Ancestry will not show its
                     ethnicity to you.
                 </template>
@@ -208,6 +221,9 @@ function recheck() {
 
             <div v-if="!regions.length" class="empty-cell">
                 <template v-if="state === 'loading'">Waiting for the first result…</template>
+                <template v-else-if="state === 'disabled'">
+                    Nothing was loaded before this kit was disabled in Ancestry.
+                </template>
                 <template v-else-if="state === 'unloadable'">Nothing to show.</template>
                 <template v-else>
                     Ancestry returned no ethnicity for this kit — its results may be

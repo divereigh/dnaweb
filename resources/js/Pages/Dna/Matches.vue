@@ -254,7 +254,14 @@ function forceReload() {
 //   partial    — settled, but some eyes failed permanently
 //   complete   — every eye loaded
 //   unloadable — no eye with a live session can see this sample
+//   disabled   — Ancestry has disabled this kit; nothing more will ever
+//                be loaded about it, so what is here is all there is
 const loadState = computed(() => props.loading_status?.state ?? 'complete');
+
+// Disabled in Ancestry. The page still renders everything already
+// loaded — the kit is gone as a source, not as a record — but nothing
+// that asks Ancestry for more is offered.
+const sampleDisabled = computed(() => !!props.sample?.disabled);
 
 // Poll while there is outstanding work, whether or not a worker is
 // picking it up — `queued` is the case where someone restarts the
@@ -460,6 +467,22 @@ function closeEdit() {
                         </svg>
                         {{ loading_status.eyes_failed }} of {{ loading_status.eyes_total }} unavailable
                     </span>
+                    <!--
+                      Disabled in Ancestry: a different thing from
+                      "not loadable right now" — this one never becomes
+                      loadable again, so it gets its own badge rather
+                      than the grey "Not loadable" one.
+                    -->
+                    <span
+                        v-if="loadState === 'disabled'"
+                        class="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800"
+                        :title="loading_status.message"
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1zm3 8V5.5a3 3 0 1 0-6 0V9h6z" clip-rule="evenodd" />
+                        </svg>
+                        Disabled in Ancestry
+                    </span>
                     <!-- No eye with a live session can fetch this kit at all. -->
                     <span
                         v-if="loadState === 'unloadable'"
@@ -471,8 +494,13 @@ function closeEdit() {
                         </svg>
                         Not loadable
                     </span>
+                    <!--
+                      RELOAD is a request to Ancestry, so it is not
+                      offered for a kit Ancestry has disabled — the
+                      controller refuses the POST for the same reason.
+                    -->
                     <button
-                        v-if="loadState !== 'loading'"
+                        v-if="loadState !== 'loading' && !sampleDisabled"
                         type="button"
                         :disabled="requeuing"
                         @click="forceReload"
@@ -575,6 +603,26 @@ function closeEdit() {
                 </template>
             </PageHeader>
         </template>
+
+        <!--
+          The kit is gone from Ancestry, but everything already fetched
+          about it is still here and still true as of when it was
+          fetched. Say both halves: the data stands, and it stops here.
+        -->
+        <div
+            v-if="sampleDisabled"
+            class="mb-4 flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+            <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.63-1.516 2.63H3.72c-1.347 0-2.19-1.463-1.516-2.63L8.485 2.495zM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd" />
+            </svg>
+            <p>
+                <strong class="font-semibold">This kit has been disabled in Ancestry.</strong>
+                Everything below is what had already been loaded before that happened — it may be
+                incomplete, and no more of it can be fetched. Notes, people and tree membership
+                can still be edited here.
+            </p>
+        </div>
 
         <div v-if="eye_matches.length" class="card mb-4 overflow-hidden">
             <button

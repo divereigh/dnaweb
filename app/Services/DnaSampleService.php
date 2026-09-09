@@ -41,6 +41,7 @@ class DnaSampleService
               admin.userUUID AS admin_userUUID,
               s.createdDate,
               s.managed,
+              s.disabled,
               '.$this->eyeSet->sqlIn('s.id').' AS is_eye,
               p.id AS person_id,
               p.fullName AS person_name,
@@ -54,8 +55,11 @@ class DnaSampleService
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
-            WHERE s.disabled = 0
-              AND (
+            -- Disabled kits are included deliberately. They stay listed
+            -- on the match page of every other sample and their own
+            -- matches page still renders, so hiding them here just made
+            -- them unfindable by name; the row is badged instead.
+            WHERE (
                   MATCH(s.displayName)          AGAINST (? IN BOOLEAN MODE)
                OR MATCH(s.displayName_phonetic) AGAINST (? IN BOOLEAN MODE)
                OR MATCH(p.fullName)             AGAINST (? IN BOOLEAN MODE)
@@ -70,6 +74,7 @@ class DnaSampleService
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
+            $row['disabled'] = (bool) ($row['disabled'] ?? false);
 
             return $row;
         }, $rows);
@@ -94,14 +99,25 @@ class DnaSampleService
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
-            WHERE s.id = ? AND s.disabled = 0
+            WHERE s.id = ?
         ', [$sampleId]);
 
         if (! $row) {
             return null;
         }
         $r = (array) $row;
-        $r['has_session'] = $r['managed'] !== null;
+        // Deliberately NOT filtered on s.disabled. A kit Ancestry has
+        // disabled is gone as a *source* of new data, but everything
+        // already loaded about it stays valid and stays browsable —
+        // filtering here 404'd its matches page while the same sample
+        // was still listed on every other sample's page. Callers that
+        // queue work check this flag instead; see the disabled
+        // short-circuit in loadingStatus() and requeueAll().
+        $r['disabled'] = (bool) $r['disabled'];
+        // has_session asks "can Ancestry still be reached through this
+        // kit" — for a disabled kit the answer is no whatever `managed`
+        // says, so the compare links that depend on it stay hidden.
+        $r['has_session'] = $r['managed'] !== null && ! $r['disabled'];
         $r['display_label'] = Format::displayLabel($r['person_name'] ?? null, $r['displayName'] ?? null);
         $r['created_fmt'] = Format::createdDate($r['createdDate'] ?? null);
         $r['effective_gender'] = Format::effectiveGender($r['person_gender'] ?? null, $r['gender'] ?? null);
@@ -341,9 +357,37 @@ class DnaSampleService
      *   partial    everything settled, but some eyes failed permanently
      *   complete   every eye loaded
      *   unloadable no eye with a live session can see this sample
+     *   disabled   Ancestry has disabled the kit; nothing can ever be
+     *              fetched about it again
      */
     public function loadingStatus(int $sampleId): array
     {
+        // A kit disabled in Ancestry can never be loaded again, from any
+        // eye — v_pending_match2match drops it, so the workers will never
+        // claim a pair naming it. The counts below would look perfectly
+        // healthy (the eyes that matched it are still live kits; it is
+        // the *target* that is gone), the never-queued pairs would read
+        // as outstanding work, and the page would sit on "Loading…"
+        // forever. Answer the real question up front instead.
+        $disabled = DB::selectOne('SELECT disabled FROM dna_samples WHERE id = ?', [$sampleId]);
+        if ($disabled && (int) $disabled->disabled === 1) {
+            return [
+                'state' => 'disabled',
+                'message' => 'This kit has been disabled in Ancestry, so no more of its data can '
+                    .'be fetched. What is shown is whatever had already been loaded, and it may '
+                    .'be incomplete.',
+                'eyes_total' => 0,
+                'eyes_done' => 0,
+                'eyes_failed' => 0,
+                'outstanding' => 0,
+                'running' => 0,
+                'worker_alive' => true,
+                'worker_seconds_ago' => null,
+                'retry_in' => null,
+                'reasons' => [],
+            ];
+        }
+
         // Every eye that could fetch this sample, with whatever queue
         // row it actually has. Same managed/enabled/session predicate
         // the workers claim on, so "eyes_total" counts only eyes a
@@ -562,11 +606,19 @@ class DnaSampleService
         // still happen, which is the session question. An eye that has
         // lost its session stays visible in the UI but must not have
         // work queued against it.
+        //
+        // The `oth` join is the same question asked of the other end:
+        // a kit Ancestry has disabled can never be re-read either, and
+        // v_pending_match2match drops it, so rows revived here would
+        // stay pending forever. The page hides RELOAD for such a kit
+        // and the controller refuses the POST; this is the backstop.
         return DB::update("
             UPDATE dna_match2match_loaded l
               JOIN dna_samples m ON m.id = l.mgmtsample
                                 AND m.disabled = 0
                                 AND m.managed IS NOT NULL
+              JOIN dna_samples o ON o.id = l.othsample
+                                AND o.disabled = 0
               JOIN session     s ON s.id = m.managed
                SET l.status        = 'pending',
                    l.lastPage      = NULL,
@@ -589,6 +641,10 @@ class DnaSampleService
      * the queue at web priority (10). Called when a user navigates to
      * /dna/{id}/matches so the worker starts on those pairs first.
      * Done/abandoned pairs are left alone — use requeueAll for those.
+     *
+     * Already a no-op for a kit disabled in Ancestry: the view joins
+     * dna_samples on disabled = 0 at both ends, so there is nothing to
+     * enqueue. Callers skip it anyway rather than relying on that.
      */
     public function enqueueForSample(int $sampleId): void
     {

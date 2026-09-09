@@ -16,7 +16,10 @@ class PersonController extends Controller
 
     public function upsertForSample(UpsertPersonRequest $request, int $sampleId): RedirectResponse
     {
-        $sample = DnaSample::query()->where('id', $sampleId)->where('disabled', 0)->first();
+        // Existence only — a kit disabled in Ancestry still shows on
+        // /dna/{id}/matches, and the person record it points at is our
+        // data, not Ancestry's. Nothing here talks to Ancestry.
+        $sample = DnaSample::query()->where('id', $sampleId)->first();
         abort_unless($sample, 404, 'DNA sample not found');
 
         $data = $request->validated();

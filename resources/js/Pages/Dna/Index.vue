@@ -109,6 +109,15 @@ function go(page) {
                             <span class="font-mono text-[11px] text-sepia-400"
                                 >#{{ s.id }}</span
                             >
+                            <!-- Disabled in Ancestry: still browsable
+                                 here, but frozen at whatever was loaded
+                                 before it went away. -->
+                            <span
+                                v-if="s.disabled"
+                                class="rounded border border-amber-300 bg-amber-50 px-1 py-px text-[10px] font-medium text-amber-800"
+                                title="Disabled in Ancestry — no more data can be loaded for this kit"
+                                >disabled</span
+                            >
                             </div>
                         </td>
                         <td>

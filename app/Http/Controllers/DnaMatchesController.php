@@ -28,7 +28,13 @@ class DnaMatchesController extends Controller
      */
     public function requeue(int $id)
     {
-        abort_unless($this->service->get($id), 404, 'DNA sample not found');
+        $sample = $this->service->get($id);
+        abort_unless($sample, 404, 'DNA sample not found');
+        // Disabled in Ancestry: the kit is gone as a source, so there is
+        // nothing to re-fetch and the queue rows would never be claimed.
+        // The button is hidden client-side; refuse here too so a stale
+        // page (or a hand-rolled POST) can't put work on the queue.
+        abort_if($sample['disabled'], 403, 'This kit is disabled in Ancestry; nothing more can be loaded.');
         $this->service->requeueAll($id);
         $this->service->enqueueForSample($id);
 
@@ -56,11 +62,15 @@ class DnaMatchesController extends Controller
         // `loading_status` doesn't re-fetch matches/eye_matches.
         $isPartial = $request->header('X-Inertia-Partial-Data') !== null;
 
-        if (! $isPartial) {
+        if (! $isPartial && ! $sample['disabled']) {
             // Visiting this page is what tells the queue "someone cares
             // about this sample". Idempotent at priority=10 — but doing
             // the v_pending_match2match scan once per poll was burning
             // ~350ms of DB work per 10s tick.
+            //
+            // Skipped entirely for a kit Ancestry has disabled: it can
+            // never be loaded again, so the page is read-only history
+            // and the scan would find nothing anyway.
             $this->service->enqueueForSample($id);
         }
 
