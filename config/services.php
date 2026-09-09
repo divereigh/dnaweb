@@ -39,7 +39,7 @@ return [
     // Same host as the Laravel app; on dev the host port is SSH-tunneled
     // back to production's 127.0.0.1:8082.
     'perl_api' => [
-        'url'     => env('PERL_API_URL', 'http://127.0.0.1:8082'),
+        'url' => env('PERL_API_URL', 'http://127.0.0.1:8082'),
         'timeout' => (int) env('PERL_API_TIMEOUT', 15),
     ],
 

@@ -27,7 +27,7 @@ class DnaSampleService
         // FT MATCH needs a non-empty BOOLEAN expression on each side;
         // when one side has no usable tokens substitute a sentinel that
         // matches nothing so the SQL stays uniform.
-        $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+        $lex = $lex !== '' ? $lex : '+__never_matches__';
         $phon = $phon !== '' ? $phon : '+__never_matches__';
 
         $rows = DB::select('
@@ -41,7 +41,7 @@ class DnaSampleService
               admin.userUUID AS admin_userUUID,
               s.createdDate,
               s.managed,
-              ' . $this->eyeSet->sqlIn('s.id') . ' AS is_eye,
+              '.$this->eyeSet->sqlIn('s.id').' AS is_eye,
               p.id AS person_id,
               p.fullName AS person_name,
               p.gender AS person_gender,
@@ -70,6 +70,7 @@ class DnaSampleService
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
+
             return $row;
         }, $rows);
     }
@@ -79,9 +80,9 @@ class DnaSampleService
         $row = DB::selectOne('
             SELECT
               s.id, s.dnaUUID, s.displayName, s.gender, s.createdDate, s.managed, s.disabled,
-              ' . $this->eyeSet->sqlIn('s.id') . ' AS is_eye,
+              '.$this->eyeSet->sqlIn('s.id').' AS is_eye,
               s.photoUrl,
-              ' . Sql::effectivePaternalCluster('s') . ',
+              '.Sql::effectivePaternalCluster('s').',
               s.userUUID,
               admin.userUUID AS admin_userUUID,
               p.id AS person_id,
@@ -96,7 +97,7 @@ class DnaSampleService
             WHERE s.id = ? AND s.disabled = 0
         ', [$sampleId]);
 
-        if (!$row) {
+        if (! $row) {
             return null;
         }
         $r = (array) $row;
@@ -104,6 +105,7 @@ class DnaSampleService
         $r['display_label'] = Format::displayLabel($r['person_name'] ?? null, $r['displayName'] ?? null);
         $r['created_fmt'] = Format::createdDate($r['createdDate'] ?? null);
         $r['effective_gender'] = Format::effectiveGender($r['person_gender'] ?? null, $r['gender'] ?? null);
+
         return $r;
     }
 
@@ -141,6 +143,7 @@ class DnaSampleService
             if (! $patKnown) {
                 return [" AND {$alias}.parentSide = 'PATERNAL'", []];
             }
+
             return [
                 " AND ({$alias}.parentSide = 'PATERNAL' OR ({$notAuthoritative} AND {$alias}.matchClusterCode = ?))",
                 [$pat],
@@ -151,11 +154,13 @@ class DnaSampleService
                 return [" AND {$alias}.parentSide = 'MATERNAL'", []];
             }
             $other = $pat === 'p1' ? 'p2' : 'p1';
+
             return [
                 " AND ({$alias}.parentSide = 'MATERNAL' OR ({$notAuthoritative} AND {$alias}.matchClusterCode = ?))",
                 [$other],
             ];
         }
+
         return ['', []];
     }
 
@@ -166,8 +171,8 @@ class DnaSampleService
      * trees. Both are self-contained EXISTS keyed on m.sample2 so they
      * work in count and list without a people join.
      *
-     * @param array<int> $includeIds
-     * @param array<int> $excludeIds
+     * @param  array<int>  $includeIds
+     * @param  array<int>  $excludeIds
      * @return array{0:string,1:array} [sqlFragment, binds]
      */
     private function treeFilter(array $includeIds, array $excludeIds): array
@@ -200,6 +205,7 @@ class DnaSampleService
                 $bind[] = $id;
             }
         }
+
         return [$sql, $bind];
     }
 
@@ -224,8 +230,8 @@ class DnaSampleService
         ', [$sampleId]);
 
         return array_map(fn ($r) => [
-            'id'     => (int) $r->id,
-            'name'   => $r->name,
+            'id' => (int) $r->id,
+            'name' => $r->name,
             'letter' => mb_strtoupper(mb_substr((string) $r->name, 0, 1)),
             'colour' => $r->colour,
         ], $rows);
@@ -268,7 +274,7 @@ class DnaSampleService
             if ($lex === '' && $phon === '') {
                 return 0;
             }
-            $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+            $lex = $lex !== '' ? $lex : '+__never_matches__';
             $phon = $phon !== '' ? $phon : '+__never_matches__';
             $searchJoin = '
                 JOIN dna_samples s ON s.id = m.sample2
@@ -298,9 +304,9 @@ class DnaSampleService
         $row = DB::selectOne('
             SELECT COUNT(*) AS c
             FROM dna_matches2 m
-            ' . $eyeJoin . $povJoin . $searchJoin . '
-            WHERE m.sample1 = ?' . $searchWhere . $sideWhere . $treeWhere
-        , $bind);
+            '.$eyeJoin.$povJoin.$searchJoin.'
+            WHERE m.sample1 = ?'.$searchWhere.$sideWhere.$treeWhere, $bind);
+
         return (int) ($row?->c ?? 0);
     }
 
@@ -366,15 +372,15 @@ class DnaSampleService
         ', [$sampleId]);
 
         $eyesTotal = (int) ($t?->eyes_total ?? 0);
-        $done      = (int) ($t?->done ?? 0);
-        $running   = (int) ($t?->running ?? 0);
-        $pending   = (int) ($t?->pending ?? 0);
+        $done = (int) ($t?->done ?? 0);
+        $running = (int) ($t?->running ?? 0);
+        $pending = (int) ($t?->pending ?? 0);
         $abandoned = (int) ($t?->abandoned ?? 0);
-        $unqueued  = (int) ($t?->unqueued ?? 0);
-        $dueNow    = (int) ($t?->due_now ?? 0);
+        $unqueued = (int) ($t?->unqueued ?? 0);
+        $dueNow = (int) ($t?->due_now ?? 0);
         $outstanding = $pending + $unqueued;
 
-        $worker      = $this->workerStatus('match2match');
+        $worker = $this->workerStatus('match2match');
         $workerAlive = $worker['alive'];
 
         // Why the permanent failures failed. load-dna.pl classifies at
@@ -403,17 +409,17 @@ class DnaSampleService
         );
 
         return [
-            'state'        => $state,
-            'message'      => $message,
-            'eyes_total'   => $eyesTotal,
-            'eyes_done'    => $done,
-            'eyes_failed'  => $abandoned,
-            'outstanding'  => $outstanding,
-            'running'      => $running,
+            'state' => $state,
+            'message' => $message,
+            'eyes_total' => $eyesTotal,
+            'eyes_done' => $done,
+            'eyes_failed' => $abandoned,
+            'outstanding' => $outstanding,
+            'running' => $running,
             'worker_alive' => $workerAlive,
             'worker_seconds_ago' => $worker['seconds_ago'],
-            'retry_in'     => $retryIn,
-            'reasons'      => $reasons,
+            'retry_in' => $retryIn,
+            'reasons' => $reasons,
         ];
     }
 
@@ -432,7 +438,7 @@ class DnaSampleService
         if ($eyesTotal === 0) {
             return ['unloadable',
                 'No managed kit with an active Ancestry session matches this sample, '
-                . 'so its shared matches cannot be fetched.'];
+                .'so its shared matches cannot be fetched.'];
         }
 
         if ($running > 0) {
@@ -450,6 +456,7 @@ class DnaSampleService
                 return ['queued', sprintf('Waiting to retry after a failure — next attempt in %s.',
                     self::humanSeconds($retryIn))];
             }
+
             return ['loading', 'Loading shared matches…'];
         }
 
@@ -469,10 +476,10 @@ class DnaSampleService
     {
         $eyes = $abandoned === 1 ? '1 eye' : "$abandoned eyes";
         $why = [
-            'gone'      => 'the match is no longer available on Ancestry (kit deleted or made private)',
+            'gone' => 'the match is no longer available on Ancestry (kit deleted or made private)',
             'nosession' => 'that kit\'s Ancestry session has expired',
-            'noaccess'  => 'that kit cannot see this sample',
-            'skip'      => 'there was nothing to load',
+            'noaccess' => 'that kit cannot see this sample',
+            'skip' => 'there was nothing to load',
             'transient' => 'the request kept failing',
         ];
 
@@ -480,14 +487,16 @@ class DnaSampleService
         // better named than enumerated.
         if (count($reasons) === 1) {
             $class = array_key_first($reasons);
+
             return sprintf('Shared matches could not be loaded through %s: %s.',
                 $eyes, $why[$class] ?? 'the load failed');
         }
 
         $parts = [];
         foreach ($reasons as $class => $n) {
-            $parts[] = $n . ' — ' . ($why[$class] ?? 'the load failed');
+            $parts[] = $n.' — '.($why[$class] ?? 'the load failed');
         }
+
         return sprintf('Shared matches could not be loaded through %s (%s).',
             $eyes, implode('; ', $parts));
     }
@@ -495,10 +504,11 @@ class DnaSampleService
     private static function humanSeconds(int $s): string
     {
         if ($s < 60) {
-            return $s . ' second' . ($s === 1 ? '' : 's');
+            return $s.' second'.($s === 1 ? '' : 's');
         }
         $m = (int) round($s / 60);
-        return $m . ' minute' . ($m === 1 ? '' : 's');
+
+        return $m.' minute'.($m === 1 ? '' : 's');
     }
 
     /**
@@ -525,7 +535,7 @@ class DnaSampleService
         }
 
         return [
-            'alive'       => (int) ($row?->alive ?? 0) > 0,
+            'alive' => (int) ($row?->alive ?? 0) > 0,
             'seconds_ago' => $row?->seconds_ago === null ? null : (int) $row->seconds_ago,
         ];
     }
@@ -593,13 +603,13 @@ class DnaSampleService
             WHERE othsample = ? AND status = ?
         ', [$sampleId, 'pending']);
 
-        if (!$pairs) {
+        if (! $pairs) {
             return;
         }
 
         $sql = 'INSERT INTO dna_match2match_loaded
                     (mgmtsample, othsample, status, enqueued_at, priority)
-                VALUES ' . implode(',', array_fill(0, count($pairs), '(?, ?, ?, NOW(), ?)')) . '
+                VALUES '.implode(',', array_fill(0, count($pairs), '(?, ?, ?, NOW(), ?)')).'
                 ON DUPLICATE KEY UPDATE
                     priority    = LEAST(priority, VALUES(priority)),
                     enqueued_at = COALESCE(enqueued_at, VALUES(enqueued_at))';
@@ -638,12 +648,12 @@ class DnaSampleService
               s.dnaUUID AS other_uuid,
               s.displayName AS other_name,
               s.managed AS other_managed,
-              ' . $this->eyeSet->sqlIn('s.id') . ' AS other_is_eye,
+              '.$this->eyeSet->sqlIn('s.id').' AS other_is_eye,
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
               s.userUUID AS other_userUUID,
-              ' . Sql::effectivePaternalCluster('s') . ',
+              '.Sql::effectivePaternalCluster('s').',
               admin.userUUID AS other_admin_userUUID,
               p.id AS person_id,
               p.fullName AS person_name,
@@ -656,7 +666,7 @@ class DnaSampleService
               m.ignored
             FROM dna_matches2 m
             JOIN dna_samples s ON s.id = m.sample2
-              AND ' . $this->eyeSet->sqlIn('s.id') . '
+              AND '.$this->eyeSet->sqlIn('s.id').'
               AND s.disabled = 0
             LEFT JOIN dna_matches2 pov ON pov.sample1 = m.sample2 AND pov.sample2 = ?
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
@@ -672,11 +682,13 @@ class DnaSampleService
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
+
             return $row;
         }, $rows);
 
         $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
         $this->origins->decorateIcons($rows, 'other_id');
+
         return $rows;
     }
 
@@ -738,7 +750,7 @@ class DnaSampleService
             if ($lex === '' && $phon === '') {
                 return [];
             }
-            $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+            $lex = $lex !== '' ? $lex : '+__never_matches__';
             $phon = $phon !== '' ? $phon : '+__never_matches__';
             $searchWhere = ' AND (
                 MATCH(s.displayName)          AGAINST (? IN BOOLEAN MODE)
@@ -770,7 +782,7 @@ class DnaSampleService
               s.dnaUUID AS other_uuid,
               s.displayName AS other_name,
               s.managed AS other_managed,
-              ' . $this->eyeSet->sqlIn('s.id') . ' AS other_is_eye,
+              '.$this->eyeSet->sqlIn('s.id').' AS other_is_eye,
               s.gender AS other_gender,
               s.createdDate AS other_createdDate,
               s.photoUrl AS other_photoUrl,
@@ -785,19 +797,19 @@ class DnaSampleService
               m.sharedCentimorgans,
               m.numSharedSegments,
               m.meiosis,
-              ' . $povCols . ',
+              '.$povCols.',
               m.predictedKinships,
               m.assignment,
               m.ignored,
               m.dnapath,
-              ' . $noteCol . '
+              '.$noteCol.'
             FROM dna_matches2 m
-            ' . $eyeJoin . $povJoin . '
+            '.$eyeJoin.$povJoin.'
             JOIN dna_samples s ON s.id = m.sample2
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
-            ' . $notesJoin . '
-            WHERE m.sample1 = ?' . $searchWhere . $sideWhere . $treeWhere . '
+            '.$notesJoin.'
+            WHERE m.sample1 = ?'.$searchWhere.$sideWhere.$treeWhere.'
             ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
             LIMIT ? OFFSET ?
         ', $bind);
@@ -809,12 +821,14 @@ class DnaSampleService
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['other_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['other_gender'] ?? null);
+
             return $row;
         }, $rows);
 
         $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
         $this->attachTrees($rows);
         $this->origins->decorateIcons($rows, 'other_id');
+
         return $rows;
     }
 
@@ -823,7 +837,7 @@ class DnaSampleService
      * as a `trees` array of {id, name, letter, colour}. Rows with no
      * person, or whose person is in no tree, get [].
      *
-     * @param array<int,array<string,mixed>> $rows
+     * @param  array<int,array<string,mixed>>  $rows
      */
     private function attachTrees(array &$rows): void
     {
@@ -854,6 +868,7 @@ class DnaSampleService
         if (! $personId) {
             return [];
         }
+
         return $this->treesForPeople([$personId])[$personId] ?? [];
     }
 
@@ -862,7 +877,7 @@ class DnaSampleService
      * for every supplied person. Shared by the match-row decoration and
      * the title-sample lookup.
      *
-     * @param array<int> $personIds
+     * @param  array<int>  $personIds
      * @return array<int,array<int,array<string,mixed>>>
      */
     private function treesForPeople(array $personIds): array
@@ -885,12 +900,13 @@ class DnaSampleService
         $byPerson = [];
         foreach ($links as $l) {
             $byPerson[(int) $l->person_id][] = [
-                'id'     => (int) $l->tree_id,
-                'name'   => $l->name,
+                'id' => (int) $l->tree_id,
+                'name' => $l->name,
                 'letter' => mb_strtoupper(mb_substr((string) $l->name, 0, 1)),
                 'colour' => $l->colour,
             ];
         }
+
         return $byPerson;
     }
 }

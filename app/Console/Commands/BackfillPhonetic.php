@@ -9,12 +9,14 @@ use Illuminate\Support\Facades\DB;
 class BackfillPhonetic extends Command
 {
     protected $signature = 'dna:backfill-phonetic {--where-null : only update rows still missing phonetic}';
+
     protected $description = 'Populate dna_samples.displayName_phonetic and people.fullName_phonetic from PhoneticEncoder.';
 
     public function handle(): int
     {
         $this->fill('dna_samples', 'id', 'displayName', 'displayName_phonetic');
-        $this->fill('people',      'id', 'fullName',    'fullName_phonetic');
+        $this->fill('people', 'id', 'fullName', 'fullName_phonetic');
+
         return 0;
     }
 
@@ -30,10 +32,12 @@ class BackfillPhonetic extends Command
         $whereNull = (bool) $this->option('where-null');
 
         $countSql = "SELECT COUNT(*) AS c FROM $table"
-                  . ($whereNull ? " WHERE $phonCol IS NULL" : '');
+                  .($whereNull ? " WHERE $phonCol IS NULL" : '');
         $total = (int) DB::selectOne($countSql)->c;
         $this->info("$table.$phonCol: $total rows to update");
-        if ($total === 0) return;
+        if ($total === 0) {
+            return;
+        }
 
         $bar = $this->output->createProgressBar($total);
         $bar->start();
@@ -42,12 +46,14 @@ class BackfillPhonetic extends Command
         $last = 0;
         while (true) {
             $sql = "SELECT $pk, $col FROM $table"
-                 . ($whereNull
+                 .($whereNull
                     ? " WHERE $phonCol IS NULL AND $pk > ?"
                     : " WHERE $pk > ?")
-                 . " ORDER BY $pk LIMIT $batchSize";
+                 ." ORDER BY $pk LIMIT $batchSize";
             $rows = DB::select($sql, [$last]);
-            if (!$rows) break;
+            if (! $rows) {
+                break;
+            }
 
             DB::transaction(function () use ($rows, $table, $pk, $col, $phonCol, &$last, $bar) {
                 foreach ($rows as $r) {

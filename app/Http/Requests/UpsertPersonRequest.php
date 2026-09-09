@@ -10,10 +10,10 @@ class UpsertPersonRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fullName'     => ['required', 'string', 'max:100'],
-            'birth'        => ['nullable', 'string', 'regex:/^\d{4}(\s*-\s*\d{4})?$/'],
-            'death'        => ['nullable', 'integer', 'between:1500,2100'],
-            'gender'       => ['nullable', 'in:M,F,U'],
+            'fullName' => ['required', 'string', 'max:100'],
+            'birth' => ['nullable', 'string', 'regex:/^\d{4}(\s*-\s*\d{4})?$/'],
+            'death' => ['nullable', 'integer', 'between:1500,2100'],
+            'gender' => ['nullable', 'in:M,F,U'],
             'ancestry_url' => ['nullable', 'string', 'max:500'],
         ];
     }
@@ -32,7 +32,8 @@ class UpsertPersonRequest extends FormRequest
      *   - https://.../family-tree/person/tree/{tree}/person/{person}/...
      *   - {person}:1030:{tree}   (raw ID triple)
      *
-     * @return array{atreeid:int, ancestryid:int}|null  null when blank
+     * @return array{atreeid:int, ancestryid:int}|null null when blank
+     *
      * @throws \InvalidArgumentException when non-blank but doesn't match
      */
     public function ancestryLink(): ?array
@@ -78,9 +79,11 @@ class UpsertPersonRequest extends FormRequest
         }
         if (str_contains($birth, '-')) {
             [$min, $max] = array_map('trim', explode('-', $birth, 2));
+
             return ['minBirth' => (int) $min, 'maxBirth' => (int) $max];
         }
         $y = (int) $birth;
+
         return ['minBirth' => $y, 'maxBirth' => $y];
     }
 }

@@ -41,38 +41,38 @@ class OriginsService
             WHERE sample = ?
         ', [$sampleId]);
 
-        if (!$row) {
+        if (! $row) {
             return [
-                'regions_count'  => 0,
+                'regions_count' => 0,
                 'stored_percent' => 0,
-                'eyes_total'     => 0,
-                'eyes_tried'     => 0,
+                'eyes_total' => 0,
+                'eyes_tried' => 0,
                 'eyes_remaining' => 0,
-                'queue_status'   => '',
-                'attempts'       => 0,
-                'loaded'         => null,
-                'complete'       => true,
-                'queued'         => false,
-                'loadable'       => false,
+                'queue_status' => '',
+                'attempts' => 0,
+                'loaded' => null,
+                'complete' => true,
+                'queued' => false,
+                'loadable' => false,
             ];
         }
 
         return [
-            'regions_count'  => (int) $row->regions,
+            'regions_count' => (int) $row->regions,
             'stored_percent' => (int) $row->storedPercent,
-            'eyes_total'     => (int) $row->eyesTotal,
-            'eyes_tried'     => (int) $row->eyesTried,
+            'eyes_total' => (int) $row->eyesTotal,
+            'eyes_tried' => (int) $row->eyesTried,
             'eyes_remaining' => (int) $row->eyesRemaining,
-            'queue_status'   => (string) $row->queueStatus,
-            'attempts'       => (int) $row->attempts,
-            'loaded'         => $row->loaded,
-            'complete'       => (bool) $row->complete,
-            'queued'         => (bool) $row->queued,
+            'queue_status' => (string) $row->queueStatus,
+            'attempts' => (int) $row->attempts,
+            'loaded' => $row->loaded,
+            'complete' => (bool) $row->complete,
+            'queued' => (bool) $row->queued,
 
             // Is there any point asking? False when nothing can ever
             // fetch this kit (no managed eye matches it), which is a
             // different message to the user than "still loading".
-            'loadable'       => ((int) $row->eyesTotal) > 0,
+            'loadable' => ((int) $row->eyesTotal) > 0,
         ];
     }
 
@@ -94,12 +94,12 @@ class OriginsService
         ', [$sampleId]);
 
         return array_map(fn ($r) => [
-            'region_key'       => $r->regionKey,
-            'region_name'      => $r->regionName,
+            'region_key' => $r->regionKey,
+            'region_name' => $r->regionName,
             'macro_region_key' => $r->macroRegionKey,
-            'macro_region'     => $r->macroRegionName,
-            'percentage'       => (int) $r->percentage,
-            'version'          => (int) $r->version,
+            'macro_region' => $r->macroRegionName,
+            'percentage' => (int) $r->percentage,
+            'version' => (int) $r->version,
         ], $rows);
     }
 
@@ -123,7 +123,7 @@ class OriginsService
      * for this sample"; the two are not distinguishable here, and most
      * samples have never been walked.
      *
-     * @param array<int, array<string, mixed>> $rows
+     * @param  array<int, array<string, mixed>>  $rows
      */
     public function decorateIcons(array &$rows, string $idKey): void
     {
@@ -147,7 +147,7 @@ class OriginsService
                 WHERE o.percentage > 0
                   AND r.icon IS NOT NULL
                   AND r.icon <> ?
-                  AND o.sample IN (' . $in . ')
+                  AND o.sample IN ('.$in.')
                 ORDER BY r.icon, r.regionName
             ', array_merge([''], $ids));
 
@@ -161,7 +161,7 @@ class OriginsService
             foreach ($names as $sample => $byIcon) {
                 foreach ($byIcon as $icon => $regionNames) {
                     $bySample[$sample][] = [
-                        'src'   => '/region-icons/' . $icon,
+                        'src' => '/region-icons/'.$icon,
                         'label' => implode(', ', $regionNames),
                     ];
                 }

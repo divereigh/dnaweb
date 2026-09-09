@@ -11,8 +11,8 @@ class EyeMatchService
     public const ALLOWED_PER_PAGE = [25, 50, 100, 200];
 
     private const SORT_MAP = [
-        'name'    => 'other_name',
-        'cm'      => 'sharedCentimorgans',
+        'name' => 'other_name',
+        'cm' => 'sharedCentimorgans',
         'segments' => 'numSharedSegments',
         'meiosis' => 'meiosis',
         'cluster' => 'matchClusterCode',
@@ -31,7 +31,7 @@ class EyeMatchService
         // written as an OR in the WHERE clause makes the optimiser scan
         // all 2.6M rows of dna_samples.
         $ids = $this->eyeSet->ids();
-        if (!$ids) {
+        if (! $ids) {
             return [];
         }
         $eyes = DB::select('
@@ -47,14 +47,14 @@ class EyeMatchService
               s.managed,
               s.paternalCluster AS paternalCluster_ancestry,
               s.paternalClusterOverride,
-              ' . Sql::effectivePaternalCluster('s') . ',
+              '.Sql::effectivePaternalCluster('s').',
               p.id AS person_id,
               p.fullName AS person_name,
               p.gender AS person_gender
             FROM dna_samples s
             LEFT JOIN people p ON p.dnaSampleId = s.id
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
-            WHERE s.id IN (' . implode(',', $ids) . ')
+            WHERE s.id IN ('.implode(',', $ids).')
               AND s.disabled = 0
             ORDER BY s.displayName, s.id
         ');
@@ -93,6 +93,7 @@ class EyeMatchService
             $row['match_count'] = $agg ? (int) $agg->c : 0;
             $row['cluster_p1_count'] = $agg ? (int) $agg->p1 : 0;
             $row['cluster_p2_count'] = $agg ? (int) $agg->p2 : 0;
+
             return $row;
         }, $eyes);
 
@@ -127,7 +128,7 @@ class EyeMatchService
                   s.displayName AS other_name,
                   s.gender AS other_gender,
                   s.photoUrl AS other_photoUrl,
-                  ' . $this->eyeSet->sqlIn('s.id') . ' AS other_is_eye,
+                  '.$this->eyeSet->sqlIn('s.id').' AS other_is_eye,
                   p.id AS person_id,
                   p.fullName AS person_name,
                   p.gender AS person_gender
@@ -137,7 +138,7 @@ class EyeMatchService
                 WHERE m.sample1 = ?
                   AND m.matchClusterCode = ?
                 ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
-                LIMIT ' . (int) $perCluster . '
+                LIMIT '.(int) $perCluster.'
             ', [$eyeId, $code]));
 
             foreach ($rows as &$row) {
@@ -156,7 +157,7 @@ class EyeMatchService
 
     public function getEye(int $eyeId): ?array
     {
-        if (!$this->eyeSet->contains($eyeId)) {
+        if (! $this->eyeSet->contains($eyeId)) {
             return null;
         }
 
@@ -168,7 +169,7 @@ class EyeMatchService
               s.photoUrl,
               s.managed,
               s.gender,
-              ' . Sql::effectivePaternalCluster('s') . ',
+              '.Sql::effectivePaternalCluster('s').',
               s.userUUID,
               admin.userUUID AS admin_userUUID,
               s.createdDate,
@@ -185,7 +186,7 @@ class EyeMatchService
               AND s.disabled = 0
         ', [$eyeId]);
 
-        if (!$rows) {
+        if (! $rows) {
             return null;
         }
         $row = (array) $rows[0];
@@ -193,6 +194,7 @@ class EyeMatchService
         $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
         $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
         $row['has_session'] = $row['managed'] !== null;
+
         return $row;
     }
 
@@ -200,6 +202,7 @@ class EyeMatchService
     {
         [$sql, $bind] = $this->matchesBaseQuery($eyeId, $search, $hasNotes, $hideIgnored, $onlyEyes, $cluster, withCols: false);
         $count = DB::selectOne("SELECT COUNT(*) AS c FROM ($sql) AS counted", $bind);
+
         return (int) ($count?->c ?? 0);
     }
 
@@ -215,6 +218,7 @@ class EyeMatchService
         $bind[] = $offset;
 
         $rows = array_map(fn ($r) => (array) $r, DB::select($sql, $bind));
+
         return $this->decorateMatchRows($rows, $eyeId);
     }
 
@@ -271,7 +275,7 @@ class EyeMatchService
         ';
 
         $rows = DB::select($sql, [$eyeId, $otherId]);
-        if (!$rows) {
+        if (! $rows) {
             return null;
         }
 
@@ -280,6 +284,7 @@ class EyeMatchService
         $row['other_display_label'] = Format::displayLabel($row['other_person_name'] ?? null, $row['other_name'] ?? null);
         $row['eye_effective_gender'] = Format::effectiveGender($row['eye_person_gender'] ?? null, $row['eye_gender'] ?? null);
         $row['other_effective_gender'] = Format::effectiveGender($row['other_person_gender'] ?? null, $row['other_gender'] ?? null);
+
         return $row;
     }
 
@@ -387,6 +392,7 @@ class EyeMatchService
             // longer fetch through. Nothing can be loaded for the latter
             // until its Ancestry access is restored and managed is reset.
             $row['has_session'] = $row['managed'] !== null;
+
             return $row;
         }, $rows);
     }
@@ -402,6 +408,7 @@ class EyeMatchService
         }
         unset($row);
         $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+
         return $rows;
     }
 }

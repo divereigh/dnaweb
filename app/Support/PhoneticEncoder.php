@@ -38,6 +38,7 @@ class PhoneticEncoder
                 $codes[] = $code;
             }
         }
+
         return implode(' ', $codes);
     }
 
@@ -64,13 +65,16 @@ class PhoneticEncoder
             // doesn't accidentally trigger required-term semantics.
             $safe = preg_replace('/[+\-<>~()@*"\']/u', ' ', mb_strtolower($t));
             $safe = trim($safe);
-            if ($safe === '' || mb_strlen($safe) < 2) continue;
-            $lex[] = '+' . $safe . '*';
+            if ($safe === '' || mb_strlen($safe) < 2) {
+                continue;
+            }
+            $lex[] = '+'.$safe.'*';
             $code = metaphone($safe);
             if ($code !== '') {
-                $codes[] = '+' . $code;
+                $codes[] = '+'.$code;
             }
         }
+
         return [implode(' ', $lex), implode(' ', $codes)];
     }
 }

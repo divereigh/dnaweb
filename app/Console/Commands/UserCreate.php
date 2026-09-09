@@ -5,8 +5,8 @@ namespace App\Console\Commands;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 class UserCreate extends Command
 {
@@ -26,7 +26,7 @@ class UserCreate extends Command
         $update = (bool) $this->option('update');
 
         $emailRule = ['required', 'email', 'max:255'];
-        if (!$update) {
+        if (! $update) {
             $emailRule[] = Rule::unique('users', 'email');
         }
 
@@ -43,6 +43,7 @@ class UserCreate extends Command
             foreach ($v->errors()->all() as $err) {
                 $this->error($err);
             }
+
             return self::FAILURE;
         }
 

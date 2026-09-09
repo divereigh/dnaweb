@@ -16,7 +16,7 @@ class EyeMatchesController extends Controller
         abort_unless($eye, 404, 'Eye not found');
 
         $perPage = (int) ($request->input('per_page') ?: 50);
-        if (!in_array($perPage, EyeMatchService::ALLOWED_PER_PAGE, true)) {
+        if (! in_array($perPage, EyeMatchService::ALLOWED_PER_PAGE, true)) {
             $perPage = 50;
         }
 

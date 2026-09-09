@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class DnaSample extends Model
 {
     protected $table = 'dna_samples';
+
     public $timestamps = false;
 
     protected $casts = [

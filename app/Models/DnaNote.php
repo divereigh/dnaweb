@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class DnaNote extends Model
 {
     protected $table = 'dna_notes';
+
     public $timestamps = false;
+
     protected $primaryKey = null;
+
     public $incrementing = false;
 
     protected $casts = [

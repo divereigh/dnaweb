@@ -32,8 +32,8 @@ class PersonController extends Controller
         $person->fullName = $data['fullName'];
         $person->minBirth = $years['minBirth'];
         $person->maxBirth = $years['maxBirth'];
-        $person->death    = $data['death'] ?? null;
-        $person->gender   = $data['gender'] ?? null;
+        $person->death = $data['death'] ?? null;
+        $person->gender = $data['gender'] ?? null;
 
         // people has UNIQUE(fullName, alt) — bail before MySQL throws a
         // 23000 with a generic 500. Real duplicate handling needs us to

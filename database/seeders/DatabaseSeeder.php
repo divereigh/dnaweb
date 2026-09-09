@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         if (! $email || ! $password) {
             $this->command->warn('ADMIN_EMAIL and ADMIN_PASSWORD must be set in .env to seed the admin user.');
             $this->command->warn('If you just edited .env, run `php artisan config:clear` first.');
+
             return;
         }
 

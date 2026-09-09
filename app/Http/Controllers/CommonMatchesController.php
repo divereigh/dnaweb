@@ -23,7 +23,7 @@ class CommonMatchesController extends Controller
         abort_unless($match, 404, 'Match not found');
 
         $perPage = (int) ($request->input('per_page') ?: 50);
-        if (!in_array($perPage, CommonMatchService::ALLOWED_PER_PAGE, true)) {
+        if (! in_array($perPage, CommonMatchService::ALLOWED_PER_PAGE, true)) {
             $perPage = 50;
         }
 

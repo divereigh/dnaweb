@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 class FamilyTreeService
 {
     public const ANCESTOR_DEPTH = 6;
+
     public const DESCENDANT_DEPTH = 4;
 
     /**
@@ -29,7 +30,7 @@ class FamilyTreeService
                    dnaSampleId, father, mother
             FROM people WHERE id = ?
         ', [$focusId]);
-        if (!$focus) {
+        if (! $focus) {
             return null;
         }
 
@@ -88,7 +89,7 @@ class FamilyTreeService
                     if ($parentId === $pid) {
                         continue;
                     }
-                    if (!isset($seen[$parentId])) {
+                    if (! isset($seen[$parentId])) {
                         $seen[$parentId] = true;
                         $r['spouses'][] = $parentId;
                     }
@@ -114,7 +115,7 @@ class FamilyTreeService
     /** @return int[] */
     private function siblingIds(int $focusId, int $fatherId, int $motherId): array
     {
-        if (!$fatherId && !$motherId) {
+        if (! $fatherId && ! $motherId) {
             return [];
         }
         $rows = DB::select('
@@ -125,6 +126,7 @@ class FamilyTreeService
                 OR (? <> 0 AND mother = ?)
               )
         ', [$focusId, $fatherId, $fatherId, $motherId, $motherId]);
+
         return array_map(fn ($r) => (int) $r->id, $rows);
     }
 
@@ -134,7 +136,7 @@ class FamilyTreeService
         // Seed with the focus row so its father/mother are available
         // to the recursive step; MariaDB forbids mixing UNION & UNION ALL
         // in a recursive CTE, so we carry parent links in each row.
-        $rows = DB::select("
+        $rows = DB::select('
             WITH RECURSIVE anc AS (
                 SELECT id, father, mother, 0 AS gen FROM people WHERE id = ?
                 UNION ALL
@@ -144,14 +146,15 @@ class FamilyTreeService
                 WHERE anc.gen < ?
             )
             SELECT DISTINCT id FROM anc WHERE id <> ?
-        ", [$focusId, $depth, $focusId]);
+        ', [$focusId, $depth, $focusId]);
+
         return array_map(fn ($r) => (int) $r->id, $rows);
     }
 
     /** @return int[] */
     private function descendantIds(int $focusId, int $depth): array
     {
-        $rows = DB::select("
+        $rows = DB::select('
             WITH RECURSIVE des AS (
                 SELECT id, 0 AS gen FROM people WHERE id = ?
                 UNION ALL
@@ -161,7 +164,8 @@ class FamilyTreeService
                 WHERE des.gen < ?
             )
             SELECT DISTINCT id FROM des WHERE id <> ?
-        ", [$focusId, $depth, $focusId]);
+        ', [$focusId, $depth, $focusId]);
+
         return array_map(fn ($r) => (int) $r->id, $rows);
     }
 
@@ -170,12 +174,12 @@ class FamilyTreeService
      * those are their spouses for tree display purposes. We don't
      * cascade beyond one hop; spouses don't bring their own lineage.
      *
-     * @param int[] $ids
+     * @param  int[]  $ids
      * @return int[]
      */
     private function coParentIds(array $ids): array
     {
-        if (!$ids) {
+        if (! $ids) {
             return [];
         }
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
@@ -184,16 +188,18 @@ class FamilyTreeService
             UNION
             SELECT DISTINCT mother AS id FROM people WHERE father IN ($placeholders) AND mother IS NOT NULL
         ", [...$ids, ...$ids]);
+
         return array_map(fn ($r) => (int) $r->id, $rows);
     }
 
     /** @param int[] $ids */
     private function fetchPeople(array $ids): array
     {
-        if (!$ids) {
+        if (! $ids) {
             return [];
         }
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
         return DB::select("
             SELECT id, fullName, gender, minBirth, maxBirth, death,
                    dnaSampleId, father, mother
@@ -205,6 +211,7 @@ class FamilyTreeService
     private function datumPayload(int $id, object $row, array $rels): array
     {
         $gender = $row->gender === 'F' ? 'F' : 'M'; // f3 requires M|F
+
         return [
             'id' => (string) $id,
             'data' => [

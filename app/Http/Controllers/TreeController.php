@@ -16,7 +16,7 @@ class TreeController extends Controller
     public function update(Request $request, int $tree)
     {
         $data = $request->validate([
-            'name'   => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
             'colour' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ]);
 
@@ -45,10 +45,10 @@ class TreeController extends Controller
     public function addPerson(Request $request)
     {
         $data = $request->validate([
-            'tree_id'   => ['nullable', 'integer'],
+            'tree_id' => ['nullable', 'integer'],
             'tree_name' => ['nullable', 'string', 'max:100'],
             'person_id' => ['required', 'integer'],
-            'colour'    => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'colour' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
         ]);
 
         abort_unless(
@@ -102,7 +102,7 @@ class TreeController extends Controller
     public function removePerson(Request $request)
     {
         $data = $request->validate([
-            'tree_id'   => ['required', 'integer'],
+            'tree_id' => ['required', 'integer'],
             'person_id' => ['required', 'integer'],
         ]);
 

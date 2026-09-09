@@ -34,7 +34,7 @@ class OriginsController extends Controller
         // Same reasoning as DnaMatchesController::index.
         $isPartial = $request->header('X-Inertia-Partial-Data') !== null;
 
-        if (!$isPartial) {
+        if (! $isPartial) {
             $this->origins->enqueue($id);
         }
 
@@ -43,7 +43,7 @@ class OriginsController extends Controller
 
             // Closures: a poll asking `only: ['status']` must not drag
             // the region list along with it.
-            'status'  => fn () => $this->origins->status($id),
+            'status' => fn () => $this->origins->status($id),
             'regions' => fn () => $this->origins->regions($id),
         ]);
     }
@@ -58,6 +58,7 @@ class OriginsController extends Controller
     {
         abort_unless($this->samples->get($id), 404, 'DNA sample not found');
         $this->origins->requeueAll($id);
+
         return back();
     }
 }

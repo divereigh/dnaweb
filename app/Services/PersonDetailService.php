@@ -24,7 +24,7 @@ class PersonDetailService
               ds.displayName AS dnaName,
               ds.userUUID,
               ds.managed AS is_managed_sample,
-              ' . $this->eyeSet->sqlIn('ds.id') . ' AS is_eye_sample,
+              '.$this->eyeSet->sqlIn('ds.id').' AS is_eye_sample,
               p.minBirth,
               p.maxBirth,
               p.death,
@@ -51,7 +51,7 @@ class PersonDetailService
             WHERE p.id = ?
         ', [$personId]);
 
-        if (!$rows) {
+        if (! $rows) {
             return null;
         }
         $row = (array) $rows[0];
@@ -69,6 +69,7 @@ class PersonDetailService
         $row['mother_years'] = $row['mother_id']
             ? Format::years($row['mother_minBirth'] ?? null, $row['mother_maxBirth'] ?? null, $row['mother_death'] ?? null)
             : '';
+
         return $row;
     }
 
@@ -105,7 +106,7 @@ class PersonDetailService
         foreach ($rows as $r) {
             $sid = $r->spouse_id;
             $key = $sid ?? 'unknown';
-            if (!isset($spouses[$key])) {
+            if (! isset($spouses[$key])) {
                 $spouses[$key] = [
                     'spouse_id' => $sid,
                     'spouse_display_label' => $sid
@@ -125,6 +126,7 @@ class PersonDetailService
                 'gender' => $r->child_gender,
             ];
         }
+
         return array_values($spouses);
     }
 
@@ -141,6 +143,7 @@ class PersonDetailService
                 $row = (array) $r;
                 $row['display_label'] = Format::displayLabel($row['fullName'] ?? null, $row['dnaName'] ?? null);
                 $row['years'] = Format::years($row['minBirth'] ?? null, $row['maxBirth'] ?? null, $row['death'] ?? null);
+
                 return $row;
             }, $rows);
         };
@@ -148,7 +151,7 @@ class PersonDetailService
         $full = [];
         if ($fatherId && $motherId) {
             $full = $decorate(DB::select(
-                $base . 'WHERE p.id != ? AND p.father = ? AND p.mother = ? ORDER BY p.fullName',
+                $base.'WHERE p.id != ? AND p.father = ? AND p.mother = ? ORDER BY p.fullName',
                 [$personId, $fatherId, $motherId]
             ));
         }
@@ -156,7 +159,7 @@ class PersonDetailService
         $halfFather = [];
         if ($fatherId) {
             $halfFather = $decorate(DB::select(
-                $base . 'WHERE p.id != ? AND p.father = ? AND (p.mother IS NULL OR p.mother != ?) ORDER BY p.fullName',
+                $base.'WHERE p.id != ? AND p.father = ? AND (p.mother IS NULL OR p.mother != ?) ORDER BY p.fullName',
                 [$personId, $fatherId, $motherId ?? 0]
             ));
         }
@@ -164,7 +167,7 @@ class PersonDetailService
         $halfMother = [];
         if ($motherId) {
             $halfMother = $decorate(DB::select(
-                $base . 'WHERE p.id != ? AND p.mother = ? AND (p.father IS NULL OR p.father != ?) ORDER BY p.fullName',
+                $base.'WHERE p.id != ? AND p.mother = ? AND (p.father IS NULL OR p.father != ?) ORDER BY p.fullName',
                 [$personId, $motherId, $fatherId ?? 0]
             ));
         }
@@ -228,6 +231,7 @@ class PersonDetailService
         foreach ($rows as $r) {
             $out[(int) $r->id] = true;
         }
+
         return $out;
     }
 
@@ -249,15 +253,15 @@ class PersonDetailService
     }
 
     /**
-     * @return array|null  null when the dna_sample id is missing from the table
+     * @return array|null null when the dna_sample id is missing from the table
      */
     public function eyeMatches(?int $dnaSampleId): ?array
     {
-        if (!$dnaSampleId) {
+        if (! $dnaSampleId) {
             return [];
         }
         $exists = DB::selectOne('SELECT 1 AS x FROM dna_samples WHERE id = ?', [$dnaSampleId]);
-        if (!$exists) {
+        if (! $exists) {
             return null;
         }
         // dna_matches2 is directional. "Eyes that match this sample" = rows
@@ -272,7 +276,7 @@ class PersonDetailService
               ds_eye.displayName AS eye_name,
               ds_eye.photoUrl AS eye_photoUrl,
               ds_eye.gender AS eye_gender,
-              ' . Sql::effectivePaternalCluster('ds_eye', 'eye_paternalCluster') . ',
+              '.Sql::effectivePaternalCluster('ds_eye', 'eye_paternalCluster').',
               ds_eye.userUUID AS eye_userUUID,
               ds_eye.managed AS eye_managed,
               admin.userUUID AS eye_admin_userUUID,
@@ -288,7 +292,7 @@ class PersonDetailService
             FROM dna_matches2 m
             JOIN dna_samples ds_eye
               ON ds_eye.id = m.sample1
-             AND ' . $this->eyeSet->sqlIn('ds_eye.id') . '
+             AND '.$this->eyeSet->sqlIn('ds_eye.id').'
             LEFT JOIN people p_eye ON p_eye.dnaSampleId = ds_eye.id
             LEFT JOIN dna_samples admin ON admin.id = ds_eye.adminid
             LEFT JOIN dna_notes dn ON dn.sample = ? AND dn.mgmtsample = ds_eye.id
@@ -316,6 +320,7 @@ class PersonDetailService
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['eye_name'] ?? null);
             $row['ignored'] = (bool) ($row['ignored'] ?? false);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['eye_gender'] ?? null);
+
             return $row;
         }, $rows);
 
@@ -323,6 +328,7 @@ class PersonDetailService
         // them up keyed on eye_id; the gender that drives label choice
         // is the focus person's, which is constant per page.
         $this->kinship->decorate($rows, 'eye_id', 'sample2', 'focus_gender');
+
         return $rows;
     }
 }

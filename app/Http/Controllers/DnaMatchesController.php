@@ -7,6 +7,7 @@ use App\Services\EyeMatchService;
 use App\Services\OriginsService;
 use App\Services\PersonDetailService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
 class DnaMatchesController extends Controller
@@ -30,6 +31,7 @@ class DnaMatchesController extends Controller
         abort_unless($this->service->get($id), 404, 'DNA sample not found');
         $this->service->requeueAll($id);
         $this->service->enqueueForSample($id);
+
         return back();
     }
 
@@ -54,7 +56,7 @@ class DnaMatchesController extends Controller
         // `loading_status` doesn't re-fetch matches/eye_matches.
         $isPartial = $request->header('X-Inertia-Partial-Data') !== null;
 
-        if (!$isPartial) {
+        if (! $isPartial) {
             // Visiting this page is what tells the queue "someone cares
             // about this sample". Idempotent at priority=10 — but doing
             // the v_pending_match2match scan once per poll was burning
@@ -100,7 +102,7 @@ class DnaMatchesController extends Controller
         // no notes / cluster. Notes and ParentSide use the same
         // POV eye (one is a row-level note, the other a row-level
         // cluster, both keyed off the same "who's looking" question).
-        $notesEye = $eyeId ?: (!empty($sample['managed']) ? $id : null);
+        $notesEye = $eyeId ?: (! empty($sample['managed']) ? $id : null);
         $povEye = $notesEye;
         // No POV eye → no per-row side data → the dropdown is disabled
         // client-side; mirror that here so a stale ?side= in the URL
@@ -131,7 +133,7 @@ class DnaMatchesController extends Controller
 
         $titlePill = null;
         if ($eyeId && $selectedEye) {
-            $row = \Illuminate\Support\Facades\DB::selectOne(
+            $row = DB::selectOne(
                 'SELECT matchClusterCode, parentSide
                    FROM dna_matches2
                   WHERE sample1 = ? AND sample2 = ?',
@@ -140,8 +142,8 @@ class DnaMatchesController extends Controller
             if ($row && ($row->matchClusterCode || $row->parentSide)) {
                 $titlePill = [
                     'matchClusterCode' => $row->matchClusterCode,
-                    'parentSide'       => $row->parentSide,
-                    'paternalCluster'  => $selectedEye['paternalCluster'] ?? null,
+                    'parentSide' => $row->parentSide,
+                    'paternalCluster' => $selectedEye['paternalCluster'] ?? null,
                 ];
             }
         }
@@ -169,6 +171,7 @@ class DnaMatchesController extends Controller
             if (empty($sample['person_id'])) {
                 return $connectedMemo = [];
             }
+
             return $connectedMemo = $this->persons->connectedPeopleSet((int) $sample['person_id']);
         };
         $annotateConnected = function (array $rows) use ($connected) {
@@ -177,6 +180,7 @@ class DnaMatchesController extends Controller
                 $pid = (int) ($row['person_id'] ?? 0);
                 $row['connected_via_tree'] = $pid > 0 && isset($set[$pid]);
             }
+
             return $rows;
         };
 
@@ -188,26 +192,26 @@ class DnaMatchesController extends Controller
         // === $id, and the lookup just finds nothing in normal use
         // (notes about oneself aren't usually written) — harmless.
         $titleNote = fn () => $notesEye
-            ? optional(\Illuminate\Support\Facades\DB::selectOne(
+            ? optional(DB::selectOne(
                 'SELECT notes FROM dna_notes WHERE sample = ? AND mgmtsample = ?',
                 [$id, $notesEye]
             ))->notes
             : null;
 
         return Inertia::render('Dna/Matches', [
-            'sample'               => $sample,
-            'eye_id'               => $eyeId,
-            'selected_eye'         => $selectedEye,
-            'per_page'             => $pageSize,
-            'filters'              => ['q' => $search, 'side' => $side, 'tin' => $treeInclude, 'tex' => $treeExclude],
-            'side_enabled'         => (bool) $povEye,
-            'tree_options'         => fn () => $this->service->treeOptionsForSample($id),
-            'title_note'           => $titleNote,
-            'notes_eye_id'         => $notesEye,
-            'notes_eye_label'      => $notesEyeLabel,
+            'sample' => $sample,
+            'eye_id' => $eyeId,
+            'selected_eye' => $selectedEye,
+            'per_page' => $pageSize,
+            'filters' => ['q' => $search, 'side' => $side, 'tin' => $treeInclude, 'tex' => $treeExclude],
+            'side_enabled' => (bool) $povEye,
+            'tree_options' => fn () => $this->service->treeOptionsForSample($id),
+            'title_note' => $titleNote,
+            'notes_eye_id' => $notesEye,
+            'notes_eye_label' => $notesEyeLabel,
             'pov_paternal_cluster' => $povPaternalCluster,
-            'title_pill'           => $titlePill,
-            'title_trees'          => fn () => $this->service->treesForPerson(
+            'title_pill' => $titlePill,
+            'title_trees' => fn () => $this->service->treesForPerson(
                 $sample['person_id'] ? (int) $sample['person_id'] : null
             ),
 
@@ -215,15 +219,15 @@ class DnaMatchesController extends Controller
             // when the response includes the corresponding key, so
             // a poll for `loading_status` doesn't re-fetch
             // matches / eye_matches / etc.
-            'matches'             => fn () => $annotateConnected(
+            'matches' => fn () => $annotateConnected(
                 $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $notesEye, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude)
             ),
-            'total'               => fn () => $count(),
-            'pages'               => fn () => max(1, (int) ceil($count() / $pageSize)),
-            'page'                => fn () => $resolvePage(),
-            'eye_matches'         => fn () => $annotateConnected($this->service->listEyeMatches($id)),
-            'loading_status'      => fn () => $this->service->loadingStatus($id),
-            'ancestry_trees'      => fn () => $sample['person_id']
+            'total' => fn () => $count(),
+            'pages' => fn () => max(1, (int) ceil($count() / $pageSize)),
+            'page' => fn () => $resolvePage(),
+            'eye_matches' => fn () => $annotateConnected($this->service->listEyeMatches($id)),
+            'loading_status' => fn () => $this->service->loadingStatus($id),
+            'ancestry_trees' => fn () => $sample['person_id']
                 ? $this->persons->ancestryTrees((int) $sample['person_id'])
                 : [],
         ]);

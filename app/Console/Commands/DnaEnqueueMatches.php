@@ -39,6 +39,7 @@ class DnaEnqueueMatches extends Command
         ));
         $this->info('Workers will process these in priority/age order. Check progress with:');
         $this->line('  journalctl -u "match2match-worker@*" -f');
+
         return self::SUCCESS;
     }
 
@@ -49,6 +50,7 @@ class DnaEnqueueMatches extends Command
             FROM dna_match2match_loaded
             WHERE othsample = ? AND status = ?
         ', [$sampleId, 'pending']);
+
         return (int) ($r?->c ?? 0);
     }
 }

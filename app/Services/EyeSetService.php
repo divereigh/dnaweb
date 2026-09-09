@@ -63,6 +63,6 @@ class EyeSetService
     {
         $ids = $this->ids();
 
-        return $ids ? $column . ' IN (' . implode(',', $ids) . ')' : '0';
+        return $ids ? $column.' IN ('.implode(',', $ids).')' : '0';
     }
 }

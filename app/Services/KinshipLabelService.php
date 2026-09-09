@@ -34,6 +34,7 @@ class KinshipLabelService
                 $this->relMap[$r->nspath][$key] = $r->label ?? '';
             }
         }
+
         return $this->relMap;
     }
 
@@ -49,7 +50,7 @@ class KinshipLabelService
     {
         $map = $this->relationships();
         $entries = $map[$nspath] ?? null;
-        if (!$entries) {
+        if (! $entries) {
             return $nspath;
         }
         $g = strtoupper(trim($effectiveGender));
@@ -60,6 +61,7 @@ class KinshipLabelService
             return $entries['_'];
         }
         $any = reset($entries);
+
         return $any !== false && $any !== '' ? $any : $nspath;
     }
 
@@ -68,12 +70,12 @@ class KinshipLabelService
      * query. Returns a map keyed "sample1:sample2" => list of nspath
      * strings (ordered by the loader's `ordinal`).
      *
-     * @param array<int, array{0:int, 1:int}> $pairs
+     * @param  array<int, array{0:int, 1:int}>  $pairs
      * @return array<string, string[]>
      */
     public function fetchNspaths(array $pairs): array
     {
-        if (!$pairs) {
+        if (! $pairs) {
             return [];
         }
         $tuples = [];
@@ -86,7 +88,7 @@ class KinshipLabelService
         $rows = DB::select(
             'SELECT sample1, sample2, ordinal, nspath
                FROM dna_matches_kinships
-              WHERE (sample1, sample2) IN (' . implode(',', $tuples) . ')
+              WHERE (sample1, sample2) IN ('.implode(',', $tuples).')
               ORDER BY sample1, sample2, ordinal',
             $bind,
         );
@@ -94,6 +96,7 @@ class KinshipLabelService
         foreach ($rows as $r) {
             $out["{$r->sample1}:{$r->sample2}"][] = $r->nspath;
         }
+
         return $out;
     }
 
@@ -103,14 +106,14 @@ class KinshipLabelService
      * Ancestry returned). When no predicted kinships exist for the
      * row, `kinships` is set to an empty array.
      *
-     * @param array<int, array<string, mixed>> $rows
-     * @param string $sample1Field key holding the kinship's sample1 id
-     * @param string $sample2Field key holding the kinship's sample2 id
-     * @param string $genderField  key holding sample2's effective gender
+     * @param  array<int, array<string, mixed>>  $rows
+     * @param  string  $sample1Field  key holding the kinship's sample1 id
+     * @param  string  $sample2Field  key holding the kinship's sample2 id
+     * @param  string  $genderField  key holding sample2's effective gender
      */
     public function decorate(array &$rows, string $sample1Field, string $sample2Field, string $genderField): void
     {
-        if (!$rows) {
+        if (! $rows) {
             return;
         }
         $pairs = [];
@@ -123,7 +126,7 @@ class KinshipLabelService
         }
         $nspathMap = $this->fetchNspaths($pairs);
         foreach ($rows as &$row) {
-            $key = ($row[$sample1Field] ?? 0) . ':' . ($row[$sample2Field] ?? 0);
+            $key = ($row[$sample1Field] ?? 0).':'.($row[$sample2Field] ?? 0);
             $g = (string) ($row[$genderField] ?? '');
             $labels = [];
             foreach ($nspathMap[$key] ?? [] as $nspath) {

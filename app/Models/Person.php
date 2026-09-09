@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 class Person extends Model
 {
     protected $table = 'people';
+
     public $timestamps = false;
 
     // Columns the web app is allowed to write. Loader-managed columns

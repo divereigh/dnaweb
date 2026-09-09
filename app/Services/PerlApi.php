@@ -34,15 +34,18 @@ class PerlApi
             $resp = $this->client()->post('parse-url', ['url' => $url]);
         } catch (\Throwable $e) {
             Log::warning('PerlApi parseUrl failed', ['error' => $e->getMessage()]);
+
             return null;
         }
 
         if ($resp->successful()) {
             $data = $resp->json();
+
             return isset($data['atreeid'], $data['ancestryid'])
                 ? ['atreeid' => (int) $data['atreeid'], 'ancestryid' => (int) $data['ancestryid']]
                 : null;
         }
+
         return null;
     }
 
@@ -53,13 +56,15 @@ class PerlApi
             return $this->client()->get('healthz')->ok();
         } catch (\Throwable $e) {
             Log::warning('PerlApi healthz failed', ['error' => $e->getMessage()]);
+
             return false;
         }
     }
 
     private function client(): PendingRequest
     {
-        $base = rtrim((string) config('services.perl_api.url'), '/') . '/api/perl/';
+        $base = rtrim((string) config('services.perl_api.url'), '/').'/api/perl/';
+
         return Http::baseUrl($base)
             ->acceptJson()
             ->timeout((int) config('services.perl_api.timeout', 15));

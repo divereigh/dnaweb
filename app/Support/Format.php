@@ -6,7 +6,7 @@ class Format
 {
     public static function createdDate(?int $ms): string
     {
-        if (!$ms) {
+        if (! $ms) {
             return '';
         }
         try {
@@ -18,15 +18,16 @@ class Format
 
     public static function years(?int $minBirth, ?int $maxBirth, ?int $death): string
     {
-        if (!$minBirth && !$maxBirth && !$death) {
+        if (! $minBirth && ! $maxBirth && ! $death) {
             return '';
         }
         if ($minBirth && $maxBirth && $minBirth !== $maxBirth) {
-            $birth = $minBirth . '/' . $maxBirth;
+            $birth = $minBirth.'/'.$maxBirth;
         } else {
             $birth = (string) ($minBirth ?: $maxBirth ?: '?');
         }
         $deathStr = $death ? (string) $death : '?';
+
         return "({$birth}-{$deathStr})";
     }
 
@@ -38,6 +39,7 @@ class Format
         if ($dnaName) {
             return "[{$dnaName}]";
         }
+
         return '(UNKNOWN)';
     }
 
@@ -57,6 +59,7 @@ class Format
                 return $g;
             }
         }
+
         return '';
     }
 }

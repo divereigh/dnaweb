@@ -14,6 +14,7 @@ class PeopleSearchService
     {
         [$sql, $bind] = $this->baseQuery($q, $linked, $hasMatches, count: true);
         $row = DB::selectOne($sql, $bind);
+
         return (int) ($row?->c ?? 0);
     }
 
@@ -23,9 +24,9 @@ class PeopleSearchService
 
         $offset = max($page - 1, 0) * $pageSize;
         $sortMap = [
-            'name'  => 'p.fullName ASC, p.alt ASC, p.id ASC',
-            'dna'   => 'ds.displayName ASC, p.fullName ASC, p.id ASC',
-            'eyes'  => 'p.fullName ASC, p.alt ASC, p.id ASC',
+            'name' => 'p.fullName ASC, p.alt ASC, p.id ASC',
+            'dna' => 'ds.displayName ASC, p.fullName ASC, p.id ASC',
+            'eyes' => 'p.fullName ASC, p.alt ASC, p.id ASC',
             'maxcm' => 'p.fullName ASC, p.alt ASC, p.id ASC',
         ];
         $orderBy = $sortMap[$sort] ?? $sortMap['name'];
@@ -34,7 +35,7 @@ class PeopleSearchService
         $bind[] = $offset;
 
         $rows = array_map(fn ($r) => (array) $r, DB::select($sql, $bind));
-        if (!$rows) {
+        if (! $rows) {
             return [];
         }
 
@@ -109,7 +110,7 @@ class PeopleSearchService
                 // filesort is in play). Materialise the matching ids
                 // via UNION instead — each MATCH uses its own FT index
                 // and rows survive the outer sort.
-                $lex  = $lex  !== '' ? $lex  : '+__never_matches__';
+                $lex = $lex !== '' ? $lex : '+__never_matches__';
                 $phon = $phon !== '' ? $phon : '+__never_matches__';
                 $where[] = 'p.id IN (
                     (SELECT p2.id FROM people p2 WHERE MATCH(p2.fullName)          AGAINST (? IN BOOLEAN MODE))
@@ -161,7 +162,8 @@ class PeopleSearchService
             }
         }
 
-        $sql .= ' WHERE ' . implode(' AND ', $where);
+        $sql .= ' WHERE '.implode(' AND ', $where);
+
         return [$sql, $bind];
     }
 }

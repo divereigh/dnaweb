@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 class GedcomPerson extends Model
 {
     protected $table = 'gedcom_people';
+
     public $timestamps = false;
+
     protected $primaryKey = null;
+
     public $incrementing = false;
 
     protected $casts = [

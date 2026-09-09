@@ -44,7 +44,7 @@ class CommonMatchService
               admin.userUUID AS admin_userUUID,
               sx.createdDate,
               sx.managed,
-              ' . $this->eyeSet->sqlIn('sx.id') . ' AS is_eye,
+              '.$this->eyeSet->sqlIn('sx.id').' AS is_eye,
               p.id AS person_id,
               p.fullName AS person_name,
               p.gender AS person_gender,
@@ -76,10 +76,12 @@ class CommonMatchService
             $row['created_fmt'] = Format::createdDate($row['createdDate'] ?? null);
             $row['display_label'] = Format::displayLabel($row['person_name'] ?? null, $row['displayName'] ?? null);
             $row['effective_gender'] = Format::effectiveGender($row['person_gender'] ?? null, $row['gender'] ?? null);
+
             return $row;
         }, $rows);
 
         $this->kinship->decorate($rows, 'sample1', 'other_id', 'effective_gender');
+
         return $rows;
     }
 }
