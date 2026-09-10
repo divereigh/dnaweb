@@ -9,6 +9,7 @@ use App\Services\PersonDetailService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
+use Inertia\ScrollMetadata;
 
 class DnaMatchesController extends Controller
 {
@@ -152,17 +153,6 @@ class DnaMatchesController extends Controller
             }
         }
 
-        // Cache the count per-request — `total`, `pages` and the
-        // page-clamp in `matches` would otherwise call countMatches
-        // three times.
-        $countMemo = null;
-        $count = function () use (&$countMemo, $id, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude) {
-            return $countMemo ??= $this->service->countMatches($id, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude);
-        };
-        $resolvePage = function () use ($count, $page, $pageSize) {
-            return min($page, max(1, (int) ceil($count() / $pageSize)));
-        };
-
         // Set of people.id connected to the title's person via shared
         // ancestry (walk-both). Materialised once on demand; used to
         // annotate each match row with `connected_via_tree` so the
@@ -210,25 +200,49 @@ class DnaMatchesController extends Controller
                 $sample['person_id'] ? (int) $sample['person_id'] : null
             ),
 
-            // Heavy props as closures — Inertia only invokes them
-            // when the response includes the corresponding key, so
-            // a poll for `loading_status` doesn't re-fetch
-            // matches / eye_matches / etc.
-            'matches' => fn () => $annotateConnected(
-                $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude)
-            ),
+            // The infinite-scrolling match list. Inertia::scroll marks
+            // `matches.data` as an append path, so each chunk the client
+            // asks for is merged onto the rows it already has instead of
+            // replacing them; `matchOn` keys that append on the row id,
+            // so a row the loaders shift between two requests can't come
+            // back twice.
+            //
+            // Asking for one row more than a page is how we know whether
+            // a next page exists. That replaced a COUNT over the whole
+            // filtered join — with FULLTEXT and the tree filters in play
+            // it was the second most expensive thing on the page, and it
+            // existed only to render a page count and clamp `page`.
+            // Neither survives the pager.
+            'matches' => Inertia::scroll(
+                function () use ($id, $page, $pageSize, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude, $annotateConnected) {
+                    $rows = $this->service->listMatches($id, $page, $pageSize, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude, extra: 1);
+
+                    return [
+                        'data' => $annotateConnected(array_slice($rows, 0, $pageSize)),
+                        'has_more' => count($rows) > $pageSize,
+                    ];
+                },
+                'data',
+                fn (array $value) => new ScrollMetadata(
+                    'page',
+                    $page > 1 ? $page - 1 : null,
+                    $value['has_more'] ? $page + 1 : null,
+                    $page,
+                ),
+            )->matchOn('data.other_id'),
             // Rows the client asked us to re-read by id, after a write
             // that changed one of them. Lets a note / person / tree edit
             // refresh just the rows it touched instead of reloading the
             // whole `matches` prop, which would throw away the list
             // position the user is sitting at. Empty on a normal load —
             // the client only ever asks for this via a partial reload.
-            'row_patch' => fn () => $annotateConnected(
+            // Optional, not a plain closure: a closure is resolved on
+            // every full load, so this shipped an empty array with each
+            // one. Inertia::optional() means it is only ever evaluated
+            // when a partial reload asks for it by name.
+            'row_patch' => Inertia::optional(fn () => $annotateConnected(
                 $this->service->matchRows($id, (array) $request->input('patch', []), $eyeId, $povEye)
-            ),
-            'total' => fn () => $count(),
-            'pages' => fn () => max(1, (int) ceil($count() / $pageSize)),
-            'page' => fn () => $resolvePage(),
+            )),
             'eye_matches' => fn () => $annotateConnected($this->service->listEyeMatches($id)),
             'loading_status' => fn () => $this->service->loadingStatus($id),
             'ancestry_trees' => fn () => $sample['person_id']

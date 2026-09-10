@@ -748,7 +748,17 @@ class DnaSampleService
         return $rows;
     }
 
-    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, array $treeInclude = [], array $treeExclude = []): array
+    /**
+     * One page of matches.
+     *
+     * `$extra` widens the LIMIT without moving the OFFSET, so a caller
+     * can read one row past the page to learn whether another page
+     * exists. It is a separate argument on purpose: inflating
+     * $pageSize to do the same thing also inflates the offset, which
+     * silently skips one row per page boundary — invisible without a
+     * total to check the arithmetic against.
+     */
+    public function listMatches(int $sampleId, int $page, int $pageSize, ?int $commonWithEye = null, string $search = '', ?int $povEye = null, string $parentSide = '', ?string $povPaternalCluster = null, array $treeInclude = [], array $treeExclude = [], int $extra = 0): array
     {
         $offset = max($page - 1, 0) * $pageSize;
         $bind = [];
@@ -823,7 +833,7 @@ class DnaSampleService
             $bind[] = $b;
         }
 
-        $bind[] = $pageSize;
+        $bind[] = $pageSize + max($extra, 0);
         $bind[] = $offset;
 
         return $this->selectMatchRows(

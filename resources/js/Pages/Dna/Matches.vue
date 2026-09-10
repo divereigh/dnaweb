@@ -1,9 +1,8 @@
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, InfiniteScroll, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
-import Pagination from '@/Components/App/Pagination.vue';
 import ClusterPill from '@/Components/App/ClusterPill.vue';
 import SampleAvatar from '@/Components/App/SampleAvatar.vue';
 import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue';
@@ -17,10 +16,10 @@ import OriginIcons from '@/Components/App/OriginIcons.vue';
 
 const props = defineProps({
     sample: { type: Object, required: true },
-    matches: { type: Array, required: true },
-    page: { type: Number, required: true },
-    pages: { type: Number, required: true },
-    total: { type: Number, required: true },
+    // Scroll envelope: { data: [...rows], has_more: bool }. Inertia
+    // appends each fetched chunk into `data`, so this grows as the
+    // user scrolls rather than being replaced.
+    matches: { type: Object, required: true },
     per_page: { type: Number, required: true },
     eye_matches: { type: Array, required: true },
     eye_id: { type: Number, default: null },
@@ -43,30 +42,56 @@ const props = defineProps({
     row_patch: { type: Array, default: () => [] },
 });
 
-// --- Locally patchable copies of everything a write can change ------
+// --- Local edits, held as overlays over the server's rows -----------
 //
-// Writes on this page answer with `back()`, which is a *full* Inertia
-// visit: it rebuilds every prop, re-running the paged matches query,
-// just to pick up the one row that actually changed. That is wasteful
-// now and outright wrong once the list becomes an infinite scroll,
-// where replacing `matches` throws away every chunk the user has
-// scrolled past.
+// Writes on this page answer with `back()`, a *full* Inertia visit
+// that would rebuild every prop — re-running the whole match query —
+// to pick up the one row that changed. So the writes below submit
+// with a minimal `only:` and record what changed here instead.
 //
-// So the writes below submit with a minimal `only:` and patch these
-// refs in place instead. What the client already knows (note text, a
-// tree's name and colour) is applied directly; what only the server
-// can recompute (a person's display label, kinship labels, a tree
-// created by name) comes back through refreshRows(). Any genuine
-// reload re-seeds all four from the props, which stay authoritative.
-const rows = ref([...props.matches]);
-const titleNote = ref(props.title_note);
-const titleTrees = ref([...(props.title_trees || [])]);
-const treeOptions = ref([...(props.tree_options || [])]);
+// These have to be overlays rather than a mutable copy of the rows,
+// because `matches.data` is an append path: every scroll chunk hands
+// back the accumulated list from the server, which would wash a local
+// edit straight back out. Applying the edit at render time instead
+// means it survives any number of appends, and it also reaches rows
+// that scroll into view later — which matters for a tree rename, where
+// one edit repaints a pill on rows nobody has loaded yet.
+//
+// Both overlays are idempotent: they hold either the user's latest
+// edit or a value the server has already caught up with, so
+// re-applying them over fresh server data is a no-op. They are cleared
+// where we deliberately ask for a clean list (filter/eye change, the
+// RELOAD button, and the reload after the workers drain).
+const rowOverlay = ref({});        // other_id -> partial row (or a whole re-read row)
+const treeOverlay = ref({});       // tree id  -> { name, colour, letter }
+const titleNoteOverlay = ref();    // undefined = no local edit
 
-watch(() => props.matches, (v) => { rows.value = [...(v || [])]; });
-watch(() => props.title_note, (v) => { titleNote.value = v; });
-watch(() => props.title_trees, (v) => { titleTrees.value = [...(v || [])]; });
-watch(() => props.tree_options, (v) => { treeOptions.value = [...(v || [])]; });
+function clearOverlays() {
+    rowOverlay.value = {};
+    treeOverlay.value = {};
+    titleNoteOverlay.value = undefined;
+}
+
+function withTreeOverlay(trees) {
+    if (! trees?.length) return trees;
+    const o = treeOverlay.value;
+    return Object.keys(o).length ? trees.map((t) => (o[t.id] ? { ...t, ...o[t.id] } : t)) : trees;
+}
+
+const rows = computed(() =>
+    (props.matches?.data || []).map((r) => {
+        const patch = rowOverlay.value[r.other_id];
+        const row = patch ? { ...r, ...patch } : r;
+        const trees = withTreeOverlay(row.trees);
+        return trees === row.trees ? row : { ...row, trees };
+    }),
+);
+
+const titleNote = computed(() =>
+    titleNoteOverlay.value !== undefined ? titleNoteOverlay.value : props.title_note,
+);
+const titleTrees = computed(() => withTreeOverlay(props.title_trees || []) || []);
+const treeOptions = computed(() => withTreeOverlay(props.tree_options || []) || []);
 
 // Sample id of the row holding a given person, so a person-keyed edit
 // can name the rows it touched. Null when the person is the title's
@@ -76,10 +101,10 @@ function sampleIdForPerson(personId) {
     return row ? Number(row.other_id) : null;
 }
 
-// Re-read specific rows from the server and merge them in by id. Used
-// for the two writes whose result the client can't derive: a person
-// edit (display label, effective gender, kinship labels are all
-// server-side) and a tree add, which may have created the tree.
+// Re-read specific rows from the server and lay them over the list.
+// Used for the two writes whose result the client can't derive: a
+// person edit (display label, effective gender and kinship labels are
+// all server-side) and a tree add, which may have created the tree.
 // `extraOnly` names any other cheap props that moved with it.
 function refreshRows(sampleIds, extraOnly = []) {
     const ids = [...new Set((sampleIds || []).map(Number).filter(Boolean))];
@@ -91,10 +116,9 @@ function refreshRows(sampleIds, extraOnly = []) {
         preserveScroll: true,
         preserveUrl: true,
         onSuccess: (page) => {
-            const patch = page?.props?.row_patch || [];
-            if (! patch.length) return;
-            const by = new Map(patch.map((r) => [Number(r.other_id), r]));
-            rows.value = rows.value.map((r) => by.get(Number(r.other_id)) || r);
+            for (const r of page?.props?.row_patch || []) {
+                rowOverlay.value[r.other_id] = r;
+            }
         },
     });
 }
@@ -104,27 +128,23 @@ function refreshRows(sampleIds, extraOnly = []) {
 function onNoteSaved({ sampleId, notes }) {
     const text = (notes || '').trim() || null;
     if (Number(sampleId) === Number(props.sample.id)) {
-        titleNote.value = text;
+        titleNoteOverlay.value = text;
+        return;
     }
-    rows.value = rows.value.map((r) =>
-        Number(r.other_id) === Number(sampleId) ? { ...r, note: text } : r,
-    );
+    rowOverlay.value = {
+        ...rowOverlay.value,
+        [sampleId]: { ...(rowOverlay.value[sampleId] || {}), note: text },
+    };
 }
 
 // A tree's name and colour are echoed on every pill that carries it,
 // in the title's tree list and in the Trees filter options. `letter`
 // mirrors DnaSampleService's uppercase-first-character rule.
 function onTreeSaved({ id, name, colour }) {
-    const apply = (t) =>
-        Number(t.id) === Number(id)
-            ? { ...t, name, colour, letter: (name || '?').trim().charAt(0).toUpperCase() || '?' }
-            : t;
-
-    rows.value = rows.value.map((r) =>
-        r.trees?.length ? { ...r, trees: r.trees.map(apply) } : r,
-    );
-    titleTrees.value = titleTrees.value.map(apply);
-    treeOptions.value = treeOptions.value.map(apply);
+    treeOverlay.value = {
+        ...treeOverlay.value,
+        [id]: { name, colour, letter: (name || '?').trim().charAt(0).toUpperCase() || '?' },
+    };
 }
 
 // Adding to a tree can create one (find-or-create by name), so the id
@@ -205,7 +225,7 @@ const managedTrees = computed(() => {
 // `eye_matches` is fixed per title sample, so it's not in ONLY (no
 // need to refetch on search / eye-change). The others all shift
 // when the eye selection changes.
-const ONLY = ['matches', 'page', 'pages', 'total', 'eye_id', 'selected_eye', 'filters', 'pov_paternal_cluster', 'title_pill', 'title_note', 'side_enabled'];
+const ONLY = ['matches', 'eye_id', 'selected_eye', 'filters', 'pov_paternal_cluster', 'title_pill', 'title_note', 'side_enabled'];
 
 function ancestryCompareUrl(otherUuid) {
     if (!props.selected_eye?.dnaUUID || !otherUuid) return null;
@@ -281,8 +301,13 @@ const treeExclude = ref([...(props.filters?.tex ?? [])]);
 // Shared reload — the search box and the ParentSide / Trees dropdowns
 // reset to page 1 and preserve every other active filter.
 function reloadFilters() {
+    clearOverlays();
     router.reload({
         only: ONLY,
+        // A new filter is a new list: `reset` tells Inertia to replace
+        // `matches` outright rather than appending the first chunk of
+        // the new results onto the old ones.
+        reset: ['matches'],
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -315,7 +340,8 @@ watch(() => props.side_enabled, (enabled) => {
 });
 
 function reloadPage() {
-    router.reload({ preserveState: true, preserveScroll: true });
+    clearOverlays();
+    router.reload({ reset: ['matches'], preserveState: true, preserveScroll: true, data: { page: 1 } });
 }
 
 // Force a full requeue of every (eye, this-sample) pair, then nudge
@@ -393,7 +419,8 @@ watch(
             // something — otherwise every first render would fire a
             // second full request for no reason.
             if (previous === 'loading' || previous === 'queued') {
-                router.reload({ preserveScroll: true });
+                clearOverlays();
+                router.reload({ reset: ['matches'], preserveScroll: true, data: { page: 1 } });
             }
         }
     },
@@ -404,8 +431,10 @@ onUnmounted(stopLoadingPoll);
 
 watch(selectedEye, (val) => {
     eyeListOpen.value = false;
+    clearOverlays();
     router.reload({
         only: ONLY,
+        reset: ['matches'],
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -982,10 +1011,6 @@ function closeEdit() {
         </div>
 
         <template v-else>
-        <div v-if="pages > 1" class="mb-3 shrink-0">
-            <Pagination :page="page" :pages="pages" :only="ONLY" />
-        </div>
-
         <!--
           The one scrolling pane on the page. `relative` is load-bearing:
           Tailwind's .sr-only is position:absolute, and without a positioned
@@ -994,6 +1019,23 @@ function closeEdit() {
           scrollbar back and scrolled the filters out of sight.
         -->
         <div class="card relative min-h-0 flex-1 overflow-auto">
+            <!--
+              InfiniteScroll wraps the table rather than standing in for
+              <tbody>, so the sentinel it observes is a plain div of its
+              own making, next to the table instead of inside it. It has
+              to be the component's own element: handed a selector it
+              resolves it once, during setup, before Vue has put
+              anything in the DOM, and caches the null forever — the
+              trigger then never fires and the list simply stops at 50.
+              `items-element` still points at the tbody, which is what
+              it watches for new rows.
+            -->
+            <InfiniteScroll
+                data="matches"
+                only-next
+                items-element="#matches-rows"
+                :start-element="() => null"
+            >
             <table class="ref-table ref-table--sticky">
                 <thead>
                     <tr>
@@ -1005,7 +1047,16 @@ function closeEdit() {
                         <th></th>
                     </tr>
                 </thead>
-                <tbody>
+                <!--
+                  `as="tbody"` so the rows stay inside a real table, and
+                  the scroll sentinels are handed in explicitly: left to
+                  itself the component renders its own <div> markers
+                  either side of the items element, which inside a
+                  <table> is invalid markup. `start-element` returning
+                  null suppresses the leading one — this list only ever
+                  grows downwards.
+                -->
+                <tbody id="matches-rows">
                     <template v-for="m in rows" :key="m.other_id">
                     <tr :class="m.ignored ? 'opacity-50' : ''">
                         <td>
@@ -1164,6 +1215,26 @@ function closeEdit() {
                     </tr>
                 </tbody>
             </table>
+
+            <!--
+              Rendered inside the component's own end sentinel, so it is
+              exactly the box being watched.
+            -->
+            <template #next="{ loading, hasMore }">
+                <div class="flex justify-center px-4 py-3">
+                    <span v-if="loading" class="inline-flex items-center gap-2 text-sm text-sepia-500">
+                        <svg class="h-4 w-4 animate-spin text-sepia-400" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
+                            <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+                        </svg>
+                        Loading more…
+                    </span>
+                    <span v-else-if="!hasMore && rows.length" class="text-xs text-sepia-400">
+                        End of matches
+                    </span>
+                </div>
+            </template>
+            </InfiniteScroll>
         </div>
 
         </template>
