@@ -15,9 +15,33 @@ if [ "$(id -un)" = "dnaweb" ]; then
 fi
 
 # Verify we have sudo access; fail fast with a friendlier message than mid-run.
+# `sudo -v` can only prompt when there's a terminal, and this gets run without
+# one often enough (ssh with no -t, an agent, cron) that dying inside sudo with
+# "a terminal is required to read the password" is worth pre-empting. Prompt
+# when we can, print the sudoers entry that removes the need when we can't.
 if ! sudo -n true 2>/dev/null; then
-    echo "▸ this script needs sudo (you'll be prompted once)"
-    sudo -v
+    if [ -t 0 ]; then
+        echo "▸ this script needs sudo (you'll be prompted once)"
+        sudo -v
+    else
+        cat >&2 <<EOF
+✗ sudo needs a password and there is no terminal to ask on.
+
+  Either run this from an interactive shell:
+
+      ssh -t $(hostname -s) $0
+
+  or grant passwordless sudo for just what this script does, as root:
+
+      cat >/etc/sudoers.d/dnaweb-deploy <<'SUDOERS'
+$(id -un) ALL=(dnaweb) NOPASSWD: ALL
+$(id -un) ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.4-fpm
+SUDOERS
+      chmod 440 /etc/sudoers.d/dnaweb-deploy
+      visudo -c
+EOF
+        exit 2
+    fi
 fi
 
 run_as_dnaweb() {
