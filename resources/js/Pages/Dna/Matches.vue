@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onUnmounted } from 'vue';
+import { ref, computed, watch, onBeforeUnmount, onMounted, onUnmounted } from 'vue';
 import { Head, InfiniteScroll, Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import PageHeader from '@/Components/App/PageHeader.vue';
@@ -300,7 +300,71 @@ const selectedEyeIsSample = computed(
 
 const selectedEye = ref(props.eye_id ?? '');
 const loading = ref(false);
-const eyeListOpen = ref(false);
+// --- Eye picker dropdown -------------------------------------------
+//
+// Same mechanics as TreeFilterDropdown next to it: a trigger on the
+// filter row and a panel teleported to the body, dismissed by an
+// outside click, Escape, or any scroll. The panel is wide because it
+// holds the full eye table — avatars, cM, cluster pills, compare links
+// — so it is clamped to the viewport rather than anchored blindly to
+// the trigger's left edge.
+const eyeMenuOpen = ref(false);
+const eyeTrigger = ref(null);
+const eyeMenu = ref(null);
+const eyePos = ref({ top: 0, left: 0, width: 0 });
+
+function placeEyeMenu() {
+    if (! eyeTrigger.value) return;
+    const r = eyeTrigger.value.getBoundingClientRect();
+    const margin = 16;
+    const width = Math.min(880, window.innerWidth - margin * 2);
+    eyePos.value = {
+        top: r.bottom + 4,
+        left: Math.max(margin, Math.min(r.left, window.innerWidth - width - margin)),
+        width,
+    };
+}
+
+function toggleEyeMenu() {
+    if (eyeMenuOpen.value) {
+        eyeMenuOpen.value = false;
+        return;
+    }
+    placeEyeMenu();
+    eyeMenuOpen.value = true;
+}
+
+function onEyeDocClick(e) {
+    if (! eyeMenuOpen.value) return;
+    if (eyeTrigger.value?.contains(e.target)) return;
+    if (eyeMenu.value?.contains(e.target)) return;
+    eyeMenuOpen.value = false;
+}
+
+function onEyeKey(e) {
+    if (e.key === 'Escape') eyeMenuOpen.value = false;
+}
+
+function onEyeScrollResize(e) {
+    if (! eyeMenuOpen.value) return;
+    // Scrolling inside the panel itself is not a dismissal.
+    if (e?.target && eyeMenu.value && (eyeMenu.value === e.target || eyeMenu.value.contains(e.target))) return;
+    eyeMenuOpen.value = false;
+}
+
+onMounted(() => {
+    document.addEventListener('click', onEyeDocClick);
+    document.addEventListener('keydown', onEyeKey);
+    window.addEventListener('scroll', onEyeScrollResize, true);
+    window.addEventListener('resize', onEyeScrollResize);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('click', onEyeDocClick);
+    document.removeEventListener('keydown', onEyeKey);
+    window.removeEventListener('scroll', onEyeScrollResize, true);
+    window.removeEventListener('resize', onEyeScrollResize);
+});
 
 // The match row inside eye_matches that corresponds to the currently
 // selected eye — supplies cM/cluster/etc for the closed-accordion bar.
@@ -458,7 +522,7 @@ watch(
 onUnmounted(stopLoadingPoll);
 
 watch(selectedEye, (val) => {
-    eyeListOpen.value = false;
+    eyeMenuOpen.value = false;
     clearOverlays();
     router.reload({
         only: ONLY,
@@ -794,181 +858,182 @@ function closeEdit() {
             </p>
         </div>
 
-        <div v-if="eye_matches.length" class="card mb-4 shrink-0 overflow-hidden">
-            <button
-                type="button"
-                class="flex w-full items-center gap-3 border-b border-paper-300 bg-paper-100 px-4 py-2.5 text-left hover:bg-paper-200/60 focus:outline-none focus:ring-1 focus:ring-wine-500"
-                :aria-expanded="eyeListOpen"
-                @click="eyeListOpen = !eyeListOpen"
-            >
-                <span
-                    class="text-sepia-500 transition-transform"
-                    :class="eyeListOpen ? 'rotate-90' : ''"
-                    aria-hidden="true"
-                >
-                    ▶
-                </span>
-                <p class="eyebrow">Matching eyes</p>
-                <div
-                    v-if="selectedEyeRow"
-                    class="flex flex-1 items-center gap-2 text-sm"
-                >
-                    <SampleAvatar
-                        :photo-url="selectedEyeRow.other_photoUrl || ''"
-                        :alt="selectedEyeRow.display_label"
-                        :gender="selectedEyeRow.effective_gender || ''"
-                    />
-                    <span class="font-medium text-ink-500">
-                        {{ selectedEyeRow.display_label }}
-                    </span>
-                    <OriginIcons :icons="selectedEyeRow.origin_icons || []" />
-                    <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="h-6 w-6" />
-                    <span class="font-mono text-xs text-sepia-500">
-                        {{ selectedEyeRow.sharedCentimorgans }} cM
-                    </span>
-                    <ClusterPill
-                        :code="selectedEyeRow.matchClusterCode || ''"
-                        :paternal-cluster="selectedEyeRow.paternalCluster || ''"
-                        :parent-side="selectedEyeRow.parentSide || ''"
-                    />
-                </div>
-                <p v-else class="flex-1 text-sm text-sepia-600">
-                    All Eyes ({{ eye_matches.length }})
-                </p>
-                <p v-if="!eyeListOpen" class="text-xs text-sepia-500">
-                    Click to pick a filter
-                </p>
-            </button>
-            <div v-show="eyeListOpen" class="relative max-h-[40vh] overflow-y-auto">
-            <table class="ref-table ref-table--sticky">
-                <thead>
-                    <tr>
-                        <th></th>
-                        <th>Name</th>
-                        <th>Predicted</th>
-                        <th data-numeric>cM</th>
-                        <th>ParentSide</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            <input
-                                id="eye-pick-all"
-                                v-model="selectedEye"
-                                type="radio"
-                                value=""
-                                class="cursor-pointer"
-                            />
-                        </td>
-                        <td colspan="5">
-                            <label for="eye-pick-all" class="cursor-pointer text-sm text-sepia-600">
-                                All matches (no filter)
-                            </label>
-                        </td>
-                    </tr>
-                    <tr
-                        v-for="e in eye_matches"
-                        :key="e.other_id"
-                        :class="e.ignored ? 'opacity-50' : ''"
-                    >
-                        <td>
-                            <input
-                                :id="`eye-pick-${e.other_id}`"
-                                v-model.number="selectedEye"
-                                type="radio"
-                                :value="e.other_id"
-                                class="cursor-pointer"
-                            />
-                        </td>
-                        <td>
-                            <div class="flex items-center gap-2">
-                                <SampleAvatar
-                                    :photo-url="e.other_photoUrl || ''"
-                                    :alt="e.display_label"
-                                    :gender="e.effective_gender || ''"
-                                />
-                                <Link
-                                    :href="matchLink(e.other_id)"
-                                    class="ref-link"
-                                    :class="e.ignored ? 'line-through decoration-sepia-400/60' : ''"
-                                >
-                                    {{ e.display_label }}
-                                </Link>
-                                <OriginIcons :icons="e.origin_icons || []" />
-                                <img
-                                    v-if="e.connected_via_tree"
-                                    src="/icon-link.png"
-                                    alt=""
-                                    class="ms-1 h-6 w-6 opacity-80"
-                                    :title="`Connected to ${sample.display_label} via the family tree`"
-                                />
-                                <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="ms-2 h-6 w-6" />
-                            </div>
-                        </td>
-                        <td class="text-sm text-sepia-700">
-                            {{ (e.kinships || []).join(' / ') }}
-                        </td>
-                        <td class="num">{{ e.sharedCentimorgans }}</td>
-                        <td>
-                            <ClusterPill
-                                :code="e.matchClusterCode || ''"
-                                :paternal-cluster="e.paternalCluster || ''"
-                                :parent-side="e.parentSide || ''"
-                            />
-                        </td>
-                        <td class="!text-right">
-                            <div class="inline-flex items-center gap-1">
-                                <Link
-                                    v-if="e.person_id"
-                                    :href="route('people.show', e.person_id)"
-                                    class="inline-flex items-center"
-                                    :title="`Open ${e.person_name || 'person'} #${e.person_id}`"
-                                >
-                                    <img src="/icon-person.png" alt="" class="h-5 w-5" />
-                                    <span class="sr-only">Open person</span>
-                                </Link>
-                                <a
-                                    v-if="!sampleHasSession && e.other_uuid"
-                                    :href="rowEyeCompareUrl(e.other_uuid)"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
-                                    :title="`Compare on Ancestry: ${e.display_label} ↔ ${sample.display_label}`"
-                                >
-                                    <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
-                                    DNA
-                                </a>
-                                <a
-                                    v-if="sampleHasSession && e.other_uuid"
-                                    :href="sampleCompareUrl(e.other_uuid)"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
-                                    :title="`Compare on Ancestry: ${sample.display_label} ↔ ${e.display_label}`"
-                                >
-                                    <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
-                                    DNA
-                                </a>
-                                <AncestryProfileButtons
-                                    :user-uuid="e.other_userUUID || ''"
-                                    :admin-user-uuid="e.other_admin_userUUID || ''"
-                                    :label="e.display_label"
-                                    :admin-label="e.display_label"
-                                />
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            </div>
-        </div>
 
         <form
             class="mb-4 flex shrink-0 flex-wrap items-center gap-2"
             @submit.prevent
         >
+            <!--
+              The eye picker is a filter like the three beside it, and it
+              used to say so — "Click to pick a filter" — from inside a
+              card of its own that cost 63px of the list to show one line
+              of summary. It is a dropdown on this row now; the panel
+              below holds the same table it always did.
+            -->
+            <div v-if="eye_matches.length" class="relative">
+                <button
+                    ref="eyeTrigger"
+                    type="button"
+                    class="flex max-w-[22rem] items-center gap-1.5 rounded-md border border-paper-300 bg-paper-50 px-2 py-1 text-sm text-ink-500 focus:border-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
+                    :aria-expanded="eyeMenuOpen"
+                    :title="selectedEyeRow ? `Looking through ${selectedEyeRow.display_label}` : 'Pick an eye to look through'"
+                    @click="toggleEyeMenu"
+                >
+                    <img src="/icon-eye.png" alt="Eye" class="h-5 w-5 shrink-0" />
+                    <template v-if="selectedEyeRow">
+                        <SampleAvatar
+                            :photo-url="selectedEyeRow.other_photoUrl || ''"
+                            :alt="selectedEyeRow.display_label"
+                            :gender="selectedEyeRow.effective_gender || ''"
+                        />
+                        <span class="min-w-0 truncate font-medium">{{ selectedEyeRow.display_label }}</span>
+                        <span class="shrink-0 font-mono text-xs text-sepia-500">
+                            {{ selectedEyeRow.sharedCentimorgans }} cM
+                        </span>
+                        <ClusterPill
+                            :code="selectedEyeRow.matchClusterCode || ''"
+                            :paternal-cluster="selectedEyeRow.paternalCluster || ''"
+                            :parent-side="selectedEyeRow.parentSide || ''"
+                        />
+                    </template>
+                    <span v-else class="shrink-0 text-sepia-600">All eyes ({{ eye_matches.length }})</span>
+                    <svg class="h-3.5 w-3.5 shrink-0 text-sepia-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+
+                <Teleport to="body">
+                    <div
+                        v-if="eyeMenuOpen"
+                        ref="eyeMenu"
+                        class="fixed z-50 max-h-[60vh] overflow-auto rounded-md border border-paper-300 bg-paper-50 shadow-lg"
+                        :style="{ top: eyePos.top + 'px', left: eyePos.left + 'px', width: eyePos.width + 'px' }"
+                    >
+                    <table class="ref-table ref-table--sticky">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th>Name</th>
+                                <th>Predicted</th>
+                                <th data-numeric>cM</th>
+                                <th>ParentSide</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <input
+                                        id="eye-pick-all"
+                                        v-model="selectedEye"
+                                        type="radio"
+                                        value=""
+                                        class="cursor-pointer"
+                                    />
+                                </td>
+                                <td colspan="5">
+                                    <label for="eye-pick-all" class="cursor-pointer text-sm text-sepia-600">
+                                        All matches (no filter)
+                                    </label>
+                                </td>
+                            </tr>
+                            <tr
+                                v-for="e in eye_matches"
+                                :key="e.other_id"
+                                :class="e.ignored ? 'opacity-50' : ''"
+                            >
+                                <td>
+                                    <input
+                                        :id="`eye-pick-${e.other_id}`"
+                                        v-model.number="selectedEye"
+                                        type="radio"
+                                        :value="e.other_id"
+                                        class="cursor-pointer"
+                                    />
+                                </td>
+                                <td>
+                                    <div class="flex items-center gap-2">
+                                        <SampleAvatar
+                                            :photo-url="e.other_photoUrl || ''"
+                                            :alt="e.display_label"
+                                            :gender="e.effective_gender || ''"
+                                        />
+                                        <Link
+                                            :href="matchLink(e.other_id)"
+                                            class="ref-link"
+                                            :class="e.ignored ? 'line-through decoration-sepia-400/60' : ''"
+                                        >
+                                            {{ e.display_label }}
+                                        </Link>
+                                        <OriginIcons :icons="e.origin_icons || []" />
+                                        <img
+                                            v-if="e.connected_via_tree"
+                                            src="/icon-link.png"
+                                            alt=""
+                                            class="ms-1 h-6 w-6 opacity-80"
+                                            :title="`Connected to ${sample.display_label} via the family tree`"
+                                        />
+                                        <img src="/icon-eye.png" alt="Eye" title="Managed eye" class="ms-2 h-6 w-6" />
+                                    </div>
+                                </td>
+                                <td class="text-sm text-sepia-700">
+                                    {{ (e.kinships || []).join(' / ') }}
+                                </td>
+                                <td class="num">{{ e.sharedCentimorgans }}</td>
+                                <td>
+                                    <ClusterPill
+                                        :code="e.matchClusterCode || ''"
+                                        :paternal-cluster="e.paternalCluster || ''"
+                                        :parent-side="e.parentSide || ''"
+                                    />
+                                </td>
+                                <td class="!text-right">
+                                    <div class="inline-flex items-center gap-1">
+                                        <Link
+                                            v-if="e.person_id"
+                                            :href="route('people.show', e.person_id)"
+                                            class="inline-flex items-center"
+                                            :title="`Open ${e.person_name || 'person'} #${e.person_id}`"
+                                        >
+                                            <img src="/icon-person.png" alt="" class="h-5 w-5" />
+                                            <span class="sr-only">Open person</span>
+                                        </Link>
+                                        <a
+                                            v-if="!sampleHasSession && e.other_uuid"
+                                            :href="rowEyeCompareUrl(e.other_uuid)"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                            :title="`Compare on Ancestry: ${e.display_label} ↔ ${sample.display_label}`"
+                                        >
+                                            <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                                            DNA
+                                        </a>
+                                        <a
+                                            v-if="sampleHasSession && e.other_uuid"
+                                            :href="sampleCompareUrl(e.other_uuid)"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="inline-flex items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                                            :title="`Compare on Ancestry: ${sample.display_label} ↔ ${e.display_label}`"
+                                        >
+                                            <img src="/ancestry-icon.svg" alt="" class="h-3.5 w-3.5" />
+                                            DNA
+                                        </a>
+                                        <AncestryProfileButtons
+                                            :user-uuid="e.other_userUUID || ''"
+                                            :admin-user-uuid="e.other_admin_userUUID || ''"
+                                            :label="e.display_label"
+                                            :admin-label="e.display_label"
+                                        />
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    </div>
+                </Teleport>
+            </div>
             <input
                 v-model="q"
                 type="search"
