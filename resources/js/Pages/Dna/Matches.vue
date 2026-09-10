@@ -139,7 +139,7 @@ function refreshRows(sampleIds, extraOnly = []) {
     const ids = [...new Set((sampleIds || []).map(Number).filter(Boolean))];
     if (! ids.length && ! extraOnly.length) return;
     router.reload({
-        only: ['row_patch', ...extraOnly],
+        only: ids.length ? ['row_patch', ...extraOnly] : extraOnly,
         data: { patch: ids },
         preserveState: true,
         preserveScroll: true,
@@ -150,6 +150,22 @@ function refreshRows(sampleIds, extraOnly = []) {
             }
         },
     });
+}
+
+// A person edit changes the display label, effective gender and the
+// kinship labels, all of which are built server-side, so the row has to
+// be re-read.
+//
+// The title sample is the exception: it is not among its own matches,
+// so matchRows() has nothing to return for it and the header would keep
+// the old name until a manual refresh. Its name lives in the `sample`
+// prop, so ask for that instead.
+function onPersonSaved({ sampleId }) {
+    if (Number(sampleId) === Number(props.sample.id)) {
+        refreshRows([], ['sample']);
+        return;
+    }
+    refreshRows([sampleId]);
 }
 
 // A note is one string on one sample — the client knows the result
@@ -1300,7 +1316,7 @@ function closeEdit() {
             :person-id="editing?.personId ?? null"
             :prefill="editing?.prefill ?? {}"
             :reload-only="['filters']"
-            @saved="({ sampleId }) => refreshRows([sampleId])"
+            @saved="onPersonSaved"
             @close="closeEdit"
         />
 

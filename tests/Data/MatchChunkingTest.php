@@ -141,6 +141,26 @@ class MatchChunkingTest extends DataTestCase
         }
     }
 
+    /**
+     * A sample is not among its own matches, so matchRows() can never
+     * re-read the row for the sample whose page you are on.
+     *
+     * The matches page leans on this: after editing the title person it
+     * asks for the `sample` prop rather than a row patch. It used to ask
+     * for the patch, got an empty array back, and left the old name in
+     * the header until a manual refresh.
+     */
+    public function test_a_sample_is_not_among_its_own_matches(): void
+    {
+        $sample = $this->sampleWithManyMatches();
+
+        $this->assertSame(
+            [],
+            $this->service()->matchRows($sample, [$sample]),
+            'A self-match row exists, so the matches page could patch its own header row after all.'
+        );
+    }
+
     public function test_rows_read_by_id_ignore_ids_that_are_not_matches(): void
     {
         $svc = $this->service();
