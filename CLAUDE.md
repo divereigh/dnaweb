@@ -41,9 +41,31 @@ Tests run against sqlite `:memory:` (see `phpunit.xml`), so they cannot touch th
 schema — the current suite is Breeze's auth/profile defaults only. Anything exercising a
 service class needs the MariaDB connection, so verify service changes by hitting the page.
 
-Dev DB is on `[::1]:3308` (SSH tunnel to production); `PERL_API_URL` is likewise a tunnel to
-production's `127.0.0.1:8082`. Both can be down — `PerlApi` returns `null` on any failure and
-callers are expected to degrade rather than error.
+**There are two databases, and which one you are on matters.** `.env` carries both, one
+commented out; they share a username and password and differ only by host and port.
+
+| | where | what it is |
+|---|---|---|
+| local | `127.0.0.1:3306` | a restored snapshot (`~/ancestry/program/dbdump/dnaweb.dbdump-*.gz`) in the dev box's own MariaDB. Fast, and safe to write to. **Prefer this.** |
+| tunnel | `[::1]:3308` | production, over SSH. Every write is a real write. |
+
+Run `php artisan config:clear` after switching — `config/admin.php` reads its env at
+config-load time, so a cached config keeps pointing at whichever database was active when it
+was cached. `PERL_API_URL` is a separate tunnel to production's `127.0.0.1:8082`; it and the
+DB tunnel can both be down — `PerlApi` returns `null` on any failure and callers are expected
+to degrade rather than error.
+
+Reach for the tunnel only to answer "what does production hold *now*" — the snapshot is
+frozen at the day it was taken, and the loaders keep writing. Everything else belongs on the
+local copy, because the tunnel does not merely slow things down, it misleads:
+
+- Every query costs ~5s of round trip, which flattens the cost profile and hides which query
+  is actually expensive. A COUNT that looked like the second most expensive thing on
+  `/dna/{id}/matches` turned out to be a twentieth of the row fetch unfiltered — and five
+  times it under a search. You cannot tell those apart through the tunnel.
+- Requests routinely outrun a 45s tool timeout, which reads as "the feature is broken" when
+  it is only slow. That misdiagnosis has happened.
+- Exercising any write path means writing to production and undoing it afterwards.
 
 Deploy: `./deploy/deploy.sh` on the VPS (git pull → composer → npm build → migrate → recache →
 reload php8.4-fpm). Run it as a sudo-capable user, not as `dnaweb`.
