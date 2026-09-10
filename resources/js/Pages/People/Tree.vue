@@ -239,22 +239,65 @@ function siblingIdsOf(id) {
 }
 
 /**
+ * Where a child's link should meet the parents' row.
+ *
+ * f3 puts it at the midpoint between the couple for a person's *first*
+ * partner, and at the partner's own card centre for every one after that
+ * (`spouse.sx = i > 0 ? spouse.x : spouse.x + node_separation / 2 * side`).
+ * The card centre is what it uses when a child has no second parent on screen,
+ * so a second marriage ends up looking like a single parent. We want the gap
+ * every time: for partner i that is the midpoint between them and the card
+ * next along towards the main person — partner i-1, or the main person
+ * themselves for the first. Taken from the two cards' actual positions rather
+ * than from the spacing constant, so it stays right if the spacing changes.
+ */
+function parentAttachX(parent, otherParent) {
+    if (otherParent === parent) {
+        return parent.x; // no second parent on screen: the card's own centre
+    }
+    const spouses = parent.spouses || [];
+    const i = spouses.indexOf(otherParent);
+    if (i < 0) {
+        return otherParent.sx ?? otherParent.x;
+    }
+
+    return (otherParent.x + (i > 0 ? spouses[i - 1] : parent).x) / 2;
+}
+
+/**
+ * The path from a child up to its parents: up out of the child, along a
+ * horizontal run halfway between the rows, then up to the point between the
+ * parents. This is f3's own shape (LinkVertical), rebuilt here so that the
+ * attachment point can be corrected and so the fan-out below can move the run
+ * without moving either end. Vertical orientation only, which is all this page
+ * uses.
+ */
+function progenyPath(link, dy) {
+    const [parent, otherParent] = link.source;
+    const child = link.target;
+    const x = parentAttachX(parent, otherParent);
+    const runY = child.y + (parent.y - child.y) / 2 + dy;
+
+    return `M${child.x},${child.y}L${child.x},${runY}L${x},${runY}L${x},${parent.y}`;
+}
+
+/**
  * Fan out the child links of a person who had children by more than one
  * partner, so you can tell which child came from which.
  *
- * f3 draws every child link as: straight up from the child, along a
- * horizontal run at the midpoint between the two rows, then up to the point
- * between that child's two parents. The run is at the *same* height for every
- * child of the person, whichever partner they came from, so where one partner's
- * children sit out beyond another's the two runs lie on top of each other for
- * most of their length and there is no way to read which is which. (Dalrymple
- * Briggs: one child by Baker out on the far left, eight by Johnson to the
- * right of it, and two indistinguishable lines running the width of the tree.)
+ * Every child link's horizontal run sits at the same height, whichever partner
+ * the child came from, so where one partner's children sit out beyond
+ * another's the two runs lie on top of each other for most of their length and
+ * there is no way to read which is which. (Dalrymple Briggs: one child by
+ * Baker out on the far left, eight by Johnson to the right of it, and two
+ * indistinguishable lines running the width of the tree.)
  *
- * Each partner's links get their own height instead. The whole path is nudged
- * with a transform rather than redrawn, which works because both its endpoints
- * sit at card *centres* — a shift of a few pixels moves the visible middle of
- * the link and leaves the ends buried under the cards where they already were.
+ * Each partner's run gets its own height instead — recorded here and applied
+ * by progenyPath, which moves only the run and leaves both ends where they
+ * belong. Nudging the whole path with a transform, which is what this used to
+ * do, dragged the parent-side end off the line between the couple, and since
+ * that end is out in the gap between two cards rather than hidden under one,
+ * the miss showed.
  *
  * Which partner goes where is not arbitrary. An upright crosses a foreign run
  * only when that run is *below* it, so the run that passes over other
@@ -272,14 +315,14 @@ function fanOutProgenyLinks(container) {
     const bundles = new Map();
 
     for (const el of container.querySelectorAll('.links_view path.link')) {
-        el.removeAttribute('transform');
+        el._fanDy = 0;
         const link = el.__data__; // where d3 keeps the datum it bound
         if (!link || link.spouse || link.is_ancestry || !Array.isArray(link.source)) {
             continue;
         }
         const [parent, otherParent] = link.source;
-        if (!otherParent || otherParent === parent || (parent.spouses || []).length < 2) {
-            continue;
+        if ((parent.spouses || []).length < 2) {
+            continue; // one partner in play — nothing to tell apart
         }
         const key = `${parent.tid}|${otherParent.tid}`;
         let bundle = bundles.get(key);
@@ -287,12 +330,11 @@ function fanOutProgenyLinks(container) {
             bundle = { parent, els: [], childX: [], min: Infinity, max: -Infinity };
             bundles.set(key, bundle);
         }
+        const childX = link.target.x;
         bundle.els.push(el);
-        bundle.childX.push(link.target.x);
-        for (const [x] of link.d) {
-            bundle.min = Math.min(bundle.min, x);
-            bundle.max = Math.max(bundle.max, x);
-        }
+        bundle.childX.push(childX);
+        bundle.min = Math.min(bundle.min, childX, parentAttachX(parent, otherParent));
+        bundle.max = Math.max(bundle.max, childX, parentAttachX(parent, otherParent));
     }
 
     const byParent = new Map();
@@ -304,7 +346,7 @@ function fanOutProgenyLinks(container) {
 
     for (const siblings of byParent.values()) {
         if (siblings.length < 2) {
-            continue; // one partner in play — nothing to tell apart
+            continue;
         }
         const passesOver = (b) => siblings.reduce((n, other) => (
             other === b ? n : n + other.childX.filter((x) => x > b.min && x < b.max).length
@@ -315,14 +357,15 @@ function fanOutProgenyLinks(container) {
         siblings.forEach((bundle, i) => {
             const dy = (i - (siblings.length - 1) / 2) * step;
             for (const el of bundle.els) {
-                el.setAttribute('transform', `translate(0,${dy.toFixed(1)})`);
+                el._fanDy = dy;
             }
         });
     }
 }
 
 /**
- * Square off the corners of the links.
+ * Square off the corners of an ancestry link. (Progeny links are rebuilt from
+ * scratch by progenyPath, which is already square.)
  *
  * f3 runs every link's corner points through a B-spline (`d3.curveBasis`),
  * which rounds the corners and — because a basis spline doesn't pass through
@@ -346,13 +389,14 @@ function squarePath(points) {
     return corners.map(([x, y], i) => `${i ? 'L' : 'M'}${x},${y}`).join('');
 }
 
-// Squaring has to wait for f3's transition on the path to finish, because a
-// transition interpolates from whatever the attribute says when it starts:
-// hand it a four-point polyline to morph into a spline and it garbles the
-// shape for the length of the animation. So we wait for the transition to end
-// and swap the corners then — a change of a few pixels, at the point where
-// everything has just come to rest — and put the spline back before the next
-// render so f3 has the shape it expects to animate from.
+// Our paths have to wait for f3's transition to finish, because a transition
+// interpolates from whatever the attribute says when it starts: hand it a
+// four-point polyline to morph into a spline and it garbles the shape for the
+// length of the animation. So we wait for the transition to end and swap then
+// — the corners square, the run steps to its partner's height, the attachment
+// slides into the gap between the couple, all at the moment everything has
+// come to rest — and put f3's own path back before the next render so it has
+// the shape it expects to animate from.
 //
 // `__transition` is where d3 keeps a node's running transitions; it deletes
 // the property when the last one ends, which is the signal we poll for. Same
@@ -386,7 +430,9 @@ function squareLinks(container, deadline) {
 
             continue;
         }
-        const squared = squarePath(link.d);
+        const squared = link.is_ancestry
+            ? squarePath(link.d)
+            : progenyPath(link, el._fanDy || 0);
         const current = el.getAttribute('d');
         if (current === squared) {
             continue;
@@ -642,9 +688,9 @@ onMounted(() => {
         .setOnCardClick(handleCardClick)
         .setOnCardUpdate(handleCardUpdate);
 
-    // The fan-out only touches `transform`, which f3 never sets on a link, so
-    // there is nothing to fight over there; squaring the corners rewrites `d`,
-    // which f3 does animate, hence the restore on the way in.
+    // afterUpdate works out each partner's offset and then rewrites the link
+    // paths; beforeUpdate hands f3 back the paths it drew, since `d` is the
+    // one thing here that f3 animates.
     chart.setBeforeUpdate(() => unsquareLinks(chartContainer.value));
     chart.setAfterUpdate(() => {
         fanOutProgenyLinks(chartContainer.value);
