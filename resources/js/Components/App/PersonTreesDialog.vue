@@ -14,7 +14,7 @@ const props = defineProps({
     pageTrees:   { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(['close', 'edit-tree']);
+const emit = defineEmits(['close', 'edit-tree', 'changed']);
 
 // --- Add-to-tree sub-form -------------------------------------------
 const adding = ref(false);
@@ -113,7 +113,12 @@ function submitAdd() {
         .post(route('dna.trees.add-person'), {
             preserveScroll: true,
             preserveState: true,
-            onSuccess: () => { resetAdd(); adding.value = false; },
+            // Adding can find-or-create the tree, so unlike a note or a
+            // colour the client can't know the result — `changed` asks
+            // the parent to re-read just this person's rows rather than
+            // letting back() rebuild the page.
+            only: ['filters'],
+            onSuccess: () => { resetAdd(); adding.value = false; emit('changed'); },
         });
 }
 
@@ -123,7 +128,12 @@ function removeTree(tree) {
     router.post(route('dna.trees.remove-person'), {
         tree_id: tree.id,
         person_id: props.personId,
-    }, { preserveScroll: true, preserveState: true });
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+        only: ['filters'],
+        onSuccess: () => emit('changed'),
+    });
 }
 
 function close() {

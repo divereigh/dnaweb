@@ -38,7 +38,102 @@ const props = defineProps({
     title_trees: { type: Array, default: () => [] },
     side_enabled: { type: Boolean, default: false },
     tree_options: { type: Array, default: () => [] },
+    // Rows re-read by id after a write — never sent on a normal load,
+    // only in answer to refreshRows() below.
+    row_patch: { type: Array, default: () => [] },
 });
+
+// --- Locally patchable copies of everything a write can change ------
+//
+// Writes on this page answer with `back()`, which is a *full* Inertia
+// visit: it rebuilds every prop, re-running the paged matches query,
+// just to pick up the one row that actually changed. That is wasteful
+// now and outright wrong once the list becomes an infinite scroll,
+// where replacing `matches` throws away every chunk the user has
+// scrolled past.
+//
+// So the writes below submit with a minimal `only:` and patch these
+// refs in place instead. What the client already knows (note text, a
+// tree's name and colour) is applied directly; what only the server
+// can recompute (a person's display label, kinship labels, a tree
+// created by name) comes back through refreshRows(). Any genuine
+// reload re-seeds all four from the props, which stay authoritative.
+const rows = ref([...props.matches]);
+const titleNote = ref(props.title_note);
+const titleTrees = ref([...(props.title_trees || [])]);
+const treeOptions = ref([...(props.tree_options || [])]);
+
+watch(() => props.matches, (v) => { rows.value = [...(v || [])]; });
+watch(() => props.title_note, (v) => { titleNote.value = v; });
+watch(() => props.title_trees, (v) => { titleTrees.value = [...(v || [])]; });
+watch(() => props.tree_options, (v) => { treeOptions.value = [...(v || [])]; });
+
+// Sample id of the row holding a given person, so a person-keyed edit
+// can name the rows it touched. Null when the person is the title's
+// own (which lives in `title_trees`, not in a row).
+function sampleIdForPerson(personId) {
+    const row = rows.value.find((r) => Number(r.person_id) === Number(personId));
+    return row ? Number(row.other_id) : null;
+}
+
+// Re-read specific rows from the server and merge them in by id. Used
+// for the two writes whose result the client can't derive: a person
+// edit (display label, effective gender, kinship labels are all
+// server-side) and a tree add, which may have created the tree.
+// `extraOnly` names any other cheap props that moved with it.
+function refreshRows(sampleIds, extraOnly = []) {
+    const ids = [...new Set((sampleIds || []).map(Number).filter(Boolean))];
+    if (! ids.length && ! extraOnly.length) return;
+    router.reload({
+        only: ['row_patch', ...extraOnly],
+        data: { patch: ids },
+        preserveState: true,
+        preserveScroll: true,
+        preserveUrl: true,
+        onSuccess: (page) => {
+            const patch = page?.props?.row_patch || [];
+            if (! patch.length) return;
+            const by = new Map(patch.map((r) => [Number(r.other_id), r]));
+            rows.value = rows.value.map((r) => by.get(Number(r.other_id)) || r);
+        },
+    });
+}
+
+// A note is one string on one sample — the client knows the result
+// exactly, so nothing needs re-reading.
+function onNoteSaved({ sampleId, notes }) {
+    const text = (notes || '').trim() || null;
+    if (Number(sampleId) === Number(props.sample.id)) {
+        titleNote.value = text;
+    }
+    rows.value = rows.value.map((r) =>
+        Number(r.other_id) === Number(sampleId) ? { ...r, note: text } : r,
+    );
+}
+
+// A tree's name and colour are echoed on every pill that carries it,
+// in the title's tree list and in the Trees filter options. `letter`
+// mirrors DnaSampleService's uppercase-first-character rule.
+function onTreeSaved({ id, name, colour }) {
+    const apply = (t) =>
+        Number(t.id) === Number(id)
+            ? { ...t, name, colour, letter: (name || '?').trim().charAt(0).toUpperCase() || '?' }
+            : t;
+
+    rows.value = rows.value.map((r) =>
+        r.trees?.length ? { ...r, trees: r.trees.map(apply) } : r,
+    );
+    titleTrees.value = titleTrees.value.map(apply);
+    treeOptions.value = treeOptions.value.map(apply);
+}
+
+// Adding to a tree can create one (find-or-create by name), so the id
+// and colour have to come from the server. Removing can't, but it goes
+// the same way to keep one path through tree membership.
+function onPersonTreesChanged(personId) {
+    const sampleId = sampleIdForPerson(personId);
+    refreshRows(sampleId ? [sampleId] : [], ['title_trees', 'tree_options']);
+}
 
 // Note-editor side panel state. One panel shared for the title-note
 // click and every row-note click; openNoteEditor sets which (sample,
@@ -74,10 +169,10 @@ function closeTreeEditor() {
 // the PersonTreesDialog add-picker suggestions.
 const pageTrees = computed(() => {
     const by = new Map();
-    for (const t of props.title_trees || []) {
+    for (const t of titleTrees.value) {
         if (!by.has(t.id)) by.set(t.id, t);
     }
-    for (const m of props.matches) {
+    for (const m of rows.value) {
         for (const t of m.trees || []) {
             if (!by.has(t.id)) by.set(t.id, t);
         }
@@ -102,8 +197,8 @@ function closePersonTrees() {
 const managedTrees = computed(() => {
     const pid = managingPersonId.value;
     if (!pid) return [];
-    if (Number(props.sample.person_id) === Number(pid)) return props.title_trees || [];
-    const row = props.matches.find((m) => Number(m.person_id) === Number(pid));
+    if (Number(props.sample.person_id) === Number(pid)) return titleTrees.value;
+    const row = rows.value.find((m) => Number(m.person_id) === Number(pid));
     return row?.trees || [];
 });
 
@@ -529,10 +624,10 @@ function closeEdit() {
                         size="md"
                     />
                 </template>
-                <template v-if="sample.person_id || (title_trees || []).length" #belowTitle>
+                <template v-if="sample.person_id || titleTrees.length" #belowTitle>
                     <div class="flex flex-wrap items-center gap-1">
                         <button
-                            v-if="sample.person_id && !(title_trees || []).length"
+                            v-if="sample.person_id && !titleTrees.length"
                             type="button"
                             class="inline-flex h-5 w-5 items-center justify-center rounded text-sm font-semibold leading-none text-sepia-500 ring-1 ring-inset ring-dashed ring-sepia-300 transition hover:text-wine-500 hover:ring-wine-500 focus:outline-none focus:ring-2 focus:ring-wine-500"
                             :title="`Trees for ${sample.display_label}`"
@@ -542,7 +637,7 @@ function closeEdit() {
                             <span class="sr-only">Manage trees</span>
                         </button>
                         <TreePill
-                            v-for="t in title_trees"
+                            v-for="t in titleTrees"
                             :key="t.id"
                             :tree="t"
                             @edit="openPersonTrees(sample.person_id, sample.display_label)"
@@ -562,11 +657,11 @@ function closeEdit() {
                     <button
                         type="button"
                         class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
-                        :title="title_note ? `Edit notes for ${sample.display_label}` : `Add notes for ${sample.display_label}`"
-                        @click="openNoteEditor(sample.id, sample.display_label, title_note)"
+                        :title="titleNote ? `Edit notes for ${sample.display_label}` : `Add notes for ${sample.display_label}`"
+                        @click="openNoteEditor(sample.id, sample.display_label, titleNote)"
                     >
                         <img src="/icon-note.png" alt="" class="h-6 w-6" />
-                        <span class="sr-only">{{ title_note ? 'Edit notes' : 'Add notes' }}</span>
+                        <span class="sr-only">{{ titleNote ? 'Edit notes' : 'Add notes' }}</span>
                     </button>
                     <OriginIcons :icons="sample.origin_icons || []" />
                     <img
@@ -589,15 +684,15 @@ function closeEdit() {
                 <template #actions>
                     <Link :href="route('dna.index')" class="btn-ghost">← DNA search</Link>
                 </template>
-                <template v-if="title_note" #belowSubtitle>
+                <template v-if="titleNote" #belowSubtitle>
                     <div class="ps-[4ch] text-xs italic text-sepia-500">
                         <button
                             type="button"
                             class="text-left hover:text-wine-500 focus:outline-none focus:underline"
                             :title="`Edit notes for ${sample.display_label}`"
-                            @click="openNoteEditor(sample.id, sample.display_label, title_note)"
+                            @click="openNoteEditor(sample.id, sample.display_label, titleNote)"
                         >
-                            {{ title_note.length > 80 ? title_note.slice(0, 80) + '…' : title_note }}
+                            {{ titleNote.length > 80 ? titleNote.slice(0, 80) + '…' : titleNote }}
                         </button>
                     </div>
                 </template>
@@ -865,12 +960,12 @@ function closeEdit() {
                     <option value="P2">P2</option>
                 </select>
             </label>
-            <label v-if="tree_options.length" class="flex items-center gap-1.5 text-xs text-sepia-500">
+            <label v-if="treeOptions.length" class="flex items-center gap-1.5 text-xs text-sepia-500">
                 Trees
                 <TreeFilterDropdown
                     v-model:include="treeInclude"
                     v-model:exclude="treeExclude"
-                    :options="tree_options"
+                    :options="treeOptions"
                 />
             </label>
         </form>
@@ -911,7 +1006,7 @@ function closeEdit() {
                     </tr>
                 </thead>
                 <tbody>
-                    <template v-for="m in matches" :key="m.other_id">
+                    <template v-for="m in rows" :key="m.other_id">
                     <tr :class="m.ignored ? 'opacity-50' : ''">
                         <td>
                             <div class="flex items-center gap-2">
@@ -1064,7 +1159,7 @@ function closeEdit() {
                         </td>
                     </tr>
                     </template>
-                    <tr v-if="!matches.length">
+                    <tr v-if="!rows.length">
                         <td colspan="6" class="empty-cell">No matches.</td>
                     </tr>
                 </tbody>
@@ -1080,6 +1175,8 @@ function closeEdit() {
             :sample-id="editing?.sampleId ?? 0"
             :person-id="editing?.personId ?? null"
             :prefill="editing?.prefill ?? {}"
+            :reload-only="['filters']"
+            @saved="({ sampleId }) => refreshRows([sampleId])"
             @close="closeEdit"
         />
 
@@ -1088,12 +1185,14 @@ function closeEdit() {
             :sample-id="editingNote?.sampleId ?? 0"
             :sample-label="editingNote?.sampleLabel ?? ''"
             :initial="editingNote?.initial ?? ''"
+            @saved="onNoteSaved"
             @close="closeNoteEditor"
         />
 
         <TreeEditDialog
             :show="!!editingTree"
             :tree="editingTree"
+            @saved="onTreeSaved"
             @close="closeTreeEditor"
         />
 
@@ -1103,6 +1202,7 @@ function closeEdit() {
             :person-label="managingLabel"
             :trees="managedTrees"
             :page-trees="pageTrees"
+            @changed="onPersonTreesChanged(managingPersonId)"
             @close="closePersonTrees"
             @edit-tree="(t) => { closePersonTrees(); openTreeEditor(t); }"
         />

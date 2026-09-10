@@ -826,6 +826,104 @@ class DnaSampleService
         $bind[] = $pageSize;
         $bind[] = $offset;
 
+        return $this->selectMatchRows(
+            $sampleId,
+            $eyeJoin.$povJoin,
+            $povCols,
+            $notesJoin,
+            $noteCol,
+            $searchWhere.$sideWhere.$treeWhere,
+            'ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
+             LIMIT ? OFFSET ?',
+            $bind
+        );
+    }
+
+    /**
+     * Re-read a handful of match rows by their `sample2` ids, decorated
+     * exactly as listMatches() decorates them.
+     *
+     * This is what a write on the matches page reloads instead of the
+     * whole `matches` prop: an edit to one person, or to one person's
+     * tree membership, changes one row, and re-running the paged query
+     * to pick up that one row throws away the list the user is looking
+     * at. Deliberately ignores the search / ParentSide / tree filters —
+     * the caller is asking about rows it already has on screen, and a
+     * row that has just drifted out of the active filter should still
+     * come back with its new values rather than silently vanishing
+     * mid-edit.
+     *
+     * @param  array<int,int>  $otherIds
+     * @return array<int,array<string,mixed>>
+     */
+    public function matchRows(int $sampleId, array $otherIds, ?int $commonWithEye = null, ?int $povEye = null): array
+    {
+        $otherIds = array_values(array_unique(array_filter(array_map('intval', $otherIds))));
+        if (! $otherIds) {
+            return [];
+        }
+
+        $bind = [];
+
+        $eyeJoin = '';
+        if ($commonWithEye) {
+            $eyeJoin = '
+                JOIN dna_matches2 eyem ON eyem.sample1 = ? AND eyem.sample2 = m.sample2
+            ';
+            $bind[] = $commonWithEye;
+        }
+
+        $povJoin = '';
+        $povCols = 'NULL AS matchClusterCode, NULL AS parentSide';
+        if ($povEye) {
+            $povJoin = '
+                LEFT JOIN dna_matches2 pov ON pov.sample1 = ? AND pov.sample2 = m.sample2
+            ';
+            $povCols = 'pov.matchClusterCode AS matchClusterCode, pov.parentSide AS parentSide';
+            $bind[] = $povEye;
+        }
+
+        $notesJoin = '
+                LEFT JOIN dna_sample_notes n ON n.sample = m.sample2
+            ';
+
+        $bind[] = $sampleId;        // m.sample1 = ?
+
+        // Inlined rather than bound: this list is short (one row, or one
+        // person's worth) and already integer-cast above.
+        $in = ' AND m.sample2 IN ('.implode(',', $otherIds).')';
+
+        return $this->selectMatchRows(
+            $sampleId,
+            $eyeJoin.$povJoin,
+            $povCols,
+            $notesJoin,
+            'n.notes AS note',
+            $in,
+            'ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC',
+            $bind
+        );
+    }
+
+    /**
+     * The match-row SELECT and its PHP-side decoration, shared by
+     * listMatches() (paged) and matchRows() (by id). Callers assemble
+     * their own joins, WHERE tail and ORDER/LIMIT tail, and pass binds
+     * in the order those fragments appear.
+     *
+     * @param  array<int,mixed>  $bind
+     * @return array<int,array<string,mixed>>
+     */
+    private function selectMatchRows(
+        int $sampleId,
+        string $joins,
+        string $povCols,
+        string $notesJoin,
+        string $noteCol,
+        string $whereTail,
+        string $orderTail,
+        array $bind,
+    ): array {
         $rows = DB::select('
             SELECT
               m.sample2 AS other_id,
@@ -854,14 +952,13 @@ class DnaSampleService
               m.dnapath,
               '.$noteCol.'
             FROM dna_matches2 m
-            '.$eyeJoin.$povJoin.'
+            '.$joins.'
             JOIN dna_samples s ON s.id = m.sample2
             LEFT JOIN people p ON p.dnaSampleId = m.sample2
             LEFT JOIN dna_samples admin ON admin.id = s.adminid
             '.$notesJoin.'
-            WHERE m.sample1 = ?'.$searchWhere.$sideWhere.$treeWhere.'
-            ORDER BY m.sharedCentimorgans DESC, m.sample2 ASC
-            LIMIT ? OFFSET ?
+            WHERE m.sample1 = ?'.$whereTail.'
+            '.$orderTail.'
         ', $bind);
 
         $rows = array_map(function ($r) use ($sampleId) {

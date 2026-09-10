@@ -9,7 +9,7 @@ const props = defineProps({
     tree: { type: Object, default: null },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'saved']);
 
 const form = useForm({ name: '', colour: null });
 const nameInput = ref(null);
@@ -33,10 +33,23 @@ const letter = computed(() =>
 
 function submit() {
     if (!props.tree?.id) return;
-    form.put(route('dna.trees.update', props.tree.id), {
+    // Name is trimmed to match what TreeController stores, so the
+    // pills the parent repaints agree with the database.
+    const saved = {
+        id: props.tree.id,
+        name: (form.name || '').trim(),
+        colour: form.colour || null,
+    };
+    form.put(route('dna.trees.update', saved.id), {
         preserveScroll: true,
         preserveState: true,
-        onSuccess: () => emit('close'),
+        // See NoteEditDialog: don't let back() rebuild the whole page
+        // to repaint pills the parent can repaint itself.
+        only: ['filters'],
+        onSuccess: () => {
+            emit('saved', saved);
+            emit('close');
+        },
     });
 }
 

@@ -217,6 +217,15 @@ class DnaMatchesController extends Controller
             'matches' => fn () => $annotateConnected(
                 $this->service->listMatches($id, $resolvePage(), $pageSize, $eyeId, $search, $povEye, $side, $povPaternalCluster, $treeInclude, $treeExclude)
             ),
+            // Rows the client asked us to re-read by id, after a write
+            // that changed one of them. Lets a note / person / tree edit
+            // refresh just the rows it touched instead of reloading the
+            // whole `matches` prop, which would throw away the list
+            // position the user is sitting at. Empty on a normal load —
+            // the client only ever asks for this via a partial reload.
+            'row_patch' => fn () => $annotateConnected(
+                $this->service->matchRows($id, (array) $request->input('patch', []), $eyeId, $povEye)
+            ),
             'total' => fn () => $count(),
             'pages' => fn () => max(1, (int) ceil($count() / $pageSize)),
             'page' => fn () => $resolvePage(),

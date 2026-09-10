@@ -9,7 +9,7 @@ const props = defineProps({
     initial:     { type: String, default: '' },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'saved']);
 
 // dna_sample_notes.notes is TEXT. The old dna_notes column was
 // varchar(1000), which would have truncated the merged multi-eye notes
@@ -33,10 +33,24 @@ const remaining = computed(() => MAX - (form.notes?.length || 0));
 
 function submit() {
     if (!props.sampleId) return;
-    form.put(route('dna.notes.update', props.sampleId), {
+    // Captured now: the parent clears its `editing` ref on close, and
+    // these props fall back to their placeholders during the leave
+    // transition.
+    const sampleId = props.sampleId;
+    const notes = form.notes;
+    form.put(route('dna.notes.update', sampleId), {
         preserveScroll: true,
         preserveState:  true,
-        onSuccess: () => emit('close'),
+        // The write answers with back() — a full Inertia visit that
+        // would rebuild every prop on the matches page, re-running the
+        // paged matches query, to pick up one string. Ask for one cheap
+        // prop instead; `saved` tells the parent what changed so it can
+        // patch the row itself.
+        only: ['filters'],
+        onSuccess: () => {
+            emit('saved', { sampleId, notes });
+            emit('close');
+        },
     });
 }
 

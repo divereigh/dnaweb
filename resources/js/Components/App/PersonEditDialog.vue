@@ -11,9 +11,14 @@ const props = defineProps({
         type: Object,
         default: () => ({ fullName: '', minBirth: null, maxBirth: null, death: null, gender: null }),
     },
+    // Opt in to a quiet save: the write asks only for these props
+    // instead of letting back() rebuild the page, and `saved` fires so
+    // the caller can refresh just the row it touched. Left null for
+    // Eyes/Matches, which still wants the full reload.
+    reloadOnly: { type: Array, default: null },
 });
 
-const emit = defineEmits(['close']);
+const emit = defineEmits(['close', 'saved']);
 
 const nameInput = ref(null);
 
@@ -58,17 +63,26 @@ function submit() {
     // when the Save button is disabled, so :disabled isn't enough.
     if (form.processing || !props.sampleId) return;
 
+    const sampleId = props.sampleId;
+    const options = {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            emit('saved', { sampleId });
+            emit('close');
+        },
+    };
+    if (props.reloadOnly) {
+        options.only = props.reloadOnly;
+    }
+
     form.transform((data) => ({
         fullName: data.fullName,
         birth: data.birth || null,
         death: data.death === '' ? null : data.death,
         gender: data.gender || null,
         ancestry_url: data.ancestry_url?.trim() || null,
-    })).put(route('dna.person.upsert', props.sampleId), {
-        preserveScroll: true,
-        preserveState: true,
-        onSuccess: () => emit('close'),
-    });
+    })).put(route('dna.person.upsert', sampleId), options);
 }
 
 function close() {
