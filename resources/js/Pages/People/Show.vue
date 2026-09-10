@@ -9,11 +9,6 @@ import AncestryProfileButtons from '@/Components/App/AncestryProfileButtons.vue'
 defineProps({
     person: { type: Object, required: true },
     matches: { type: Array, required: true },
-    // One note per DNA sample since 2026-09-09. It used to be a column
-    // in the table below, repeated per eye because dna_notes was keyed
-    // (sample, eye) — it is a property of the sample now, so it is
-    // shown once, above the eyes that match it.
-    sample_note: { type: String, default: null },
     linked_sample_missing: { type: Boolean, default: false },
     family: { type: Array, required: true },
     siblings: { type: Object, required: true },
@@ -245,7 +240,7 @@ defineProps({
 
         <!-- Matches -->
         <section
-            v-if="matches.length || linked_sample_missing || sample_note"
+            v-if="matches.length || linked_sample_missing"
             class="mt-4 card overflow-hidden"
         >
             <header class="flex items-baseline justify-between border-b border-paper-300 bg-paper-100 px-4 py-2.5">
@@ -260,10 +255,6 @@ defineProps({
             <div v-if="linked_sample_missing" class="px-4 py-3 text-sm text-wine-500">
                 Linked DNA sample missing from <code class="font-mono">dna_samples</code>.
             </div>
-            <p
-                v-else-if="sample_note"
-                class="whitespace-pre-line border-b border-paper-300 px-4 py-3 text-sm italic text-sepia-600"
-            >{{ sample_note }}</p>
             <table v-if="!linked_sample_missing && matches.length" class="ref-table">
                 <thead>
                     <tr>

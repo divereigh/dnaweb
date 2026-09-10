@@ -89,7 +89,6 @@ class PersonController extends Controller
 
         $matches = [];
         $linkedSampleMissing = false;
-        $sampleNote = $this->service->sampleNote($person['dnaSampleId'] ?? null);
         if ($person['dnaSampleId'] ?? null) {
             $rows = $this->service->eyeMatches((int) $person['dnaSampleId']);
             if ($rows === null) {
@@ -110,7 +109,6 @@ class PersonController extends Controller
         return Inertia::render('People/Show', [
             'person' => $person,
             'matches' => $matches,
-            'sample_note' => $sampleNote,
             'linked_sample_missing' => $linkedSampleMissing,
             'family' => $family,
             'siblings' => $siblings,

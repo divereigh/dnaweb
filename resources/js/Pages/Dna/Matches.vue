@@ -93,6 +93,35 @@ const titleNote = computed(() =>
 const titleTrees = computed(() => withTreeOverlay(props.title_trees || []) || []);
 const treeOptions = computed(() => withTreeOverlay(props.tree_options || []) || []);
 
+// --- Condensed header ---------------------------------------------
+//
+// Once the reader is into the list, the header's job is to say which
+// kit this is; the tree pills, action chips and load state are setup,
+// not reading matter. Scrolling drops them and keeps the name, so the
+// pane gets that space back — on a 720px window the fixed chrome was
+// 61% of the screen and four rows.
+//
+// Driven by the pane's own scroll, because the window has not scrolled
+// since the pane took over.
+const condensed = ref(false);
+
+function onPaneScroll(event) {
+    const el = event.target;
+    const top = el.scrollTop;
+
+    // Condensing gives the pane ~120px more height, which can leave a
+    // barely-scrollable list unable to stay scrolled: it clamps back to
+    // the top, un-condenses, and bounces. Only bother when there is
+    // comfortably more list than that.
+    const scrollable = el.scrollHeight - el.clientHeight;
+
+    if (! condensed.value && top > 64 && scrollable > 240) {
+        condensed.value = true;
+    } else if (condensed.value && top < 16) {
+        condensed.value = false;
+    }
+}
+
 // Sample id of the row holding a given person, so a person-keyed edit
 // can name the rows it touched. Null when the person is the title's
 // own (which lives in `title_trees`, not in a row).
@@ -272,7 +301,6 @@ const selectedEyeIsSample = computed(
 const selectedEye = ref(props.eye_id ?? '');
 const loading = ref(false);
 const eyeListOpen = ref(false);
-const treesOpen = ref(false);
 
 // The match row inside eye_matches that corresponds to the currently
 // selected eye — supplies cM/cluster/etc for the closed-accordion bar.
@@ -504,14 +532,13 @@ function closeEdit() {
 
 <template>
     <Head :title="`Matches · ${sample.display_label}`" />
-    <AuthenticatedLayout full-height>
+    <AuthenticatedLayout full-height :header-compact="condensed">
         <template #header>
             <PageHeader
                 compact
                 :title="sample.display_label"
-                :eyebrow="`Sample #${sample.id}`"
             >
-                <template #subtitle>
+                <template v-if="!condensed" #subtitle>
                     <Link
                         v-if="sample.person_id"
                         :href="route('people.show', sample.person_id)"
@@ -653,7 +680,7 @@ function closeEdit() {
                         size="md"
                     />
                 </template>
-                <template v-if="sample.person_id || titleTrees.length" #belowTitle>
+                <template v-if="!condensed && (sample.person_id || titleTrees.length || ancestry_trees.length)" #belowTitle>
                     <div class="flex flex-wrap items-center gap-1">
                         <button
                             v-if="sample.person_id && !titleTrees.length"
@@ -671,9 +698,31 @@ function closeEdit() {
                             :tree="t"
                             @edit="openPersonTrees(sample.person_id, sample.display_label)"
                         />
+                        <!--
+                          Ancestry's own trees for this person. They used
+                          to be a collapsed card of their own, which cost
+                          63px of the pane to say "Ancestry trees (1)".
+                          Our tree pills and these are the same idea from
+                          two sources, so they share a row.
+                        -->
+                        <a
+                            v-for="t in ancestry_trees"
+                            :key="`${t.atreeid}-${t.ancestryid}`"
+                            :href="`https://www.ancestry.com.au/family-tree/tree/${t.atreeid}/family?cfpid=${t.ancestryid}`"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="inline-flex max-w-[14rem] items-center gap-1 rounded border border-paper-300 bg-paper-50 px-1.5 py-0.5 text-[11px] font-medium text-ink-300 hover:border-paper-400 hover:bg-paper-100 hover:text-ink-500"
+                            :title="`Open ${t.name || 'this tree'} on Ancestry`"
+                        >
+                            <img src="/ancestry-icon.svg" alt="" class="h-3 w-3 shrink-0" />
+                            <span class="truncate">{{ t.name || 'Unknown Tree' }}</span>
+                        </a>
                     </div>
                 </template>
                 <template #titleAfter>
+                    <span class="font-mono text-xs text-sepia-400" :title="`Sample #${sample.id}`">
+                        #{{ sample.id }}
+                    </span>
                     <button
                         type="button"
                         class="inline-flex items-center rounded p-0.5 text-sepia-400 hover:bg-paper-100 hover:text-wine-500 focus:outline-none focus:ring-1 focus:ring-wine-500"
@@ -712,18 +761,6 @@ function closeEdit() {
                 </template>
                 <template #actions>
                     <Link :href="route('dna.index')" class="btn-ghost">← DNA search</Link>
-                </template>
-                <template v-if="titleNote" #belowSubtitle>
-                    <div class="ps-[4ch] text-xs italic text-sepia-500">
-                        <button
-                            type="button"
-                            class="text-left hover:text-wine-500 focus:outline-none focus:underline"
-                            :title="`Edit notes for ${sample.display_label}`"
-                            @click="openNoteEditor(sample.id, sample.display_label, titleNote)"
-                        >
-                            {{ titleNote.length > 80 ? titleNote.slice(0, 80) + '…' : titleNote }}
-                        </button>
-                    </div>
                 </template>
             </PageHeader>
         </template>
@@ -928,42 +965,6 @@ function closeEdit() {
             </div>
         </div>
 
-        <div v-if="ancestry_trees.length" class="card mb-4 shrink-0 overflow-hidden">
-            <button
-                type="button"
-                class="flex w-full items-center gap-3 border-b border-paper-300 bg-paper-100 px-4 py-2.5 text-left hover:bg-paper-200/60 focus:outline-none focus:ring-1 focus:ring-wine-500"
-                :aria-expanded="treesOpen"
-                @click="treesOpen = !treesOpen"
-            >
-                <span
-                    class="text-sepia-500 transition-transform"
-                    :class="treesOpen ? 'rotate-90' : ''"
-                    aria-hidden="true"
-                >
-                    ▶
-                </span>
-                <p class="eyebrow flex-1">
-                    Ancestry trees ({{ ancestry_trees.length }})
-                </p>
-            </button>
-            <ul v-show="treesOpen" class="max-h-[30vh] divide-y divide-paper-200 overflow-y-auto px-4 py-2 text-sm text-sepia-600">
-                <li
-                    v-for="t in ancestry_trees"
-                    :key="`${t.atreeid}-${t.ancestryid}`"
-                    class="py-1"
-                >
-                    <a
-                        :href="`https://www.ancestry.com.au/family-tree/tree/${t.atreeid}/family?cfpid=${t.ancestryid}`"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="ref-link"
-                    >
-                        {{ t.name || 'Unknown Tree' }}
-                    </a>
-                </li>
-            </ul>
-        </div>
-
         <form
             class="mb-4 flex shrink-0 flex-wrap items-center gap-2"
             @submit.prevent
@@ -1018,7 +1019,7 @@ function closeEdit() {
           pane's clip and stretch the document — which put the window
           scrollbar back and scrolled the filters out of sight.
         -->
-        <div class="card relative min-h-0 flex-1 overflow-auto">
+        <div class="card relative min-h-0 flex-1 overflow-auto" @scroll.passive="onPaneScroll">
             <!--
               InfiniteScroll wraps the table rather than standing in for
               <tbody>, so the sentinel it observes is a plain div of its
@@ -1109,19 +1110,6 @@ function closeEdit() {
                                     class="ms-2 h-6 w-6"
                                     :class="{ 'opacity-50': m.other_managed === null }"
                                 />
-                            </div>
-                            <div
-                                v-if="m.note"
-                                class="mt-1 ps-[4ch] text-xs italic text-sepia-500"
-                            >
-                                <button
-                                    type="button"
-                                    class="text-left hover:text-wine-500 focus:outline-none focus:underline"
-                                    :title="`Edit notes for ${m.display_label}`"
-                                    @click="openNoteEditor(m.other_id, m.display_label, m.note)"
-                                >
-                                    {{ m.note.length > 80 ? m.note.slice(0, 80) + '…' : m.note }}
-                                </button>
                             </div>
                         </td>
                         <td class="text-sm text-sepia-700">

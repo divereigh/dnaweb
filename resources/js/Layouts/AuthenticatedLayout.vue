@@ -10,6 +10,11 @@ import { Link } from '@inertiajs/vue3';
 // happier growing as tall as it likes and letting the window scroll.
 defineProps({
     fullHeight: { type: Boolean, default: false },
+    // Tightens the page-header band's padding. Pages that condense
+    // their header while the reader scrolls bind this to that state, so
+    // the band's own padding shrinks with its contents instead of
+    // leaving the saved rows as empty space.
+    headerCompact: { type: Boolean, default: false },
 });
 
 const showingNavigationDropdown = ref(false);
@@ -133,7 +138,10 @@ function isActive(...patterns) {
         </header>
 
         <header v-if="$slots.header" class="shrink-0 border-b border-paper-300 bg-paper-50">
-            <div class="mx-auto max-w-[110rem] px-6 py-5 sm:px-8">
+            <div
+                class="mx-auto max-w-[110rem] px-6 transition-[padding] duration-150 sm:px-8"
+                :class="headerCompact ? 'py-2' : 'py-5'"
+            >
                 <slot name="header" />
             </div>
         </header>
