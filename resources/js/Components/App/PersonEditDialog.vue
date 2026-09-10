@@ -51,6 +51,13 @@ watch(
 const isCreating = computed(() => !props.personId);
 
 function submit() {
+    // The dialog stays mounted and the parent nulls its `editing` ref the
+    // moment we emit close, so during the leave transition sampleId falls
+    // back to the `?? 0` placeholder the callers pass. A second Enter in
+    // that window used to PUT /dna/0/person and 404. Enter submits even
+    // when the Save button is disabled, so :disabled isn't enough.
+    if (form.processing || !props.sampleId) return;
+
     form.transform((data) => ({
         fullName: data.fullName,
         birth: data.birth || null,
