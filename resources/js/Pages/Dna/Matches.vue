@@ -380,7 +380,7 @@ function closeEdit() {
 
 <template>
     <Head :title="`Matches · ${sample.display_label}`" />
-    <AuthenticatedLayout>
+    <AuthenticatedLayout full-height>
         <template #header>
             <PageHeader
                 compact
@@ -605,13 +605,22 @@ function closeEdit() {
         </template>
 
         <!--
+          Fixed-height shell: the window never scrolls. Everything the
+          user filters with (eye picker, search, ParentSide, trees)
+          stays put in the shrink-0 band at the top, and only the
+          results pane below it scrolls. Scrolling the filters out of
+          reach on a 20k-row list was the whole problem.
+        -->
+        <div class="flex min-h-0 flex-1 flex-col">
+
+        <!--
           The kit is gone from Ancestry, but everything already fetched
           about it is still here and still true as of when it was
           fetched. Say both halves: the data stands, and it stops here.
         -->
         <div
             v-if="sampleDisabled"
-            class="mb-4 flex items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+            class="mb-4 flex shrink-0 items-start gap-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
         >
             <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.63-1.516 2.63H3.72c-1.347 0-2.19-1.463-1.516-2.63L8.485 2.495zM10 5a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 5zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" clip-rule="evenodd" />
@@ -624,7 +633,7 @@ function closeEdit() {
             </p>
         </div>
 
-        <div v-if="eye_matches.length" class="card mb-4 overflow-hidden">
+        <div v-if="eye_matches.length" class="card mb-4 shrink-0 overflow-hidden">
             <button
                 type="button"
                 class="flex w-full items-center gap-3 border-b border-paper-300 bg-paper-100 px-4 py-2.5 text-left hover:bg-paper-200/60 focus:outline-none focus:ring-1 focus:ring-wine-500"
@@ -669,7 +678,8 @@ function closeEdit() {
                     Click to pick a filter
                 </p>
             </button>
-            <table v-show="eyeListOpen" class="ref-table">
+            <div v-show="eyeListOpen" class="relative max-h-[40vh] overflow-y-auto">
+            <table class="ref-table ref-table--sticky">
                 <thead>
                     <tr>
                         <th></th>
@@ -791,9 +801,10 @@ function closeEdit() {
                     </tr>
                 </tbody>
             </table>
+            </div>
         </div>
 
-        <div v-if="ancestry_trees.length" class="card mb-4 overflow-hidden">
+        <div v-if="ancestry_trees.length" class="card mb-4 shrink-0 overflow-hidden">
             <button
                 type="button"
                 class="flex w-full items-center gap-3 border-b border-paper-300 bg-paper-100 px-4 py-2.5 text-left hover:bg-paper-200/60 focus:outline-none focus:ring-1 focus:ring-wine-500"
@@ -811,7 +822,7 @@ function closeEdit() {
                     Ancestry trees ({{ ancestry_trees.length }})
                 </p>
             </button>
-            <ul v-show="treesOpen" class="divide-y divide-paper-200 px-4 py-2 text-sm text-sepia-600">
+            <ul v-show="treesOpen" class="max-h-[30vh] divide-y divide-paper-200 overflow-y-auto px-4 py-2 text-sm text-sepia-600">
                 <li
                     v-for="t in ancestry_trees"
                     :key="`${t.atreeid}-${t.ancestryid}`"
@@ -830,7 +841,7 @@ function closeEdit() {
         </div>
 
         <form
-            class="mb-4 flex flex-wrap items-center gap-2"
+            class="mb-4 flex shrink-0 flex-wrap items-center gap-2"
             @submit.prevent
         >
             <input
@@ -866,7 +877,7 @@ function closeEdit() {
 
         <div
             v-if="loading"
-            class="card flex items-center justify-center gap-2 py-16 text-sm text-sepia-500"
+            class="card flex min-h-0 flex-1 items-center justify-center gap-2 text-sm text-sepia-500"
         >
             <svg class="h-4 w-4 animate-spin text-sepia-400" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25" />
@@ -876,11 +887,18 @@ function closeEdit() {
         </div>
 
         <template v-else>
-        <div class="mb-4">
-            <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
+        <div v-if="pages > 1" class="mb-3 shrink-0">
+            <Pagination :page="page" :pages="pages" :only="ONLY" />
         </div>
 
-        <div class="card">
+        <!--
+          The one scrolling pane on the page. `relative` is load-bearing:
+          Tailwind's .sr-only is position:absolute, and without a positioned
+          ancestor those spans resolve against the viewport, escape the
+          pane's clip and stretch the document — which put the window
+          scrollbar back and scrolled the filters out of sight.
+        -->
+        <div class="card relative min-h-0 flex-1 overflow-auto">
             <table class="ref-table ref-table--sticky">
                 <thead>
                     <tr>
@@ -1053,10 +1071,9 @@ function closeEdit() {
             </table>
         </div>
 
-        <div class="mt-4">
-            <Pagination :page="page" :pages="pages" :total="total" :only="ONLY" />
-        </div>
         </template>
+
+        </div>
 
         <PersonEditDialog
             :show="!!editing"
