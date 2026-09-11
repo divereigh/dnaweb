@@ -192,7 +192,7 @@ class DnaMatchesController extends Controller
             'per_page' => $pageSize,
             'filters' => ['q' => $search, 'side' => $side, 'tin' => $treeInclude, 'tex' => $treeExclude],
             'side_enabled' => (bool) $povEye,
-            'tree_options' => fn () => $this->service->treeOptionsForSample($id),
+            'tree_options' => fn () => $this->service->treeOptionsForSample($id, [...$treeInclude, ...$treeExclude]),
             'title_note' => $titleNote,
             'pov_paternal_cluster' => $povPaternalCluster,
             'title_pill' => $titlePill,

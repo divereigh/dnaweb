@@ -231,9 +231,19 @@ class DnaSampleService
      * current page / active filters so the dropdown doesn't shrink as
      * you filter. Returns [{id, name, letter, colour}], priority order.
      *
+     * `$alsoInclude` forces trees into the list that this sample has no
+     * match in. The tree filter rides along in the URL when you hop from
+     * one sample to another, so a carried tree can easily be one nobody
+     * here belongs to — and without a row in the dropdown the filter
+     * would be stuck on with no way to switch it off (worse still when
+     * the sample has no trees at all, since the whole control hides).
+     * These are appended after the real options, out of priority order,
+     * because they are leftovers rather than choices this sample offers.
+     *
+     * @param  array<int,int>  $alsoInclude
      * @return array<int,array<string,mixed>>
      */
-    public function treeOptionsForSample(int $sampleId): array
+    public function treeOptionsForSample(int $sampleId, array $alsoInclude = []): array
     {
         $rows = DB::select('
             SELECT DISTINCT t.id, t.name, t.colour
@@ -244,6 +254,19 @@ class DnaSampleService
             WHERE m.sample1 = ?
             ORDER BY t.priority DESC, t.name ASC
         ', [$sampleId]);
+
+        $missing = array_values(array_diff(
+            array_unique(array_map('intval', $alsoInclude)),
+            array_map(fn ($r) => (int) $r->id, $rows)
+        ));
+        if ($missing) {
+            $rows = array_merge($rows, DB::select(
+                'SELECT id, name, colour FROM tree
+                  WHERE id IN ('.implode(',', array_fill(0, count($missing), '?')).')
+                  ORDER BY priority DESC, name ASC',
+                $missing
+            ));
+        }
 
         return array_map(fn ($r) => [
             'id' => (int) $r->id,

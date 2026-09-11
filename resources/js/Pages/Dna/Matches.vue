@@ -391,13 +391,6 @@ const selectedEyeRow = computed(() => {
     ) || null;
 });
 
-function matchLink(otherId) {
-    const base = route('dna.matches', otherId);
-    if (props.selected_eye) return `${base}?eye=${props.selected_eye.id}`;
-    if (props.sample?.is_eye) return `${base}?eye=${props.sample.id}`;
-    return base;
-}
-
 // Search by display name. Debounced — typing fires after 280ms idle,
 // which is what Eyes/Matches uses too. Preserves the eye filter so
 // searches happen within whatever common-with view is active.
@@ -405,6 +398,35 @@ const q = ref(props.filters?.q ?? '');
 const side = ref(props.filters?.side ?? 'ALL');
 const treeInclude = ref([...(props.filters?.tin ?? [])]);
 const treeExclude = ref([...(props.filters?.tex ?? [])]);
+
+// Hopping to another match keeps the *view*, not the query: the eye you
+// are looking through, the tree include/exclude filter and ParentSide
+// all describe how you are reading the data, so they survive the jump,
+// while the search box and the scroll page belong to the list you are
+// leaving. Carried in the URL rather than in storage because that is
+// what makes it per-tab — two tabs on different eyes stay on different
+// eyes — and it keeps Back landing on the view you actually had.
+//
+// ParentSide only means anything with a POV eye, but it can only have
+// been set with one, and the eye rides along on the same link — so on
+// arrival the POV is still there. Where it isn't (the eye we carried IS
+// the destination, and that kit isn't managed) the controller forces
+// the side back to ALL, so a stale value can't quietly empty the list.
+//
+// Reads the live filter refs, not props.filters, so a link rendered
+// between a filter toggle and the reload it triggers carries the new
+// selection rather than the one the server last saw.
+function matchLink(otherId) {
+    const base = route('dna.matches', otherId);
+    const params = new URLSearchParams();
+    const eye = props.selected_eye?.id || (props.sample?.is_eye ? props.sample.id : null);
+    if (eye) params.set('eye', eye);
+    if (side.value && side.value !== 'ALL') params.set('side', side.value);
+    treeInclude.value.forEach((id) => params.append('tin[]', id));
+    treeExclude.value.forEach((id) => params.append('tex[]', id));
+    const qs = params.toString();
+    return qs ? `${base}?${qs}` : base;
+}
 
 // Shared reload — the search box and the ParentSide / Trees dropdowns
 // reset to page 1 and preserve every other active filter.
