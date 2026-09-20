@@ -2,11 +2,89 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\TreeStructureService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class TreeController extends Controller
 {
+    public function __construct(private TreeStructureService $structure) {}
+
+    /**
+     * Every tree, with enough of a headcount to pick one out. 573 rows and
+     * growing slowly, so the whole list goes to the client and the search box
+     * there filters it — no round trip per keystroke.
+     */
+    public function index()
+    {
+        $trees = DB::select('
+            SELECT t.id, t.name, t.description, t.colour, t.priority,
+                   COUNT(tp.peopleId) AS people,
+                   COALESCE(SUM(tp.dna), 0) AS dna,
+                   COUNT(p.dnaSampleId) AS samples
+            FROM tree t
+            LEFT JOIN tree_people tp ON tp.treeId = t.id
+            LEFT JOIN people p ON p.id = tp.peopleId
+            GROUP BY t.id
+            ORDER BY t.name
+        ');
+
+        return Inertia::render('Trees/Index', [
+            'trees' => array_map(fn ($t) => [
+                'id' => (int) $t->id,
+                'name' => $t->name,
+                'description' => $t->description,
+                'colour' => $t->colour,
+                'priority' => (int) $t->priority,
+                'people' => (int) $t->people,
+                'dna' => (int) $t->dna,
+                'samples' => (int) $t->samples,
+            ], $trees),
+        ]);
+    }
+
+    /**
+     * One tree, laid out the way ~/ancestry-program/print-tree lays it out.
+     * {tree} is the name or the id — see TreeStructureService::find().
+     */
+    public function show(string $tree)
+    {
+        $row = $this->structure->find($tree);
+        abort_unless($row, 404, 'Tree not found');
+
+        $built = $this->structure->build((int) $row->id);
+
+        return Inertia::render('Trees/Show', [
+            'tree' => [
+                'id' => (int) $row->id,
+                'name' => $row->name,
+                'description' => $row->description,
+                'colour' => $row->colour,
+                'priority' => (int) $row->priority,
+            ],
+            ...$built,
+        ]);
+    }
+
+    /**
+     * Shared DNA between a named reference kit and every kit in this tree.
+     * Plain JSON, not an Inertia response: the page paints the numbers onto
+     * the forest it already holds rather than rebuilding it, so picking a
+     * reference never collapses what is open on screen.
+     */
+    public function heat(Request $request, string $tree)
+    {
+        $row = $this->structure->find($tree);
+        abort_unless($row, 404, 'Tree not found');
+
+        $data = $request->validate([
+            'q' => ['required', 'string', 'max:100'],
+        ]);
+
+        return response()->json($this->structure->heatmap((int) $row->id, $data['q']));
+    }
+
     /**
      * Update a tree's name and pill colour from the side panel.
      * Colour is a #rrggbb hex string or null (null = white pill).

@@ -54,6 +54,12 @@ function isActive(...patterns) {
                     >
                         DNA
                     </Link>
+                    <Link
+                        :href="route('trees.index')"
+                        :class="['nav-link', isActive('trees.*') ? 'is-active' : '']"
+                    >
+                        Trees
+                    </Link>
                 </nav>
 
                 <div class="ms-auto hidden sm:block">
@@ -122,6 +128,7 @@ function isActive(...patterns) {
                 <Link :href="route('eyes.index')" class="nav-link block">Eyes</Link>
                 <Link :href="route('people.index')" class="nav-link block">People</Link>
                 <Link :href="route('dna.index')" class="nav-link block">DNA</Link>
+                <Link :href="route('trees.index')" class="nav-link block">Trees</Link>
                 <div class="mt-3 border-t border-paper-300 pt-3">
                     <div class="text-sm font-medium text-ink-500">
                         {{ $page.props.auth.user.name }}

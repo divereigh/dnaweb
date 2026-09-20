@@ -303,12 +303,241 @@
         cursor: not-allowed;
     }
 
+    /* ------------------------------------------------------------------
+       Tree view (/tree/{name}) — the web rendering of print-tree's ASCII
+       forest. Nesting is drawn with a guide rule down the left of each
+       generation rather than with box-drawing characters.
+       ------------------------------------------------------------------ */
+    /* Wrapper round the column captions and the forest, so both resolve the
+       same indent variables. */
+    .tree-view {
+        --tree-toggle: 1.3rem;
+        --tree-pad: 0.35rem;
+    }
+    .tree-list {
+        /* The toggle column doubles as the indent unit: a generation's guide
+           rule runs down through the middle of its parent's arrow, so the
+           arrow always sits on the line it opens. Change --tree-toggle and
+           everything re-aligns. */
+        --tree-toggle: 1.3rem;
+        --tree-pad: 0.35rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+    .tree-list .tree-list {
+        margin-left: calc(var(--tree-pad) + var(--tree-toggle) / 2);
+        padding-left: calc(var(--tree-toggle) / 2 + 0.25rem);
+        border-left: 1px solid theme('colors.paper.300');
+    }
+    .tree-row {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        padding: 0.15rem var(--tree-pad);
+        border-radius: 5px;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    .tree-row:hover {
+        background-color: theme('colors.paper.100');
+    }
+    .tree-row.is-hit {
+        background-color: #fef9c3;
+    }
+    /* A second appearance of someone who has two parents in the tree.
+       Deliberately quiet — the full copy is elsewhere on the page. */
+    .tree-row.is-repeat {
+        opacity: 0.62;
+    }
+    .tree-toggle {
+        flex: none;
+        width: var(--tree-toggle);
+        align-self: center;
+        font-size: 0.8125rem;
+        line-height: 1;
+        color: theme('colors.sepia.400');
+        text-align: center;
+    }
+    button.tree-toggle:hover {
+        color: theme('colors.ink.500');
+    }
+    /* Leaf marker — same box as an arrow so names stay in one column. */
+    .tree-toggle--leaf {
+        font-size: 0.6875rem;
+        color: theme('colors.sepia.300');
+    }
+    .tree-gen {
+        flex: none;
+        min-width: 1.15rem;
+        font-family: theme('fontFamily.mono');
+        font-size: 0.6875rem;
+        font-variant-numeric: tabular-nums lining-nums;
+        text-align: right;
+        color: theme('colors.sepia.400');
+    }
+    /* Name, dates and badges. Takes the slack so the partner column below
+       keeps a straight edge whatever the indent. */
+    .tree-name {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    .tree-years,
+    .tree-ref {
+        font-family: theme('fontFamily.mono');
+        font-size: 0.75rem;
+        color: theme('colors.sepia.500');
+        white-space: nowrap;
+    }
+    .tree-ref {
+        font-size: 0.6875rem;
+        color: theme('colors.sepia.400');
+    }
+    /* The name itself. The geometry is unconditional — a transparent border
+       and a little padding on every name — so that painting a heat band onto
+       one does not nudge it out of line with the names above and below. */
+    .tree-person {
+        border: 1px solid transparent;
+        border-radius: 4px;
+        padding: 0 0.25rem;
+        margin-left: -0.25rem;
+    }
+
+    /* Shared-DNA column. Fixed width so the chips form a scannable column
+       down the tree however deep the indent gets. */
+    .tree-dna {
+        flex: none;
+        width: 5.75rem;
+        display: flex;
+        align-items: baseline;
+    }
+
+    .heat-legend {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.6875rem;
+        color: theme('colors.sepia.500');
+    }
+    .heat-legend span[data-band] {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 3px;
+        padding: 0.05rem 0.35rem;
+        font-family: theme('fontFamily.mono');
+        font-size: 0.6875rem;
+    }
+
+    /* The other parent — the married-in one, dna=0. Its own column, so the
+       whole page reads as two lists side by side rather than one ragged one. */
+    .tree-partner {
+        flex: none;
+        width: 23rem;
+        display: flex;
+        align-items: baseline;
+        gap: 0.35rem;
+        font-size: 0.8125rem;
+        color: theme('colors.sepia.500');
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    .tree-partner > a {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    /* Column captions above the forest. Indented to clear the toggle. */
+    .tree-head {
+        display: flex;
+        gap: 0.4rem;
+        padding: 0 var(--tree-pad) 0.4rem;
+        margin-bottom: 0.3rem;
+        border-bottom: 1px solid theme('colors.paper.300');
+        font-size: 0.75rem;
+        color: theme('colors.sepia.500');
+    }
+
+    /* Small tag on a tree row — DNA kit, sameAs, forceJoin, ignParents.
+       Same shape as the badges on the matches page, sized down a notch to
+       sit inside a row rather than a table cell. */
+    .tree-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        flex: none;
+        border: 1px solid theme('colors.paper.300');
+        background-color: theme('colors.paper.50');
+        border-radius: 4px;
+        padding: 0 0.3rem;
+        font-size: 0.6875rem;
+        font-weight: 500;
+        line-height: 1.5;
+        color: theme('colors.ink.300');
+        white-space: nowrap;
+    }
+    a.tree-tag:hover {
+        background-color: theme('colors.paper.100');
+        border-color: theme('colors.paper.400');
+        color: theme('colors.ink.500');
+    }
+    .tree-tag--dna {
+        border-color: theme('colors.marine.500');
+        color: theme('colors.marine.600');
+    }
+    .tree-tag--muted {
+        background-color: theme('colors.paper.100');
+        color: theme('colors.sepia.500');
+    }
+
+    .tree-partner {
+        font-size: 0.8125rem;
+        color: theme('colors.sepia.500');
+        min-width: 0;
+    }
+
     .empty-cell {
         text-align: center;
         padding: 2rem 1rem;
         color: theme('colors.sepia.500');
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Shared-DNA heat bands for /tree/{name}.
+
+   A single-hue ordinal ramp, light to dark, validated for monotone lightness,
+   >= 0.06 lightness between steps, and >= 4.5:1 text contrast on every band.
+   The colour is never the only encoding — the chip always carries the cM
+   figure as well.
+
+   Band 0 is zero shared cM — no relationship at all — and is an outline
+   rather than a fill, so every filled row on the page means "related". It has
+   to be the outline rather than a seventh, paler step: #f59e0b is already the
+   lightest amber that clears 2:1 against white, so the ramp cannot be
+   extended downwards. The sixth colour this needed went on the dark end.
+
+   These live OUTSIDE @layer components deliberately. Tailwind drops any rule
+   in that layer whose class name it cannot find in the scanned templates, and
+   these are only ever built as `heat-${band}` — so inside the layer they are
+   purged from the production build and survive only in the dev server.
+   ------------------------------------------------------------------------ */
+.heat-0 { background-color: #ffffff; border-color: #b45309; color: #b45309; }
+.heat-1 { background-color: #f59e0b; border-color: #f59e0b; color: #171717; }
+.heat-2 { background-color: #d97706; border-color: #d97706; color: #171717; }
+.heat-3 { background-color: #b45309; border-color: #b45309; color: #ffffff; }
+.heat-4 { background-color: #92400e; border-color: #92400e; color: #ffffff; }
+.heat-5 { background-color: #6b2f0b; border-color: #6b2f0b; color: #ffffff; }
+.heat-6 { background-color: #451a03; border-color: #451a03; color: #ffffff; }
+a.heat-0:hover { background-color: #fff7ed; }
+a.heat-1:hover, a.heat-2:hover, a.heat-3:hover,
+a.heat-4:hover, a.heat-5:hover, a.heat-6:hover { filter: brightness(1.18); }
+
+/* The reference kit itself — the one everything else is measured against. */
+.heat-ref { background-color: #2563eb; border-color: #2563eb; color: #ffffff; }
+a.heat-ref:hover { background-color: #1d4ed8; }
 
 /* Cluster palette — restrained, modern hues. Keys map to .cluster-N classes. */
 :root {

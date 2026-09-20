@@ -34,6 +34,12 @@ Route::middleware('auth')->group(function () {
     Route::get('/person/{id}/tree', [PersonTreeController::class, 'show'])->name('people.tree');
     Route::get('/person/{id}/tree/expand', [PersonTreeController::class, 'expand'])->name('people.tree.expand');
 
+    Route::get('/trees', [TreeController::class, 'index'])->name('trees.index');
+    // Name or id — names win, because that is what print-tree takes and
+    // tree.name is unique. Names with a slash in them are only reachable by id.
+    Route::get('/tree/{tree}', [TreeController::class, 'show'])->name('trees.show');
+    Route::get('/tree/{tree}/heat', [TreeController::class, 'heat'])->name('trees.heat');
+
     Route::get('/dna', [DnaController::class, 'index'])->name('dna.index');
     Route::get('/dna/{id}/matches', [DnaMatchesController::class, 'index'])->name('dna.matches');
     Route::post('/dna/{id}/matches/requeue', [DnaMatchesController::class, 'requeue'])->name('dna.matches.requeue');
