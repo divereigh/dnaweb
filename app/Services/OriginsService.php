@@ -139,17 +139,34 @@ class OriginsService
         $bySample = [];
         if ($ids) {
             $in = implode(',', array_fill(0, count($ids), '?'));
+            // The icon falls back to whatever any other version of the same
+            // regionKey is marked with. dna_region is keyed (regionKey,
+            // version), and when Ancestry ships a new ethnicity version the
+            // loader inserts fresh rows for it lazily — one per region, the
+            // first time a reloaded kit turns up holding it — with icon
+            // NULL. Matching only on the exact row silently dropped the
+            // Aboriginal flag from every kit reloaded under 2026 (651727,
+            // 2026-10-09), and would have done the same to each Jewish and
+            // Romani region as its 2026 row appeared. A row's own non-empty
+            // icon still wins, so a version can be marked differently.
             $found = DB::select('
-                SELECT DISTINCT o.sample, r.icon, r.regionName
+                SELECT DISTINCT o.sample,
+                       COALESCE(NULLIF(r.icon, ?), k.icon) AS icon,
+                       r.regionName
                 FROM dna_origins o
                 JOIN dna_region r ON r.regionKey = o.regionKey
                                  AND r.version   = o.version
+                LEFT JOIN (
+                    SELECT regionKey, MAX(icon) AS icon
+                    FROM dna_region
+                    WHERE icon <> ?
+                    GROUP BY regionKey
+                ) k ON k.regionKey = o.regionKey
                 WHERE o.percentage > 0
-                  AND r.icon IS NOT NULL
-                  AND r.icon <> ?
+                  AND COALESCE(NULLIF(r.icon, ?), k.icon) IS NOT NULL
                   AND o.sample IN ('.$in.')
-                ORDER BY r.icon, r.regionName
-            ', array_merge([''], $ids));
+                ORDER BY icon, r.regionName
+            ', array_merge(['', '', ''], $ids));
 
             // sample => icon => [regionName, ...]; the inner grouping is
             // what collapses two marked regions sharing an icon into one
