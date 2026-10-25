@@ -85,6 +85,9 @@ function isActive(...patterns) {
                         </template>
                         <template #content>
                             <DropdownLink :href="route('profile.edit')">Profile</DropdownLink>
+                            <DropdownLink v-if="$page.props.auth.can_switch_ancestry" :href="route('ancestry-switch')">
+                                Ancestry Switch
+                            </DropdownLink>
                             <DropdownLink :href="route('logout')" method="post" as="button">
                                 Log out
                             </DropdownLink>
@@ -136,6 +139,9 @@ function isActive(...patterns) {
                     <div class="text-xs text-sepia-500">{{ $page.props.auth.user.email }}</div>
                     <div class="mt-2 flex gap-3">
                         <Link :href="route('profile.edit')" class="nav-link">Profile</Link>
+                        <Link v-if="$page.props.auth.can_switch_ancestry" :href="route('ancestry-switch')" class="nav-link">
+                            Ancestry Switch
+                        </Link>
                         <Link :href="route('logout')" method="post" as="button" class="nav-link">
                             Log out
                         </Link>

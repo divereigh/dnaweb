@@ -33,6 +33,8 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user' => $request->user(),
+                // Shows the Ancestry Switch link in the user menu.
+                'can_switch_ancestry' => (bool) $request->user()?->can('switch-ancestry'),
             ],
         ];
     }

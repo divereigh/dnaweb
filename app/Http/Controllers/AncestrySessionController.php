@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 
 class AncestrySessionController extends Controller
@@ -35,8 +36,8 @@ class AncestrySessionController extends Controller
      */
     public function show(Request $request): JsonResponse
     {
+        Gate::authorize('switch-ancestry');
         $email = strtolower((string) $request->user()->email);
-        abort_unless(in_array($email, config('ancestry.switch_emails'), true), 403);
 
         $url = (string) $request->query('url', '');
         $parts = parse_url($url);

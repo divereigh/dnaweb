@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AncestrySessionController;
+use App\Http\Controllers\AncestrySwitchController;
 use App\Http\Controllers\CommonMatchesController;
 use App\Http\Controllers\DnaController;
 use App\Http\Controllers\DnaMatchesController;
@@ -59,6 +60,9 @@ Route::middleware('auth')->group(function () {
     // For the Ancestry Switch extension (extension/ancestry-switch): which
     // loader session an Ancestry link needs, and its cookies.
     Route::get('/ancestry/session', [AncestrySessionController::class, 'show'])->name('ancestry.session');
+    // …and where to get it: mail providers bounce zips with JavaScript in.
+    Route::get('/ancestry-switch', [AncestrySwitchController::class, 'index'])->name('ancestry-switch');
+    Route::get('/ancestry-switch/download', [AncestrySwitchController::class, 'download'])->name('ancestry-switch.download');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
