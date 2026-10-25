@@ -7,7 +7,13 @@ async function renderStatus() {
         : s.account
           ? 'Ancestry is on your own login.'
           : 'Not logged in to Ancestry.';
-    $('restoreWrap').hidden = !s.hasOwn;
+    // With nothing stashed, Restore just empties the jar: that leaves this
+    // browser signed out without telling Ancestry, so the loaders' session
+    // survives, and you sign back in as yourself.
+    $('restoreWrap').hidden = !s.hasOwn && !s.borrowed;
+    $('restore').textContent = s.hasOwn
+        ? 'Restore my own Ancestry login'
+        : 'Leave the borrowed login (then sign in as yourself)';
     $('signoutWarn').hidden = !s.borrowed;
 }
 

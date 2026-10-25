@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "dnaweb Ancestry Switch",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Opens dnaweb's Ancestry links under the Ancestry account that owns the kit or tree.",
   "permissions": ["cookies", "storage", "tabs"],
   "host_permissions": ["*://*.ancestry.com.au/*", "*://*.ancestry.com/*"],

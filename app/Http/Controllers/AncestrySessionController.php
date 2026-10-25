@@ -52,14 +52,6 @@ class AncestrySessionController extends Controller
             }
         }
 
-        // Every session's account, so the extension can tell "the browser
-        // is on a borrowed login" (don't stash it as the user's own) from
-        // "the browser is on the user's own login" (stash it for restore).
-        $accounts = array_map(
-            fn ($r) => strtolower($r->userUUID),
-            DB::select('SELECT userUUID FROM session WHERE userUUID IS NOT NULL')
-        );
-
         $session = $sessionId
             ? DB::selectOne('SELECT id, name, userUUID FROM session WHERE id = ?', [$sessionId])
             : null;
@@ -84,7 +76,6 @@ class AncestrySessionController extends Controller
                     'userUUID' => strtolower($session->userUUID),
                 ] : null,
                 'cookies' => $cookies,
-                'accounts' => $accounts,
             ])
             ->header('Cache-Control', 'no-store');
     }

@@ -41,9 +41,14 @@ async function switchTo(info) {
     const current = await currentAccount();
     if (current === target) return;
 
-    // Only stash a login that isn't one of the borrowed ones, so hopping
-    // Terrill → Damian → Terrill never overwrites your own saved login.
-    if (!info.accounts.includes(current)) {
+    // Stash whatever is in the jar unless it's the login we put there
+    // ourselves, so hopping Terrill → Damian → Terrill never overwrites
+    // your own saved login. This can't be "unless it's one of the session
+    // accounts": your own login usually *is* one of them (Damian browsing
+    // as Damian), and that test skipped the stash and left Restore with
+    // nothing to put back.
+    const { borrowed } = await chrome.storage.local.get('borrowed');
+    if (borrowed?.account !== current) {
         await chrome.storage.local.set({ own: { account: current, cookies: await ancestryCookies() } });
     }
 
