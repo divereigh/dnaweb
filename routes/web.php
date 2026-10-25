@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AncestrySessionController;
 use App\Http\Controllers\CommonMatchesController;
 use App\Http\Controllers\DnaController;
 use App\Http\Controllers\DnaMatchesController;
@@ -54,6 +55,10 @@ Route::middleware('auth')->group(function () {
     Route::put('/dna/{sampleId}/person', [PersonController::class, 'upsertForSample'])->name('dna.person.upsert');
     Route::get('/dna/{id}/origins', [OriginsController::class, 'show'])->name('dna.origins');
     Route::post('/dna/{id}/origins/requeue', [OriginsController::class, 'requeue'])->name('dna.origins.requeue');
+
+    // For the Ancestry Switch extension (extension/ancestry-switch): which
+    // loader session an Ancestry link needs, and its cookies.
+    Route::get('/ancestry/session', [AncestrySessionController::class, 'show'])->name('ancestry.session');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

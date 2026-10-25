@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    body { font: 13px system-ui, sans-serif; width: 300px; margin: 12px; color: #2b2622; background: #faf7f2; }
+    h1 { font-size: 14px; margin: 0 0 8px; }
+    h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #8a6d4b; margin: 14px 0 6px; }
+    button { font: inherit; padding: 4px 10px; border: 1px solid #b9a88f; border-radius: 4px; background: #fff; cursor: pointer; }
+    button.primary { background: #6d2333; color: #fff; border-color: #6d2333; }
+    input { font: inherit; width: 100%; box-sizing: border-box; padding: 4px 6px; border: 1px solid #b9a88f; border-radius: 4px; }
+    ul { list-style: none; padding: 0; margin: 0 0 6px; }
+    li { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; }
+    .warn { color: #6d2333; }
+    .muted { color: #8a7f72; }
+    .row { display: flex; gap: 6px; }
+</style>
+</head>
+<body>
+    <h1>Ancestry Switch</h1>
+    <div id="status" class="muted">…</div>
+    <p id="restoreWrap" hidden><button id="restore" class="primary">Restore my own Ancestry login</button></p>
+    <p id="signoutWarn" class="warn" hidden>
+        Don't use Ancestry's "Sign out" on a borrowed login — it may end the session the loaders run on.
+        Use Restore instead.
+    </p>
+
+    <h2>dnaweb sites</h2>
+    <ul id="sites"></ul>
+    <div class="row">
+        <input id="origin" placeholder="https://dnaweb.example.com">
+        <button id="add">Add</button>
+    </div>
+    <p id="err" class="warn"></p>
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -194,6 +194,10 @@ When C == A the two buttons would produce the same URL, so only one is rendered.
 disambiguate when multiple buttons appear in the same cell. The page header carries its own
 C↔A compare button when an eye is selected.
 
+These buttons open under whatever Ancestry login the browser has. The
+`extension/ancestry-switch` Chrome extension swaps in the login of the kit's
+own session first; see its README.
+
 ## Ancestry profile (USER / ADMIN) buttons
 
 Every sample row across the app renders up to two extra Ancestry buttons next to the home/DNA
