@@ -16,8 +16,16 @@ no particular account open unchanged.
    `ANCESTRY_SWITCH_EMAILS=you@example.com,them@example.com`, then
    `php artisan config:clear` (or `config:cache` in production).
 2. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → this folder.
-3. Click the extension's icon, add your dnaweb address (e.g. `https://dnaweb.example.com`),
-   and grant the permission it asks for. Reload any open dnaweb tabs.
+3. Reload any open dnaweb tabs.
+
+It runs on the hosts listed under `content_scripts` in `manifest.json`
+(production and `localhost:8765`). If dnaweb moves, add the new host there and
+reload the extension. A popup that asks for the address at runtime was tried and
+dropped: on Linux, Chrome's permission prompt closes the popup, and the grant
+never got as far as registering the script.
+
+To check it is running on a page, `document.documentElement.dataset.ancestrySwitch`
+in the console prints the extension's version.
 
 ## Things to know
 

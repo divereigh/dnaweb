@@ -1,11 +1,17 @@
 {
   "manifest_version": 3,
   "name": "dnaweb Ancestry Switch",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Opens dnaweb's Ancestry links under the Ancestry account that owns the kit or tree.",
-  "permissions": ["cookies", "storage", "scripting", "tabs"],
+  "permissions": ["cookies", "storage", "tabs"],
   "host_permissions": ["*://*.ancestry.com.au/*", "*://*.ancestry.com/*"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://genealogy.launtel.net.au/*", "http://localhost:8765/*", "http://127.0.0.1:8765/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
   "background": { "service_worker": "background.js" },
   "action": { "default_popup": "popup.html", "default_title": "Ancestry Switch" }
 }

@@ -1,5 +1,5 @@
-// Runs on dnaweb pages (registered from the popup for whichever origins you
-// add there). Catches clicks on Ancestry links before the browser follows
+// Runs on dnaweb pages (the hosts in manifest.json's content_scripts —
+// add one there if dnaweb moves). Catches clicks on Ancestry links before the browser follows
 // them, asks dnaweb which account the link needs, and hands the lot to the
 // background worker, which swaps the Ancestry cookies and only then opens
 // the tab — opening first would load the page under the wrong login.
@@ -35,6 +35,10 @@ async function handle(e) {
 
     chrome.runtime.sendMessage({ type: 'open', url: a.href, active, info });
 }
+
+// So "is it running on this page?" has an answer: check
+// document.documentElement.dataset.ancestrySwitch in the console.
+document.documentElement.dataset.ancestrySwitch = chrome.runtime.getManifest().version;
 
 document.addEventListener('click', handle, true);
 document.addEventListener('auxclick', handle, true);
