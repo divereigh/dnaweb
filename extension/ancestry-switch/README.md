@@ -16,7 +16,9 @@ no particular account open unchanged.
    `ANCESTRY_SWITCH_EMAILS=you@example.com,them@example.com`, then
    `php artisan config:clear` (or `config:cache` in production).
 2. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → this folder.
-3. Reload any open dnaweb tabs.
+3. Pin it (puzzle-piece icon → pin). Chrome hides unpinned extensions, and the
+   icon is what shows whose login you're on.
+4. Reload any open dnaweb tabs.
 
 It runs on the hosts listed under `content_scripts` in `manifest.json`
 (production and `localhost:8765`). If dnaweb moves, add the new host there and
@@ -29,6 +31,8 @@ in the console prints the extension's version.
 
 ## Things to know
 
+- The toolbar icon shows whose login you're on: **teal "A"** for your own,
+  **red with an initial** (e.g. "T") for a borrowed one, **grey** when signed out.
 - A browser profile has one Ancestry cookie jar. A swap changes the login for
   every open Ancestry tab, not just the new one.
 - Your own login is saved before the first swap. Use **Restore my own Ancestry

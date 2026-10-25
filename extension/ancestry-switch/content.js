@@ -9,7 +9,22 @@
 
 const ANCESTRY = /^https?:\/\/([\w-]+\.)*ancestry\.com(\.au)?\//i;
 
+// Reloading or updating the extension orphans this script in every tab
+// that was already open: it keeps running, but chrome.runtime is dead and
+// sendMessage throws "Extension context invalidated". Swallowing the click
+// and then failing to send left the link doing nothing at all, so an
+// orphan stands aside and lets the browser follow links itself.
+function orphaned() {
+    return !chrome.runtime?.id;
+}
+
+function detach() {
+    document.removeEventListener('click', handle, true);
+    document.removeEventListener('auxclick', handle, true);
+}
+
 async function handle(e) {
+    if (orphaned()) return detach();
     if (e.defaultPrevented || (e.type === 'auxclick' && e.button !== 1)) return;
     if (e.type === 'click' && e.button !== 0) return;
     const a = e.target.closest?.('a[href]');
@@ -33,7 +48,14 @@ async function handle(e) {
         // dnaweb unreachable — same fallback.
     }
 
-    chrome.runtime.sendMessage({ type: 'open', url: a.href, active, info });
+    try {
+        await chrome.runtime.sendMessage({ type: 'open', url: a.href, active, info });
+    } catch {
+        // Orphaned while the fetch was in flight: the click is already
+        // swallowed, so open the link the plain way.
+        detach();
+        window.open(a.href, '_blank', 'noopener');
+    }
 }
 
 // So "is it running on this page?" has an answer: check

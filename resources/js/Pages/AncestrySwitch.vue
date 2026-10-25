@@ -11,7 +11,7 @@ const steps = [
     'Download the zip below and unzip it somewhere permanent, such as Documents. Chrome loads the extension from that folder every time, so don’t delete it afterwards.',
     'In Chrome, go to <strong>chrome://extensions</strong> and turn on <strong>Developer mode</strong> (top right).',
     'Click <strong>Load unpacked</strong> and choose the <strong>ancestry-switch</strong> folder you just unzipped.',
-    'Optionally, pin it using the puzzle-piece icon in the toolbar, so its button is easy to reach.',
+    'Pin it: click the puzzle-piece icon in Chrome\u2019s toolbar, then the pin next to <strong>dnaweb Ancestry Switch</strong>. Chrome hides extensions until they\u2019re pinned, and the icon is what tells you whose Ancestry login you\u2019re on.',
     'Reload any open dnaweb tabs.',
 ];
 </script>
@@ -57,6 +57,12 @@ const steps = [
             <section class="card p-5">
                 <p class="eyebrow mb-3">Using it</p>
                 <ul class="list-disc space-y-2 pl-5 text-sm leading-relaxed">
+                    <li>
+                        The extension’s toolbar icon shows whose login you’re on: a
+                        <strong class="text-marine-600">teal “A”</strong> for your own, a
+                        <strong class="text-red-600">red letter</strong> (the other account’s
+                        initial) for a borrowed one, and grey when you’re signed out.
+                    </li>
                     <li>
                         To get back to your own login, click the extension’s icon and use the
                         button in its popup.
